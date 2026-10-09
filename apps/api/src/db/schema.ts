@@ -323,6 +323,9 @@ export const comments = pgTable(
     actorType: actorTypeEnum("actor_type").notNull(),
     actorId: uuid("actor_id"),
     body: text("body").notNull(),
+    // sync provenance: 'github' marks comments created by inbound sync so
+    // the outbound mirror never echoes them back to GitHub (#60)
+    via: text("via"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -465,6 +468,9 @@ export const githubIssueLinks = pgTable(
     issueId: uuid("issue_id")
       .notNull()
       .references(() => issues.id, { onDelete: "cascade" }),
+    // last-known GitHub issue state ('open' | 'closed'); null = unknown.
+    // lets the outbound mirror skip no-op PATCHes (#60)
+    ghState: text("gh_state"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

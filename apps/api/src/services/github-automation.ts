@@ -5,13 +5,21 @@ import {
 } from "@docketry/types";
 import { db } from "../db/client.js";
 import {
+  comments,
   events,
   githubIssueLinks,
   githubInstallations,
   githubRepos,
+  issueLabels,
   issues,
+  labels,
   teams,
 } from "../db/schema.js";
+import {
+  DOCKETRY_COMMENT_MARKER,
+  isAppBotSender,
+  recordSyncConflict,
+} from "./github-sync.js";
 import { createIssue, transitionIssue, type Actor } from "./issues.js";
 import { queueDeliveries } from "./outbound.js";
 
@@ -28,6 +36,10 @@ interface GhIssue {
   title: string;
   body: string | null;
   html_url: string;
+  state?: string;
+  state_reason?: string | null;
+  labels?: { name: string; color?: string }[];
+  pull_request?: unknown;
   user?: { login: string };
 }
 
@@ -68,7 +80,8 @@ async function issueForBranch(workspaceId: string, branch: string) {
 }
 
 // walk the state machine to `target`; no-op when already there or unreachable
-// backward (automation never moves issues backwards)
+// backward (automation never moves issues backwards). Every step is marked
+// via=github so intermediate transitions can't echo back to the GitHub API.
 async function transitionTo(
   workspaceId: string,
   key: string,
@@ -80,13 +93,10 @@ async function transitionTo(
   const path = findPath(current, target);
   if (!path) return;
   for (const step of path) {
-    await transitionIssue(
-      workspaceId,
-      key,
-      step,
-      SYSTEM,
-      step === path[path.length - 1] ? extra : undefined,
-    );
+    await transitionIssue(workspaceId, key, step, SYSTEM, {
+      ...(step === path[path.length - 1] ? extra : {}),
+      via: "github",
+    });
   }
 }
 
@@ -169,6 +179,23 @@ async function onPullRequestReview(
   });
 }
 
+// canonical description format for GH-sourced issues — body plus a
+// provenance footer. Sync edits rewrite the same shape so the footer
+// never doubles.
+function ghIssueDescription(body: string | null | undefined, url: string) {
+  return body ? `${body}\n\n---\nGitHub: ${url}` : `GitHub: ${url}`;
+}
+
+// local description minus the provenance footer — for comparing the local
+// body against `changes.body.from` on inbound edits
+function stripGhFooter(desc: string | null): string {
+  if (!desc) return "";
+  const idx = desc.indexOf("\n\n---\nGitHub:");
+  if (idx >= 0) return desc.slice(0, idx);
+  if (desc.startsWith("GitHub: ")) return "";
+  return desc;
+}
+
 async function onIssueOpened(
   repo: { id: string; workspaceId: string; teamId: string | null },
   payload: Payload,
@@ -206,9 +233,7 @@ async function onIssueOpened(
     workspaceId: repo.workspaceId,
     teamId,
     title: gh.title,
-    description: gh.body
-      ? `${gh.body}\n\n---\nGitHub: ${gh.html_url}`
-      : `GitHub: ${gh.html_url}`,
+    description: ghIssueDescription(gh.body, gh.html_url),
     source: "github",
     creator: SYSTEM,
     state: "triage",
@@ -220,6 +245,404 @@ async function onIssueOpened(
     ghIssueId: gh.id,
     ghIssueNumber: gh.number,
     issueId: issue.id,
+    ghState: "open",
+  });
+}
+
+// ── inbound sync on linked issues (#60) ────────────────────────────
+
+type LinkedIssue = typeof issues.$inferSelect;
+type IssueLink = typeof githubIssueLinks.$inferSelect;
+
+async function linkForGhIssue(repoId: string, ghIssueId: number) {
+  const [row] = await db
+    .select()
+    .from(githubIssueLinks)
+    .where(
+      and(
+        eq(githubIssueLinks.repoId, repoId),
+        eq(githubIssueLinks.ghIssueId, ghIssueId),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+const TERMINAL_STATES: ReadonlySet<IssueState> = new Set([
+  "done",
+  "canceled",
+  "duplicate",
+]);
+
+// issues.edited — mirror title/body field-by-field. A field only changes
+// when GitHub reports it in `changes`; if local no longer matches the
+// edit's `from`, a divergent local edit collided → apply GitHub's value
+// (last writer wins) and record a sync_conflict with both sides.
+async function syncEdited(
+  repo: { workspaceId: string },
+  link: IssueLink,
+  issue: LinkedIssue,
+  gh: GhIssue,
+  payload: Payload,
+) {
+  const changes = payload.changes as
+    | { title?: { from: string }; body?: { from: string | null } }
+    | undefined;
+  if (!changes) return;
+
+  const fields: { title?: string; description?: string } = {};
+  const conflicts: Record<string, unknown>[] = [];
+
+  if (changes.title !== undefined && issue.title !== gh.title) {
+    if (issue.title !== changes.title.from) {
+      conflicts.push({
+        field: "title",
+        local: issue.title,
+        remote: gh.title,
+        remoteFrom: changes.title.from,
+      });
+    }
+    fields.title = gh.title;
+  }
+  if (changes.body !== undefined) {
+    const newDesc = ghIssueDescription(gh.body, gh.html_url);
+    if (issue.description !== newDesc) {
+      const localBody = stripGhFooter(issue.description);
+      const remoteFrom = changes.body.from ?? "";
+      if (localBody !== remoteFrom && localBody !== (gh.body ?? "")) {
+        conflicts.push({
+          field: "body",
+          local: localBody,
+          remote: gh.body ?? "",
+          remoteFrom,
+        });
+      }
+      fields.description = newDesc;
+    }
+  }
+
+  if (conflicts.length > 0) {
+    await recordSyncConflict({
+      workspaceId: repo.workspaceId,
+      issueId: issue.id,
+      conflict: {
+        kind: "edit",
+        ghIssueNumber: link.ghIssueNumber,
+        fields: conflicts,
+      },
+    });
+  }
+  if (Object.keys(fields).length === 0) return;
+
+  const before = { title: issue.title, description: issue.description };
+  await db
+    .update(issues)
+    .set({ ...fields, updatedAt: new Date() })
+    .where(eq(issues.id, issue.id));
+  const after = {
+    ...fields,
+    via: "github",
+    github: { event: "edited", issue: gh.number },
+  };
+  await db.insert(events).values({
+    workspaceId: repo.workspaceId,
+    entityType: "issue",
+    entityId: issue.id,
+    action: "edited",
+    actorType: "system",
+    actorId: null,
+    before,
+    after,
+  });
+  await queueDeliveries({
+    workspaceId: repo.workspaceId,
+    entityType: "issue",
+    entityId: issue.id,
+    action: "edited",
+    actorType: "system",
+    actorId: null,
+    before,
+    after,
+    issueKey: issue.key,
+  });
+}
+
+// issues.closed → done (state_reason completed) or canceled. A local
+// terminal state that disagrees is drift, not a transition → conflict.
+async function syncClosed(
+  repo: { workspaceId: string },
+  link: IssueLink,
+  issue: LinkedIssue,
+  gh: GhIssue,
+) {
+  await db
+    .update(githubIssueLinks)
+    .set({ ghState: "closed" })
+    .where(eq(githubIssueLinks.id, link.id));
+
+  const target: IssueState =
+    gh.state_reason === "completed" ? "done" : "canceled";
+  if (TERMINAL_STATES.has(issue.state)) {
+    if (issue.state !== target) {
+      await recordSyncConflict({
+        workspaceId: repo.workspaceId,
+        issueId: issue.id,
+        conflict: {
+          kind: "state",
+          local: issue.state,
+          remote: target,
+          ghIssueNumber: link.ghIssueNumber,
+        },
+      });
+    }
+    return;
+  }
+  await transitionTo(repo.workspaceId, issue.key, issue.state, target, {
+    github: { event: "closed", issue: gh.number, reason: gh.state_reason },
+  });
+}
+
+// issues.reopened — meaningful only when local thinks the issue is closed.
+// Terminal states have no exits in the state machine, so a GH reopen on a
+// done/canceled issue is unresolvable → sync_conflict. Non-terminal locals
+// are already open: the event is a no-op.
+async function syncReopened(
+  repo: { workspaceId: string },
+  link: IssueLink,
+  issue: LinkedIssue,
+) {
+  await db
+    .update(githubIssueLinks)
+    .set({ ghState: "open" })
+    .where(eq(githubIssueLinks.id, link.id));
+  if (!TERMINAL_STATES.has(issue.state)) return;
+  await recordSyncConflict({
+    workspaceId: repo.workspaceId,
+    issueId: issue.id,
+    conflict: {
+      kind: "state",
+      local: issue.state,
+      remote: "open",
+      ghIssueNumber: link.ghIssueNumber,
+      detail: "terminal state cannot reopen — state machine has no exits",
+    },
+  });
+}
+
+// docketry labels are workspace-scoped and matched to GH labels by name;
+// missing ones are created (GH color, else neutral default).
+async function ensureLabel(
+  workspaceId: string,
+  name: string,
+  color: string,
+) {
+  const [existing] = await db
+    .select()
+    .from(labels)
+    .where(and(eq(labels.workspaceId, workspaceId), eq(labels.name, name)))
+    .limit(1);
+  if (existing) return existing;
+  const [created] = await db
+    .insert(labels)
+    .values({ workspaceId, name, color })
+    .returning();
+  return created!;
+}
+
+async function syncLabelAdded(
+  repo: { workspaceId: string },
+  issue: LinkedIssue,
+  payload: Payload,
+) {
+  const ghLabel = payload.label as
+    | { name: string; color?: string }
+    | undefined;
+  if (!ghLabel?.name) return;
+  const label = await ensureLabel(
+    repo.workspaceId,
+    ghLabel.name,
+    ghLabel.color ? `#${ghLabel.color}` : "#94a3b8",
+  );
+  const [existing] = await db
+    .select()
+    .from(issueLabels)
+    .where(
+      and(
+        eq(issueLabels.issueId, issue.id),
+        eq(issueLabels.labelId, label.id),
+      ),
+    )
+    .limit(1);
+  if (existing) return; // our own outbound add echoing back
+  await db
+    .insert(issueLabels)
+    .values({ issueId: issue.id, labelId: label.id });
+  const after = {
+    label: ghLabel.name,
+    via: "github",
+    github: { event: "labeled" },
+  };
+  await db.insert(events).values({
+    workspaceId: repo.workspaceId,
+    entityType: "issue",
+    entityId: issue.id,
+    action: "label_added",
+    actorType: "system",
+    actorId: null,
+    after,
+  });
+  await queueDeliveries({
+    workspaceId: repo.workspaceId,
+    entityType: "issue",
+    entityId: issue.id,
+    action: "label_added",
+    actorType: "system",
+    actorId: null,
+    after,
+    issueKey: issue.key,
+  });
+}
+
+async function syncLabelRemoved(
+  repo: { workspaceId: string },
+  issue: LinkedIssue,
+  payload: Payload,
+) {
+  const ghLabel = payload.label as { name: string } | undefined;
+  if (!ghLabel?.name) return;
+  const [label] = await db
+    .select()
+    .from(labels)
+    .where(
+      and(
+        eq(labels.workspaceId, repo.workspaceId),
+        eq(labels.name, ghLabel.name),
+      ),
+    )
+    .limit(1);
+  if (!label) return;
+  const removed = await db
+    .delete(issueLabels)
+    .where(
+      and(
+        eq(issueLabels.issueId, issue.id),
+        eq(issueLabels.labelId, label.id),
+      ),
+    )
+    .returning({ issueId: issueLabels.issueId });
+  if (removed.length === 0) return;
+  const after = {
+    label: ghLabel.name,
+    via: "github",
+    github: { event: "unlabeled" },
+  };
+  await db.insert(events).values({
+    workspaceId: repo.workspaceId,
+    entityType: "issue",
+    entityId: issue.id,
+    action: "label_removed",
+    actorType: "system",
+    actorId: null,
+    after,
+  });
+  await queueDeliveries({
+    workspaceId: repo.workspaceId,
+    entityType: "issue",
+    entityId: issue.id,
+    action: "label_removed",
+    actorType: "system",
+    actorId: null,
+    after,
+    issueKey: issue.key,
+  });
+}
+
+async function onIssueSync(
+  repo: { id: string; workspaceId: string },
+  payload: Payload,
+) {
+  const action = payload.action as string | undefined;
+  const gh = payload.issue as GhIssue | undefined;
+  if (!gh || gh.pull_request) return; // PR threads ride the PR events
+  if (isAppBotSender(payload)) return; // echo of our own outbound write
+
+  const link = await linkForGhIssue(repo.id, gh.id);
+  if (!link) return; // unlinked issue — intake-only
+  const [issue] = await db
+    .select()
+    .from(issues)
+    .where(eq(issues.id, link.issueId))
+    .limit(1);
+  if (!issue) return;
+
+  if (action === "edited") await syncEdited(repo, link, issue, gh, payload);
+  else if (action === "closed") await syncClosed(repo, link, issue, gh);
+  else if (action === "reopened") await syncReopened(repo, link, issue);
+  else if (action === "labeled") await syncLabelAdded(repo, issue, payload);
+  else if (action === "unlabeled") await syncLabelRemoved(repo, issue, payload);
+}
+
+// issue_comment.created on a linked issue → docketry comment, authored
+// by the GH user (system actor + provenance prefix), via=github so the
+// outbound mirror never echoes it back.
+async function onIssueCommentCreated(
+  repo: { id: string; workspaceId: string },
+  payload: Payload,
+) {
+  const gh = payload.issue as GhIssue | undefined;
+  if (!gh || gh.pull_request) return;
+  if (isAppBotSender(payload)) return;
+  const comment = payload.comment as
+    | { id: number; body: string; html_url: string; user?: { login: string } }
+    | undefined;
+  if (!comment?.body) return;
+  // our own mirrored comment bouncing back
+  if (comment.body.startsWith(DOCKETRY_COMMENT_MARKER)) return;
+
+  const link = await linkForGhIssue(repo.id, gh.id);
+  if (!link) return;
+  const [issue] = await db
+    .select()
+    .from(issues)
+    .where(eq(issues.id, link.issueId))
+    .limit(1);
+  if (!issue) return;
+
+  const author = comment.user?.login ?? "unknown";
+  const [row] = await db
+    .insert(comments)
+    .values({
+      workspaceId: repo.workspaceId,
+      issueId: issue.id,
+      actorType: "system",
+      actorId: null,
+      body: `**@${author}** via GitHub:\n\n${comment.body}`,
+      via: "github",
+    })
+    .returning();
+  const after = {
+    commentId: row!.id,
+    via: "github",
+    github: { comment: comment.id, author, url: comment.html_url },
+  };
+  await db.insert(events).values({
+    workspaceId: repo.workspaceId,
+    entityType: "issue",
+    entityId: issue.id,
+    action: "commented",
+    actorType: "system",
+    actorId: null,
+    after,
+  });
+  await queueDeliveries({
+    workspaceId: repo.workspaceId,
+    entityType: "issue",
+    entityId: issue.id,
+    action: "commented",
+    actorType: "system",
+    actorId: null,
+    after,
+    issueKey: issue.key,
   });
 }
 
@@ -296,8 +719,11 @@ export async function processGithubEvent(
   else if (eventType === "pull_request") await onPullRequest(repo, payload);
   else if (eventType === "pull_request_review") {
     await onPullRequestReview(repo, payload);
-  } else if (eventType === "issues" && payload.action === "opened") {
-    await onIssueOpened(repo, payload);
+  } else if (eventType === "issues") {
+    if (payload.action === "opened") await onIssueOpened(repo, payload);
+    else await onIssueSync(repo, payload);
+  } else if (eventType === "issue_comment" && payload.action === "created") {
+    await onIssueCommentCreated(repo, payload);
   }
   return true;
 }

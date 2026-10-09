@@ -125,6 +125,7 @@ export async function importGithubIssues(input: {
         ghIssueId: gh.id,
         ghIssueNumber: gh.number,
         issueId: issue.id,
+        ghState: gh.state,
       });
       result.created++;
     }

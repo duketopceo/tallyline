@@ -8,6 +8,7 @@ import {
 } from "@docketry/types";
 import { db } from "../db/client.js";
 import { events, issues, teams } from "../db/schema.js";
+import { mirrorIssueState } from "./github-sync.js";
 import { queueDeliveries } from "./outbound.js";
 
 export interface Actor {
@@ -144,6 +145,13 @@ export async function transitionIssue(
     before: { state: fromState },
     after: { state: to, ...extra },
     issueKey: key,
+  });
+  // best-effort GitHub mirror after commit — never blocks, never throws;
+  // inbound-originated transitions (via=github) skip inside (#60)
+  void mirrorIssueState({
+    issueId: updated.id,
+    to,
+    via: typeof extra?.via === "string" ? extra.via : undefined,
   });
   return updated;
 }
