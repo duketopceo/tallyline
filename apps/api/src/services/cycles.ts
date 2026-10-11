@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, inArray, lt, ne, notInArray } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lt, ne, notInArray } from "drizzle-orm";
 import { TERMINAL_STATES } from "@tallyline/types";
 import { db } from "../db/client.js";
 import {
@@ -7,6 +7,7 @@ import {
   events,
   issues,
   teams,
+  workspaces,
 } from "../db/schema.js";
 import { HttpError } from "../lib/errors.js";
 import { clock } from "./clock.js";
@@ -199,7 +200,9 @@ export async function sweepExpiredCycles(now = clock.now()): Promise<number> {
   const expired = await db
     .select({ id: cycles.id, workspaceId: cycles.workspaceId })
     .from(cycles)
-    .where(and(eq(cycles.isActive, true), lt(cycles.endsAt, now)));
+    .innerJoin(workspaces, eq(workspaces.id, cycles.workspaceId))
+    // a workspace pending deletion is frozen: no unattended writes
+    .where(and(eq(cycles.isActive, true), lt(cycles.endsAt, now), isNull(workspaces.deletedAt)));
   let completed = 0;
   for (const c of expired) {
     try {

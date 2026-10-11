@@ -1,4 +1,4 @@
-import { and, asc, eq, or } from "drizzle-orm";
+import { and, asc, eq, isNull, or } from "drizzle-orm";
 import {
   findPath,
   type IssueState,
@@ -15,6 +15,7 @@ import {
   labels,
   projects,
   teams,
+  workspaces,
 } from "../db/schema.js";
 import {
   TALLYLINE_COMMENT_MARKER,
@@ -57,6 +58,17 @@ interface GhPullRequest {
 }
 
 type Payload = Record<string, unknown>;
+
+// a workspace pending deletion is read-only history: webhooks must not write
+// into it (new issues, transitions, comments) while it waits to be purged
+async function workspaceIsLive(workspaceId: string): Promise<boolean> {
+  const [ws] = await db
+    .select({ id: workspaces.id })
+    .from(workspaces)
+    .where(and(eq(workspaces.id, workspaceId), isNull(workspaces.deletedAt)))
+    .limit(1);
+  return Boolean(ws);
+}
 
 // find the enabled repo link for a delivery; null → not tracked / dropped.
 // Scoped by the delivery's installation (PLAN-007): the installation is bound
@@ -741,6 +753,7 @@ async function onInstallationEvent(payload: Payload): Promise<boolean> {
     .where(eq(githubInstallations.installationId, installationId))
     .limit(1);
   if (!inst) return false; // unbound — setup callback backfills later
+  if (!(await workspaceIsLive(inst.workspaceId))) return true; // pending deletion: consumed, ignored
 
   const added = [...(p.repositories ?? []), ...(p.repositories_added ?? [])];
   for (const repo of added) {
@@ -785,6 +798,7 @@ export async function processGithubEvent(
 
   const repo = await repoFor(payload);
   if (!repo) return true; // untracked repo — consumed, nothing to do
+  if (!(await workspaceIsLive(repo.workspaceId))) return true; // pending deletion
 
   if (eventType === "push") await onPush(repo, payload);
   else if (eventType === "pull_request") await onPullRequest(repo, payload);

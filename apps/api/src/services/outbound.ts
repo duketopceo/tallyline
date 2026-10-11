@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { and, asc, eq, lte } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, isNull, lte } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { safePost } from "../lib/net-guard.js";
 import {
@@ -9,6 +9,7 @@ import {
   events,
   webhookDeliveries,
   webhookEndpoints,
+  workspaces,
 } from "../db/schema.js";
 import { clock } from "./clock.js";
 
@@ -243,12 +244,15 @@ async function deliver(
 // sweeper: retries due pending deliveries — runs on an interval at boot
 export async function sweepDeliveries(now = clock.now()): Promise<number> {
   const due = await db
-    .select()
+    .select(getTableColumns(webhookDeliveries))
     .from(webhookDeliveries)
+    .innerJoin(workspaces, eq(workspaces.id, webhookDeliveries.workspaceId))
     .where(
       and(
         eq(webhookDeliveries.status, "pending"),
         lte(webhookDeliveries.nextAttemptAt, now),
+        // pending-deletion workspaces send nothing; retries resume on restore
+        isNull(workspaces.deletedAt),
       ),
     )
     .orderBy(asc(webhookDeliveries.createdAt))
