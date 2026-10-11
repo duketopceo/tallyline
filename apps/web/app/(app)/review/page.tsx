@@ -1,38 +1,24 @@
-import { ReviewQueue } from "@/components/review-queue";
-import { api } from "@/lib/api";
-
-interface Me {
-  workspaceSlug: string;
-}
-
-interface QueueRow {
-  id: string;
-  key: string;
-  title: string;
-  priority: string;
-  dispatchStatus: string;
-  agentName: string;
-  sessionAt: string;
-}
+import { PageHeader } from "@/components/app/page-header";
+import { ErrorState } from "@/components/primitives";
+import { ReviewQueue, type QueueRow } from "@/components/review-queue";
+import { api, type Me } from "@/lib/api";
 
 export default async function ReviewPage() {
   const me = await api<Me>("/v1/auth/me");
-  if (!me.data) {
-    return <main className="p-8 text-sm text-ink-subtle">Not signed in.</main>;
+  if (!me.data) return <main className="p-8 text-sm text-ink-subtle">Not signed in.</main>;
+  const res = await api<{ queue: QueueRow[] }>(`/v1/workspaces/${me.data.workspaceSlug}/review-queue`);
+  if (!res.ok) {
+    return (
+      <main className="flex min-h-0 flex-1 flex-col">
+        <PageHeader title="Review" />
+        <div className="p-4"><ErrorState title="The review queue did not load" detail="The API did not answer. Nothing was approved or sent back." actionLabel="Retry" actionHref="/review" /></div>
+      </main>
+    );
   }
-  const res = await api<{ queue: QueueRow[] }>(
-    `/v1/workspaces/${me.data.workspaceSlug}/review-queue`,
-  );
   const queue = res.data?.queue ?? [];
-
   return (
-    <main className="flex-1 overflow-y-auto">
-      <header className="flex h-12 items-center gap-3 border-b border-lining-faint px-4">
-        <h1 className="text-sm font-semibold">Review</h1>
-        <span className="font-mono text-[11px] text-ink-tertiary">
-          {queue.length} pending · j/k move · a approve · x send back
-        </span>
-      </header>
+    <main className="flex min-h-0 flex-1 flex-col">
+      <PageHeader title="Review" count={queue.length} hint="waiting on you" />
       <ReviewQueue queue={queue} />
     </main>
   );
