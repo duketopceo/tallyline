@@ -50,6 +50,7 @@ export async function sessionFromToken(token: string) {
       workspaceId: sessions.workspaceId,
       email: users.email,
       name: users.name,
+      emailVerifiedAt: users.emailVerifiedAt,
       workspaceSlug: workspaces.slug,
     })
     .from(sessions)

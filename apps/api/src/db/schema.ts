@@ -59,6 +59,11 @@ export const workspaces = pgTable("workspaces", {
   name: text("name").notNull(),
   // declared email domains for SSO JIT workspace matching (R17)
   allowedDomains: text("allowed_domains").array(),
+  // soft delete: set when an owner schedules deletion; the purge job hard
+  // deletes every tenant row once purge_after passes (restore clears both)
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  purgeAfter: timestamp("purge_after", { withTimezone: true }),
+  deletedBy: uuid("deleted_by"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -72,6 +77,11 @@ export const users = pgTable(
     name: text("name").notNull(),
     passwordHash: text("password_hash"),
     avatarUrl: text("avatar_url"),
+    // NULL = address not yet proven. Defaults to now() because most paths
+    // that create users already prove the address (SSO with a verified
+    // email, the bootstrap operator); the password paths that cannot
+    // (invite claim) set it to NULL explicitly and mail a verify link.
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }).defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -1049,6 +1059,51 @@ export const userIdMap = pgTable("user_id_map", {
     .defaultNow()
     .notNull(),
 });
+
+// single-use, user-scoped account tokens (password reset, email verify).
+// Only sha256(token) is stored; consuming sets used_at atomically.
+export const accountTokenPurposeEnum = pgEnum("account_token_purpose", [
+  "password_reset",
+  "email_verify",
+]);
+
+export const accountTokens = pgTable(
+  "account_tokens",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    purpose: accountTokenPurposeEnum("purpose").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    // the address the token was mailed to (verify binds to it)
+    email: text("email").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.userId, t.purpose)],
+);
+
+// security audit trail for account-level actions (reset, verify, export,
+// deletion). user_id has no FK on purpose: the record of an account's
+// deletion must outlive the account. Never stores email or names.
+export const auditEvents = pgTable(
+  "audit_events",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    userId: uuid("user_id"),
+    actorUserId: uuid("actor_user_id"),
+    action: text("action").notNull(),
+    meta: jsonb("meta").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.userId, t.createdAt)],
+);
 
 export type IssueRow = typeof issues.$inferSelect;
 export type NewIssue = typeof issues.$inferInsert;

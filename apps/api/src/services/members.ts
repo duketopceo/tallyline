@@ -33,6 +33,9 @@ export async function membershipsFor(userId: string) {
       workspaceSlug: workspaces.slug,
       workspaceName: workspaces.name,
       role: workspaceMembers.role,
+      // non-null while the workspace is pending deletion (restore window)
+      deletedAt: workspaces.deletedAt,
+      purgeAfter: workspaces.purgeAfter,
     })
     .from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
