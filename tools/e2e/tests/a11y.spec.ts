@@ -82,7 +82,7 @@ for (const vp of VIEWPORTS) {
       });
 
       for (const path of APP_PAGES) {
-        test(`${path}`, async ({ page }) => {
+        test(`@a11y ${path}`, async ({ page }) => {
           await page.goto(path.replace(":key", key));
           await page.waitForLoadState("networkidle");
           await setTheme(page, theme);
@@ -97,7 +97,7 @@ for (const vp of VIEWPORTS) {
 test.describe("axe logged-out", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
   for (const [theme, path] of THEMES.flatMap((t) => ["/", "/login"].map((p) => [t, p] as const))) {
-    test(`${path} ${theme}`, async ({ page }) => {
+    test(`@a11y ${path} ${theme}`, async ({ page }) => {
       await page.goto(path);
       await page.waitForLoadState("networkidle");
       await setTheme(page, theme);
@@ -106,3 +106,36 @@ test.describe("axe logged-out", () => {
     });
   }
 });
+
+// overlays: peek panel, picker popover, palette, bulk bar (both themes, both widths)
+for (const vp of VIEWPORTS) {
+  for (const theme of THEMES) {
+    test.describe(`axe overlays ${theme} @${vp.name}`, () => {
+      test.use({ viewport: { width: vp.width, height: vp.height } });
+      test(`@a11y peek + picker + palette`, async ({ page }) => {
+        await page.goto("/issues");
+        await page.waitForSelector("[data-qc-ready]", { timeout: 20_000 });
+        await setTheme(page, theme);
+        const row = page.locator("[data-issue-row]").first();
+        await row.hover();
+        await page.keyboard.press("Space");
+        await expect(page.getByRole("complementary", { name: /^Peek / })).toBeVisible();
+        await page.getByRole("heading").filter({ hasText: /./ }).first().waitFor();
+        await page.waitForTimeout(400);
+        let v = await scan(page);
+        expect(v, `peek: ${v.join("\n")}`).toHaveLength(0);
+        await page.keyboard.press("Escape");
+        await row.hover();
+        await page.keyboard.press("s");
+        await expect(page.getByRole("dialog", { name: "Set state" })).toBeVisible();
+        v = await scan(page);
+        expect(v, `picker: ${v.join("\n")}`).toHaveLength(0);
+        await page.keyboard.press("Escape");
+        await page.keyboard.press("Control+k");
+        await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
+        v = await scan(page);
+        expect(v, `palette: ${v.join("\n")}`).toHaveLength(0);
+      });
+    });
+  }
+}

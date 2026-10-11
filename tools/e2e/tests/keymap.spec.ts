@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 
 const TITLE = `e2e keymap ${Date.now()}`;
 
-test("? opens keymap overlay — grouped, searchable, axe-clean", async ({
+test("@keyboard @a11y ? opens keymap overlay — grouped, searchable, axe-clean", async ({
   page,
 }) => {
   await page.goto("/issues");
@@ -13,7 +13,7 @@ test("? opens keymap overlay — grouped, searchable, axe-clean", async ({
   const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await expect(dialog).toBeVisible();
   await expect(
-    dialog.getByText("Navigate (g-sequences)", { exact: true }),
+    dialog.getByText("Navigate", { exact: true }),
   ).toBeVisible();
 
   // searchable: filtering to "review" leaves the g r binding
@@ -48,7 +48,7 @@ test(": opens command mode — :comment executes a real mutation", async ({
 
   // learn its key via triage list
   await page.goto("/triage");
-  const row = page.getByRole("button", { name: new RegExp(TITLE) });
+  const row = page.getByRole("link", { name: new RegExp(TITLE) });
   await expect(row).toBeVisible();
   const key = (await row.textContent())?.match(/[A-Z0-9]+-\d+/)?.[0];
   expect(key).toBeTruthy();
@@ -59,7 +59,7 @@ test(": opens command mode — :comment executes a real mutation", async ({
   await page.waitForSelector("[data-palette-ready]", { timeout: 15_000 });
   await page.keyboard.press(":");
   const palette = page.getByPlaceholder(
-    "Search issues, jump to a view, or run an action…",
+    "Search issues or run a command",
   );
   await expect(palette).toBeVisible();
   await expect(page.getByText(/commands: state done start/)).toBeVisible();

@@ -6,7 +6,7 @@ test("create issue via quick-create → appears in list → opens detail", async
   page,
 }) => {
   await page.goto("/issues");
-  await expect(page.getByRole("heading", { name: "All Issues" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Issues" })).toBeVisible();
 
   // wait for the quick-create listener to mount before pressing keys
   await page.waitForSelector("[data-qc-ready]", { timeout: 15_000 });
@@ -18,7 +18,7 @@ test("create issue via quick-create → appears in list → opens detail", async
   await expect(dialog).not.toBeVisible();
 
   await page.goto("/triage");
-  const row = page.getByRole("button", { name: new RegExp(TITLE) });
+  const row = page.getByRole("link", { name: new RegExp(TITLE) });
   await expect(row).toBeVisible();
   await row.click();
   await expect(page).toHaveURL(/\/issues\/[A-Z0-9]+-\d+/);
