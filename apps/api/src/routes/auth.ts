@@ -342,6 +342,9 @@ declare module "hono" {
     // role in the URL-resolved workspace, injected by requireWorkspace;
     // null for agent credentials and unbound routes
     memberRole: MemberRole | null;
+    // workspace to bill this request to; set by requireWorkspace, counted by
+    // the usage middleware only if the request was not refused (401/403)
+    usageWorkspaceId: string;
     // scopes carried by the presented credential (agent key, PAT, JWT);
     // null for cookie sessions, which always act with full user rights
     tokenScopes: string[] | null;

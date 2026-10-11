@@ -186,6 +186,9 @@ describe("GET /v1/workspaces/{ws}/usage", () => {
     await dispatchAt(t, new Date("2026-10-02T08:00:00.000Z"));
     await dispatchAt(t, new Date("2026-09-30T08:00:00.000Z")); // last month
     const owner = await newSession(t, "owner");
+    // the counter bumps once a request is known not to be refused, i.e. after
+    // its own response is built: one earlier call is what the report sees
+    await get(`/v1/workspaces/${t.ws.slug}/issues`, owner);
     const r = await get(`/v1/workspaces/${t.ws.slug}/usage?days=14`, owner);
     expect(r.status).toBe(200);
     const rep = r.json as UsageReport;

@@ -79,7 +79,7 @@ async function consumeInviteIfPresent(
   // signs in to the workspaces they already belong to
   if (
     !member.some((m) => m.workspaceId === invite.workspaceId) &&
-    (await hasFreeSeat(invite.workspaceId))
+    (await hasFreeSeat(invite.workspaceId, { consumingInvite: true }))
   ) {
     await acceptInvite(userId, invite);
   }
@@ -137,7 +137,7 @@ export async function resolveIdentity(
         return { kind: "error", code: "INVITE_EMAIL_MISMATCH" };
       }
     }
-    if (!(await hasFreeSeat(invite.workspaceId))) {
+    if (!(await hasFreeSeat(invite.workspaceId, { consumingInvite: true }))) {
       return { kind: "error", code: "PLAN_LIMIT" };
     }
     const [u] = await db.insert(users).values({

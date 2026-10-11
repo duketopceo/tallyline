@@ -37,7 +37,7 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <Section id="content" title="Your content">
+      <Section id="your-content" title="Your content">
         <p>
           What you and your agents put in Tallyline belongs to you. You give us permission to store,
           process and display it only to run the service for you. You can export or delete it.

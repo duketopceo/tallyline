@@ -10,7 +10,6 @@ import { isValidTimezone } from "../services/cycle-schedule.js";
 import { config_ } from "../env.js";
 import { isCookieSession } from "./auth.js";
 import { assertWithinLimit } from "../services/entitlements.js";
-import { countApiCall } from "../services/usage.js";
 
 const createWorkspaceSchema = z.object({
   slug: z
@@ -245,7 +244,7 @@ async function authorizeWorkspace(
       throw new HttpError(403, "FORBIDDEN_WORKSPACE", "credential not scoped to this workspace");
     }
     c.set("memberRole", null);
-    countApiCall(ws.id);
+    c.set("usageWorkspaceId", ws.id); // counted once the response is known
     return ws;
   }
   if (session) {
@@ -260,7 +259,7 @@ async function authorizeWorkspace(
       throw new HttpError(403, "FORBIDDEN_WORKSPACE", "not a member of this workspace");
     }
     c.set("memberRole", member.role);
-    countApiCall(ws.id);
+    c.set("usageWorkspaceId", ws.id); // counted once the response is known
     return ws;
   }
   throw new HttpError(401, "UNAUTHENTICATED", "sign in or present agent credentials");

@@ -104,6 +104,13 @@ test.describe("public trust pages (logged out)", () => {
           await setTheme(page, theme);
           const v = await violations(page);
           expect(v, v.join("\n")).toHaveLength(0);
+          // axe 4.11 no longer reports duplicate ids; check them directly
+          const dupes = await page.evaluate(() => {
+            const seen = new Map<string, number>();
+            for (const el of document.querySelectorAll("[id]")) seen.set(el.id, (seen.get(el.id) ?? 0) + 1);
+            return [...seen].filter(([, n]) => n > 1).map(([id]) => id);
+          });
+          expect(dupes, `duplicate ids: ${dupes.join(", ")}`).toEqual([]);
           const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
           expect(overflow, "horizontal scroll").toBeLessThanOrEqual(0);
         });

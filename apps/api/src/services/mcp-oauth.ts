@@ -19,6 +19,8 @@ import {
 import { config_ } from "../env.js";
 import { safeGetText } from "../lib/net-guard.js";
 import { clock } from "./clock.js";
+import { assertWithinLimit, PlanLimitError } from "./entitlements.js";
+import { PLANS } from "../plans.js";
 import { memberOf } from "./members.js";
 
 // Tallyline as the OAuth 2.1 authorization server for its own remote MCP
@@ -504,7 +506,32 @@ export async function consentView(requestId: string, userId: string): Promise<Co
 
 async function connectorAgent(workspaceId: string, clientName: string, user: { id: string; name: string }) {
   const base = `${clientName} via MCP (${user.name})`.slice(0, 110);
-  for (const name of [base, `${base} ${user.id.slice(0, 6)}`]) {
+  const names = [base, `${base} ${user.id.slice(0, 6)}`];
+  const find = async (name: string) => {
+    const [row] = await db
+      .select()
+      .from(agents)
+      .where(and(eq(agents.workspaceId, workspaceId), eq(agents.name, name)));
+    return row && row.harness === "mcp-connector" ? row : null;
+  };
+  // re-consent reuses the existing connector agent: no new seat in the plan
+  for (const name of names) {
+    const existing = await find(name);
+    if (existing) return existing;
+  }
+  // connector agents are agents: they count toward the plan's agent cap
+  try {
+    await assertWithinLimit("agents", workspaceId);
+  } catch (err) {
+    if (err instanceof PlanLimitError) {
+      throw new PlanLimitError(
+        `This workspace has all ${err.detail.max.toLocaleString("en-US")} agents included in the ${PLANS[err.detail.plan].label} plan, so ${clientName} cannot be connected yet. Delete an agent you no longer use in Settings, Agents and keys, then connect again, or move to the Team plan.`,
+        err.detail,
+      );
+    }
+    throw err;
+  }
+  for (const name of names) {
     await db
       .insert(agents)
       .values({
@@ -514,11 +541,16 @@ async function connectorAgent(workspaceId: string, clientName: string, user: { i
         capabilities: ["mcp"],
       })
       .onConflictDoNothing();
-    const [row] = await db
-      .select()
-      .from(agents)
-      .where(and(eq(agents.workspaceId, workspaceId), eq(agents.name, name)));
-    if (row && row.harness === "mcp-connector") return row;
+    const row = await find(name);
+    if (row) {
+      try {
+        await assertWithinLimit("agents", workspaceId, 0); // lost a race? undo
+      } catch (err) {
+        await db.delete(agents).where(eq(agents.id, row.id));
+        throw err;
+      }
+      return row;
+    }
   }
   throw new OAuthError("server_error", "could not allocate connector identity", 500);
 }
@@ -585,7 +617,17 @@ export async function decideConsent(
     .where(eq(oauthClients.clientId, req.clientId));
   const clientName = client?.name ?? "MCP client";
 
-  const agent = await connectorAgent(ws.id, clientName, user);
+  let agent;
+  try {
+    agent = await connectorAgent(ws.id, clientName, user);
+  } catch (err) {
+    if (err instanceof PlanLimitError) {
+      // free the single-use request so the person can retry on this page
+      // after making room, instead of restarting the connection
+      await db.update(oauthRequests).set({ decidedAt: null }).where(eq(oauthRequests.id, req.id));
+    }
+    throw err;
+  }
   // one live grant per (user, workspace, client): re-consent replaces scopes
   const [existing] = await db
     .select()

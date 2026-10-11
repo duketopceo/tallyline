@@ -79,3 +79,22 @@ no content, no per-person rows, no third-party analytics.
 
 `GET /v1/workspaces/{ws}/usage?days=30` (owner/admin) returns the plan, live
 counters and the daily series; Settings > Usage renders it.
+
+## Limit semantics (review fixes)
+
+- **MCP connector agents count toward the agent cap.** Connecting an MCP
+  client creates an `mcp-connector` agent, which is an agent like any other.
+  At the cap the consent decision returns 402 `PLAN_LIMIT` (shown on the
+  consent page, which stays usable once an agent is deleted). Re-consenting
+  reuses the existing connector agent and is never blocked.
+- **Agent runs are atomic.** Dispatch creation counts and inserts under a
+  per-workspace, per-month advisory lock, so the monthly cap is never
+  overshot. Callers still pre-check so the usual refusal happens before they
+  write anything; only a concurrent race can reach the backstop 402.
+- **Seats:** pending invites reserve seats everywhere (invite create, SSO JIT).
+  Redeeming an invite, by accept or SSO, counts members only because that
+  invite already holds a seat; accepts serialise per workspace. An existing
+  member accepting an invite gets an idempotent ok.
+- **Public 402s** (unauthenticated invite accept/claim) carry the plan name
+  and a generic message, never `used` or `max`.
+- **API calls** are counted after the response, and 401/403 are not counted.

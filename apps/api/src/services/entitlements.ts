@@ -141,6 +141,17 @@ export class PlanLimitError extends HttpError {
   }
 }
 
+/** 402 PLAN_LIMIT for callers who are not (yet) members: plan name only, no usage numbers */
+export class PublicPlanLimitError extends HttpError {
+  constructor(
+    message: string,
+    readonly plan: PlanId,
+  ) {
+    super(402, "PLAN_LIMIT", message);
+    this.name = "PublicPlanLimitError";
+  }
+}
+
 const n = (v: number) => v.toLocaleString("en-US");
 
 function monthName(d: Date): string {
@@ -174,9 +185,10 @@ function limitMessage(kind: LimitKind, planLabel: string, max: number, used = ma
  * Concurrency: this is a count, not a lock. Agent and invite creation
  * re-check with `adding = 0` after their insert and undo it when a
  * concurrent request got there first (both may lose; never both win).
- * Agent runs are pre-checked only, so simultaneous dispatches can overshoot
- * the monthly cap by at most the number in flight: a soft limit by design
- * (go-live PLAN.md: overage = block or upsell, never data loss).
+ * Agent runs: the pre-check gives callers a clean refusal before they write;
+ * the authoritative check is withAgentRunSlot() below, which counts and
+ * inserts under a per-workspace, per-month advisory lock, so the monthly cap
+ * is never overshot.
  */
 export async function assertWithinLimit(
   kind: Exclude<LimitKind, "workspaces">,
@@ -244,12 +256,24 @@ export async function assertWithinLimit(kind: LimitKind, subject: string, adding
   }
 }
 
-/** seat check for paths that must not throw (SSO joins); counts members only */
-export async function hasFreeSeat(workspaceId: string): Promise<boolean> {
+/**
+ * seat check for paths that must not throw (SSO joins). Pending invites hold
+ * seats, so a JIT join cannot take one an invitee was promised. Pass
+ * `consumingInvite` when the join IS redeeming a live invite: that invite
+ * already reserved its seat, so only members count.
+ */
+export async function hasFreeSeat(
+  workspaceId: string,
+  opts: { consumingInvite?: boolean } = {},
+): Promise<boolean> {
   if (!billingEnabled()) return true;
   const ent = await entitlements(workspaceId);
   const max = ent.limits.maxSeats;
-  return max === null || (await seatCount(workspaceId)) < max;
+  if (max === null) return true;
+  const used =
+    (await seatCount(workspaceId)) +
+    (opts.consumingInvite ? 0 : await pendingInviteCount(workspaceId));
+  return used < max;
 }
 
 /** invite accept: the invite already reserved its seat, so count members only */
@@ -267,4 +291,46 @@ export async function assertSeatForJoin(workspaceId: string): Promise<void> {
       used,
     });
   }
+}
+
+/**
+ * Atomic agent-run limit: counts this month's runs and runs `insert` inside
+ * ONE transaction holding a per-workspace, per-month advisory lock, so
+ * concurrent dispatches serialise and the cap cannot be overshot. Throws
+ * PlanLimitError (402) when the month is full. BILLING=off: just runs insert.
+ */
+export async function withAgentRunSlot<T>(
+  workspaceId: string,
+  insert: (tx: Pick<typeof db, "insert" | "select">) => Promise<T>,
+): Promise<T> {
+  if (!billingEnabled()) return insert(db);
+  const ent = await entitlements(workspaceId);
+  const max = ent.limits.agentRunsPerMonth;
+  if (max === null) return insert(db);
+  const { start, end } = monthWindow();
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`agent_runs:${workspaceId}:${start.toISOString()}`}, 0))`,
+    );
+    const [r] = await tx
+      .select({ n: count })
+      .from(dispatches)
+      .where(
+        and(
+          eq(dispatches.workspaceId, workspaceId),
+          gte(dispatches.createdAt, start),
+          lt(dispatches.createdAt, end),
+        ),
+      );
+    const used = r?.n ?? 0;
+    if (used + 1 > max) {
+      throw new PlanLimitError(limitMessage("agent_runs", ent.planLabel, max), {
+        limit: "agent_runs",
+        plan: ent.plan,
+        max,
+        used,
+      });
+    }
+    return insert(tx);
+  });
 }

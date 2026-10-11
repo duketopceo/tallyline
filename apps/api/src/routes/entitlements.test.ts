@@ -196,7 +196,8 @@ describe("BILLING=on: 402 PLAN_LIMIT at the choke points", () => {
       }),
     );
     expect(res2.status).toBe(402);
-    expect(((await res2.json()) as { error: { limit: string } }).error.limit).toBe("seats");
+    // public route: plan name + generic message, no usage numbers
+    expect(((await res2.json()) as { error: { code: string; plan: string } }).error).toMatchObject({ code: "PLAN_LIMIT", plan: "free" });
     const [row] = await db.select().from(invites).where(eq(invites.id, inv!.id));
     expect(row!.acceptedAt).toBeNull();
     const [{ n }] = (await pool.query(`select count(*)::int n from users where email = 'late@ent.test'`)).rows;
@@ -349,18 +350,21 @@ describe("BILLING=on: 402 PLAN_LIMIT at the choke points", () => {
     ).rows as { user_id: string }[];
     const { createSession } = await import("../services/auth.js");
     const cookie = await createSession(owner!.user_id, first!.id);
-    await db.update(workspaces).set({ plan: "free" }).where(eq(workspaces.id, first!.id));
-    // billing off: allowed
-    const off = await call("POST", "/v1/workspaces", cookie, { slug: `second-${seq++}`, name: "Second" });
-    expect(off.status).toBe(201);
-    setBillingForTests(true);
-    const on = await call("POST", "/v1/workspaces", cookie, { slug: `third-${seq++}`, name: "Third" });
-    expect(on.status).toBe(402);
-    expect(on.json.error).toMatchObject({ code: "PLAN_LIMIT", limit: "workspaces", max: 1 });
-    expect(String(on.json.error!.message)).toContain("You already own 2 workspaces on the Free plan, which includes 1");
-    const [{ n }] = (await pool.query(`select count(*)::int n from workspaces where slug like 'third-%'`)).rows;
-    expect(n).toBe(0);
-    await db.update(workspaces).set({ plan: first!.plan }).where(eq(workspaces.id, first!.id));
+    try {
+      await db.update(workspaces).set({ plan: "free" }).where(eq(workspaces.id, first!.id));
+      // billing off: allowed
+      const off = await call("POST", "/v1/workspaces", cookie, { slug: `second-${seq++}`, name: "Second" });
+      expect(off.status).toBe(201);
+      setBillingForTests(true);
+      const on = await call("POST", "/v1/workspaces", cookie, { slug: `third-${seq++}`, name: "Third" });
+      expect(on.status).toBe(402);
+      expect(on.json.error).toMatchObject({ code: "PLAN_LIMIT", limit: "workspaces", max: 1 });
+      expect(String(on.json.error!.message)).toContain("You already own 2 workspaces on the Free plan, which includes 1");
+      const [{ n }] = (await pool.query(`select count(*)::int n from workspaces where slug like 'third-%'`)).rows;
+      expect(n).toBe(0);
+    } finally {
+      await db.update(workspaces).set({ plan: first!.plan }).where(eq(workspaces.id, first!.id));
+    }
   });
 
   it("concurrent agent creates never both win the last slot", async () => {
