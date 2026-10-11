@@ -12,7 +12,8 @@ import {
   workspaceMembers,
   workspaces,
 } from "../db/schema.js";
-import { apiError } from "../lib/errors.js";
+import { apiError, HttpError } from "../lib/errors.js";
+import { isEmailVerified } from "../services/account.js";
 import { requestIsHttps } from "../lib/https.js";
 import { authLimiter } from "../lib/rate-limit.js";
 import { config_ } from "../env.js";
@@ -171,11 +172,14 @@ export const authRoutes = new Hono()
     }
     // session binds to the user's earliest membership; zero-membership
     // users have nowhere to land (U2 refines resolution)
+    // land in a live workspace when there is one; a workspace pending
+    // deletion is still reachable (Settings > Workspace offers restore)
     const [member] = await db
       .select({ workspaceId: workspaceMembers.workspaceId })
       .from(workspaceMembers)
+      .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
       .where(eq(workspaceMembers.userId, user.id))
-      .orderBy(workspaceMembers.createdAt)
+      .orderBy(sql`${workspaces.deletedAt} is not null`, workspaceMembers.createdAt)
       .limit(1);
     if (!member) {
       return apiError(
@@ -251,6 +255,7 @@ export const authRoutes = new Hono()
       userId: session.userId,
       name: session.name,
       email: session.email,
+      emailVerified: session.emailVerifiedAt !== null,
       workspaceSlug: session.workspaceSlug,
       memberships,
       activeWorkspaceSlug: session.workspaceSlug,
@@ -342,6 +347,21 @@ declare module "hono" {
     tokenScopes: string[] | null;
     // set by provider-admin middleware after the instance-admin check
     instanceAdminUserId: string;
+  }
+}
+
+// Unverified accounts may use Tallyline but not mint long-lived credentials
+// (PATs, agent keys): a credential outlives the session that made it, so the
+// address behind it must be proven first.
+export async function requireVerifiedEmail(c: Context): Promise<void> {
+  const session = c.get("session");
+  if (!session) return;
+  if (!(await isEmailVerified(session.userId))) {
+    throw new HttpError(
+      403,
+      "EMAIL_UNVERIFIED",
+      "confirm your email first — use the link we sent, or resend it from Settings > Account",
+    );
   }
 }
 

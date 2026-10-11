@@ -90,8 +90,9 @@ export const workspaceRoutes = new Hono()
     });
     return c.json(ws, 201);
   })
+  // readable while pending deletion so the client can show the restore path
   .get("/workspaces/:ws", async (c) => {
-    const ws = await requireWorkspace(c);
+    const ws = await requireWorkspace(c, { allowDeleted: true });
     return c.json(ws);
   })
   // declared email domains for the SSO domain-match rung (R17) — the only
@@ -209,9 +210,30 @@ export async function findWorkspace(slug: string) {
 //   membership — a removed member's token dies on the next request
 // - agent keys stay hard-bound; agents are never members (R24)
 // On success, memberRole is injected for role gates.
-export async function requireWorkspace(c: Context) {
+// A workspace pending deletion is closed to every route (410) except the
+// few that opt in with allowDeleted (read, export, restore) — and only after
+// the same credential/membership checks, so 410 never leaks existence.
+export async function requireWorkspace(
+  c: Context,
+  opts: { allowDeleted?: boolean } = {},
+) {
   const ws = await findWorkspace(c.req.param("ws") ?? "");
   if (!ws) throw new HttpError(404, "NOT_FOUND", "workspace not found");
+  const resolved = await authorizeWorkspace(c, ws);
+  if (resolved.deletedAt && !opts.allowDeleted) {
+    throw new HttpError(
+      410,
+      "WORKSPACE_DELETED",
+      `workspace '${ws.slug}' is scheduled for deletion — an owner can restore it in Settings > Workspace`,
+    );
+  }
+  return resolved;
+}
+
+async function authorizeWorkspace(
+  c: Context,
+  ws: NonNullable<Awaited<ReturnType<typeof findWorkspace>>>,
+) {
   const session = c.get("session");
   const agent = c.get("agentAuth");
   if (agent) {

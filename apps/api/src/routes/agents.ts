@@ -14,7 +14,7 @@ import {
   rotateAgentKey,
 } from "../services/agents.js";
 import { requireRole } from "../services/members.js";
-import { isCookieSession } from "./auth.js";
+import { isCookieSession, requireVerifiedEmail } from "./auth.js";
 import { requireWorkspace } from "./workspaces.js";
 import { clock } from "../services/clock.js";
 
@@ -116,6 +116,7 @@ export const agentRoutes = new Hono()
       }
       const ws = await requireWorkspace(c);
       requireRole(c, "admin");
+      await requireVerifiedEmail(c);
       const [agent] = await db
         .select()
         .from(agents)

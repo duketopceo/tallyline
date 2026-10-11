@@ -14,6 +14,9 @@ import { tickCycleSchedule } from "./services/cycle-schedule.js";
 import { sweepDeliveries } from "./services/outbound.js";
 import { sweepStaleDispatches } from "./services/dispatch.js";
 import { sweepWebhookEvents } from "./services/retention.js";
+import { mailer } from "./services/mailer.js";
+import { sweepDeletedWorkspaces } from "./services/workspace-lifecycle.js";
+import { accountPublicRoutes, accountRoutes } from "./routes/account.js";
 import { agentRoutes } from "./routes/agents.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { authRoutes, requireSession } from "./routes/auth.js";
@@ -75,6 +78,7 @@ export const app = new Hono()
   .route("/v1/auth", oauthRoutes)
   .route("/v1/auth", inviteAcceptRoutes)
   .route("/v1/auth", providerRoutes)
+  .route("/v1/auth", accountPublicRoutes)
   .use("/v1/*", requireSession)
   .use("/v1/*", rateLimiter)
   .route("/v1", mcpOAuthAdminRoutes)
@@ -94,6 +98,7 @@ export const app = new Hono()
   .route("/v1", webhookEndpointRoutes)
   .route("/v1", dispatchRoutes)
   .route("/v1", assistRoutes)
+  .route("/v1", accountRoutes)
   .onError((err, c) => {
     if (err instanceof HttpError) {
       return apiError(c, err.status, err.code, err.message);
@@ -147,6 +152,22 @@ if (process.env.NODE_ENV !== "test") {
   void sweepStaleDispatches().catch((err) =>
     console.error("dispatch sweep failed", err),
   );
+  // workspace purge job: hard-deletes workspaces whose restore window closed
+  const purge = () =>
+    void sweepDeletedWorkspaces()
+      .then((ids) => {
+        if (ids.length > 0) console.log(`purged ${ids.length} deleted workspace(s)`);
+      })
+      .catch((err) => console.error("workspace purge failed", err));
+  setInterval(purge, 60 * 60_000).unref();
+  purge();
+  // fail at boot, not at the first reset request, on a bad mail config
+  const mail = mailer();
+  if (mail.transport === "log" && process.env.NODE_ENV === "production") {
+    console.warn(
+      "MAIL_TRANSPORT=log in production: reset and verification links go to this log only",
+    );
+  }
   serve({ fetch: app.fetch, port: config_.port }, (info) => {
     console.log(`api listening on http://localhost:${info.port}`);
   });

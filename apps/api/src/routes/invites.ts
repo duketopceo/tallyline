@@ -29,6 +29,8 @@ import { userFromToken } from "../services/tokens.js";
 import { setSessionCookie } from "./auth.js";
 import { requireWorkspace } from "./workspaces.js";
 import { clock } from "../services/clock.js";
+import { sendVerificationEmail } from "../services/account.js";
+import { track } from "../services/background.js";
 
 
 const createSchema = z.object({
@@ -167,9 +169,13 @@ export const inviteAcceptRoutes = new Hono()
         email,
         name: body.name,
         passwordHash: hashPassword(body.password),
+        // an invite link is copied by hand, not mailed, so holding it does
+        // not prove the address: verify before minting credentials
+        emailVerifiedAt: null,
       })
       .returning();
     await acceptForUser(u!.id, invite);
+    track(sendVerificationEmail(u!.id));
     const token = await createSession(u!.id, invite.workspaceId);
     setSessionCookie(c, token);
     return c.json({ ok: true, workspaceId: invite.workspaceId }, 201);

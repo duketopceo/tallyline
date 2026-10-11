@@ -41,6 +41,93 @@ const repoBody = jsonBody({
 const importTarget = { type: "string", enum: ["triage", "backlog"], default: "triage" };
 
 export const extraPaths: Record<string, PathItem> = {
+  // ── account lifecycle ──────────────────────────────────────────────────────
+  "/v1/auth/password/forgot": {
+    post: {
+      summary:
+        "Request a password reset link. Always 202 with the same body (no account enumeration); the link is single-use and expires in 30 minutes. Rate limited.",
+      requestBody: jsonBody({ type: "object", required: ["email"], properties: { email: { type: "string", format: "email" } } }),
+      responses: { "202": { description: "Accepted (whether or not the address has an account)" }, "429": { description: "Rate limited" } },
+    },
+  },
+  "/v1/auth/password/reset": {
+    post: {
+      summary:
+        "Set a new password with a reset token. Revokes every session of the account; personal access tokens are kept. Rate limited.",
+      requestBody: jsonBody({
+        type: "object",
+        required: ["token", "password"],
+        properties: { token: { type: "string" }, password: { type: "string", minLength: 10 } },
+      }),
+      responses: { "200": { description: "Password changed" }, "400": { description: "RESET_TOKEN_INVALID" } },
+    },
+  },
+  "/v1/auth/verify-email": {
+    post: {
+      summary: "Confirm the account email with a verification token (single-use, 24h). Rate limited.",
+      requestBody: jsonBody({ type: "object", required: ["token"], properties: { token: { type: "string" } } }),
+      responses: { "200": { description: "Email verified" }, "400": { description: "VERIFY_TOKEN_INVALID" } },
+    },
+  },
+  "/v1/me/verify-email/resend": {
+    post: {
+      summary: "Send a new email verification link (cookie session only)",
+      responses: { "202": { description: "Sent" }, "200": { description: "Already verified" } },
+    },
+  },
+  "/v1/me/export": {
+    get: {
+      summary: "Download everything Tallyline holds about you as one JSON document, streamed (cookie session only)",
+      responses: { "200": { description: "tallyline-personal-export JSON" } },
+    },
+  },
+  "/v1/me/deletion": {
+    post: {
+      summary:
+        "Delete your account (cookie session only). Body confirm must equal your email. Refused with 409 SOLE_OWNER while you are the only owner of a live workspace.",
+      requestBody: jsonBody({ type: "object", required: ["confirm"], properties: { confirm: { type: "string" } } }),
+      responses: {
+        "200": { description: "Account deleted, session cookie cleared" },
+        "400": { description: "CONFIRM_MISMATCH" },
+        "409": { description: "SOLE_OWNER" },
+      },
+    },
+  },
+  "/v1/dev/mail": {
+    get: {
+      summary:
+        "Dev inbox: messages captured by the log mail transport (instance admins, cookie session). 404 in production or with a real transport.",
+      responses: { "200": { description: "Captured messages, newest first" }, "404": { description: "DEV_INBOX_DISABLED" } },
+    },
+  },
+  "/v1/workspaces/{ws}/export": {
+    get: {
+      summary:
+        "Export the workspace as one streamed JSON document: every tenant table (credentials redacted) plus an attachments manifest (admin+, cookie session only). Available during the restore window.",
+      parameters: [wsParam],
+      responses: { "200": { description: "tallyline-workspace-export JSON" } },
+    },
+  },
+  "/v1/workspaces/{ws}/deletion": {
+    post: {
+      summary:
+        "Schedule workspace deletion (owner, cookie session only). Body confirm must equal the slug. The workspace closes immediately (410 on other routes) and is hard deleted after the restore window (7 days).",
+      parameters: [wsParam],
+      requestBody: jsonBody({ type: "object", required: ["confirm"], properties: { confirm: { type: "string" } } }),
+      responses: {
+        "202": { description: "Scheduled; returns purgeAfter" },
+        "400": { description: "CONFIRM_MISMATCH" },
+        "409": { description: "ALREADY_SCHEDULED" },
+      },
+    },
+  },
+  "/v1/workspaces/{ws}/restore": {
+    post: {
+      summary: "Restore a workspace scheduled for deletion, inside the restore window (owner, cookie session only)",
+      parameters: [wsParam],
+      responses: { "200": { description: "Restored" }, "409": { description: "NOT_DELETED" } },
+    },
+  },
   "/openapi.json": {
     get: {
       summary: "This OpenAPI document",

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { db } from "../db/client.js";
 import { userTokens } from "../db/schema.js";
 import { apiError } from "../lib/errors.js";
-import { isCookieSession } from "./auth.js";
+import { isCookieSession, requireVerifiedEmail } from "./auth.js";
 import { requireRole } from "../services/members.js";
 import { createUserToken, revokeUserToken } from "../services/tokens.js";
 import { requireWorkspace } from "./workspaces.js";
@@ -35,6 +35,7 @@ export const tokenRoutes = new Hono()
       }
       const ws = await requireWorkspace(c);
       requireRole(c, "admin");
+      await requireVerifiedEmail(c);
       const body = c.req.valid("json");
       const lowered = body.name.toLowerCase();
       if (lowered.includes("tly_")) {
