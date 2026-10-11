@@ -52,7 +52,7 @@ export class OAuthError extends Error {
   constructor(
     readonly error: string,
     readonly description: string,
-    readonly status: 400 | 401 | 403 | 404 | 500 = 400,
+    readonly status: 400 | 401 | 403 | 404 | 410 | 500 = 400,
   ) {
     super(description);
     this.name = "OAuthError";
@@ -452,7 +452,14 @@ export interface ConsentView {
   scopes: OAuthScope[];
   resource: string;
   workspaces: { slug: string; name: string; role: string }[];
+  /** false until the account's email is confirmed; approval is refused then */
+  emailVerified: boolean;
+  /** why approval is unavailable, shown on the consent page; null when it is available */
+  unavailableReason: string | null;
 }
+
+export const EMAIL_UNVERIFIED_MESSAGE =
+  "confirm your email first — use the link we sent, or resend it from Settings > Account";
 
 export async function consentView(requestId: string, userId: string): Promise<ConsentView> {
   const req = await liveRequest(requestId);
@@ -472,8 +479,10 @@ export async function consentView(requestId: string, userId: string): Promise<Co
     })
     .from(workspaceMembers)
     .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
-    .where(eq(workspaceMembers.userId, userId))
+    .where(and(eq(workspaceMembers.userId, userId), isNull(workspaces.deletedAt)))
     .orderBy(workspaceMembers.createdAt);
+  const [acct] = await db.select({ at: users.emailVerifiedAt }).from(users).where(eq(users.id, userId));
+  const emailVerified = Boolean(acct?.at);
   const redirect = new URL(req.redirectUri);
   return {
     requestId: req.id,
@@ -488,6 +497,8 @@ export async function consentView(requestId: string, userId: string): Promise<Co
     scopes: req.scopes as OAuthScope[],
     resource: req.resource,
     workspaces: rows,
+    emailVerified,
+    unavailableReason: emailVerified ? null : EMAIL_UNVERIFIED_MESSAGE,
   };
 }
 
@@ -554,6 +565,13 @@ export async function decideConsent(
   const member = ws ? await memberOf(user.id, ws.id) : null;
   if (!ws || !member) {
     throw new OAuthError("access_denied", "not a member of that workspace", 403);
+  }
+  if (ws.deletedAt) {
+    throw new OAuthError(
+      "access_denied",
+      "that workspace is scheduled for deletion — restore it before connecting an app",
+      410,
+    );
   }
   const requested = req.scopes as OAuthScope[];
   const chosen = parseScopes((input.scopes ?? requested).join(" "));

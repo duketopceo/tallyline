@@ -11,7 +11,7 @@ import {
   listGrants,
   revokeGrantById,
 } from "../services/mcp-oauth.js";
-import { isCookieSession } from "./auth.js";
+import { isCookieSession, requireVerifiedEmail } from "./auth.js";
 import { requireWorkspace } from "./workspaces.js";
 
 const decisionSchema = z.object({
@@ -47,6 +47,11 @@ export const mcpOAuthAdminRoutes = new Hono()
         return apiError(c, 403, "FORBIDDEN", "consent requires a human session");
       }
       const body = c.req.valid("json");
+      // approving mints a long-lived credential (grant + connector agent), the
+      // same as a PAT or agent key, so the verified-email gate applies here too.
+      // Checked before the request is claimed or any row is written; denying
+      // stays open so an unverified user can still decline a connector.
+      if (body.approve) await requireVerifiedEmail(c);
       try {
         const redirectTo = await decideConsent(
           c.req.param("id"),
@@ -62,7 +67,7 @@ export const mcpOAuthAdminRoutes = new Hono()
         return c.json({ redirectTo });
       } catch (err) {
         if (err instanceof OAuthError) {
-          return apiError(c, err.status === 404 ? 404 : err.status === 403 ? 403 : 400, "OAUTH_REQUEST", err.description);
+          return apiError(c, err.status === 404 ? 404 : err.status === 403 ? 403 : err.status === 410 ? 410 : 400, "OAUTH_REQUEST", err.description);
         }
         throw err;
       }

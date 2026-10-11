@@ -96,7 +96,7 @@ export const extraPaths: Record<string, PathItem> = {
   "/v1/dev/mail": {
     get: {
       summary:
-        "Dev inbox: messages captured by the log mail transport (instance admins, cookie session). 404 in production or with a real transport.",
+        "Dev inbox: messages captured by the log mail transport (instance admins, cookie session). Always 404 (even for admins) in production or with a real transport.",
       responses: { "200": { description: "Captured messages, newest first" }, "404": { description: "DEV_INBOX_DISABLED" } },
     },
   },
@@ -810,8 +810,9 @@ export const extraPaths: Record<string, PathItem> = {
       responses: {
         "200": { description: "{ redirectTo }" },
         "400": { description: "Invalid decision" },
-        "403": { description: "CSRF/user mismatch or not a member of the workspace" },
+        "403": { description: "CSRF/user mismatch, not a member of the workspace, or EMAIL_UNVERIFIED (approval needs a confirmed email)" },
         "404": { description: "Request expired or already used" },
+        "410": { description: "The chosen workspace is scheduled for deletion" },
       },
     },
   },
