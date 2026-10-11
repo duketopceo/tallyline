@@ -210,7 +210,7 @@ test("account deletion: typed email, refused for a sole owner, signs out @keyboa
   let dialog = page.getByRole("dialog", { name: "Delete your account" });
   await dialog.getByLabel(`Type ${me.email} to confirm`).fill(me.email);
   await dialog.getByRole("button", { name: "Delete my account" }).click();
-  await expect(dialog.getByRole("alert")).toContainText(/only owner of .*e2e.*delete the workspace/);
+  await expect(dialog.getByRole("alert")).toContainText(/only owner of .*E2E.*delete the workspace/);
   await page.keyboard.press("Escape");
 
   const person = await invitedUser(page);
