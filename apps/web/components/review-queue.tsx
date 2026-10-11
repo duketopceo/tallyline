@@ -11,6 +11,8 @@ import { SessionTimeline, type Outcome, type Session } from "@/components/sessio
 import { relTime } from "@/lib/format";
 import { Markdown } from "@/lib/markdown";
 import { IconCheck } from "./app/icons";
+import { failureMessage } from "@/lib/plan-limit";
+import { Sparkle } from "./primitives";
 
 export interface QueueRow {
   id: string;

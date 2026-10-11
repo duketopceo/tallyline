@@ -1,6 +1,14 @@
 "use client";
 
+<<<<<<< HEAD
 import { useEffect, useState } from "react";
+=======
+import type { IssueState } from "@tallyline/types";
+import { legalTransitions } from "@tallyline/types";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useEffect, useState } from "react";
+import { failureMessage } from "@/lib/plan-limit";
+>>>>>>> db7ef51 (feat(web): Settings > Usage, plan-limit copy, public legal and trust pages)
 
 // LLM assist: renders nothing when the workspace has no TALLYLINE_LLM_*
 // configured; the status probe keeps the UI honest instead of showing a
@@ -48,3 +56,70 @@ export function SummarizeButton({ issueKey }: { issueKey: string }) {
     </div>
   );
 }
+<<<<<<< HEAD
+=======
+
+export function CommentComposer({ issueKey }: { issueKey: string }) {
+  const router = useRouter();
+  const [body, setBody] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!body.trim() || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    const res = await fetch(`/api/issues/${issueKey}/comments`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ body: body.trim() }),
+    });
+    setSubmitting(false);
+    if (!res.ok) {
+      setError(await failureMessage(res, "comment failed to post — retry"));
+      return;
+    }
+    setBody("");
+    router.refresh();
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      onKeyDown={(e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+          e.preventDefault();
+          void submit(e);
+        }
+      }}
+      className="mt-4"
+    >
+      <textarea
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        placeholder="Leave a comment…"
+        rows={3}
+        className="w-full resize-none rounded-sm border border-control bg-surface-2 px-3 py-2 text-sm text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
+      />
+      {error && (
+        <p className="mt-1 text-[12px] text-urgent" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="mt-2 flex items-center justify-between">
+        <span className="font-mono text-[10px] text-ink-tertiary">
+          <kbd>⌘⏎</kbd> to comment
+        </span>
+        <button
+          type="submit"
+          disabled={submitting || !body.trim()}
+          className="h-7 rounded-sm bg-accent px-3 text-[13px] font-medium text-on-accent hover:bg-accent-hover disabled:opacity-50"
+        >
+          {submitting ? "Posting…" : "Comment"}
+        </button>
+      </div>
+    </form>
+  );
+}
+>>>>>>> db7ef51 (feat(web): Settings > Usage, plan-limit copy, public legal and trust pages)

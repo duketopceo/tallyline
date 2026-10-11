@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { LegalLinks } from "@/components/legal-links";
 import { TallyMark } from "@/components/tally-mark";
 
 interface Provider {
@@ -19,6 +20,7 @@ const ERROR_COPY: Record<string, string> = {
   invite_required: "this workspace requires an invite",
   link_disabled: "account linking is disabled on this instance",
   no_workspace: "your account has no workspace — ask an admin for an invite",
+  plan_limit: "this workspace has no free member seats on its plan — ask an admin to free a seat or move to the Team plan",
   auth: "sign-in failed — try again",
 };
 
@@ -95,6 +97,7 @@ function LoginInner() {
 
   const input = "mt-1 block h-10 w-full rounded-sm border border-control bg-surface-2 px-3 text-[14px] text-ink placeholder:text-ink-subtle";
   return (
+<<<<<<< HEAD
     <div className="grid min-h-screen lg:grid-cols-[minmax(420px,520px)_1fr]">
       <main className="flex flex-col justify-center px-6 py-10 sm:px-12">
         <div className="mx-auto w-full max-w-sm">
@@ -147,6 +150,13 @@ function LoginInner() {
             Invited? Open the invite link you were sent. Running a new instance? <Link href="/bootstrap" className="text-accent underline underline-offset-2 hover:text-accent-hover">Create the first workspace</Link>.
           </p>
           <p className="mt-2 text-[12px] text-ink-subtle">Hosted beta: no SLA, and data may be lost.</p>
+=======
+    <main className="flex min-h-screen flex-col items-center justify-center px-6">
+      <div className="w-full max-w-sm rounded-md border border-lining bg-surface-1 p-6">
+        <div className="flex items-center gap-2">
+          <TallyMark size={24} />
+          <span className="text-[15px] font-semibold tracking-tight">tallyline</span>
+>>>>>>> db7ef51 (feat(web): Settings > Usage, plan-limit copy, public legal and trust pages)
         </div>
       </main>
       <aside aria-hidden className="relative hidden overflow-hidden border-l border-lining-faint bg-surface-1 lg:block">
@@ -158,8 +168,62 @@ function LoginInner() {
               <img src="/landing/board-dark.webp" alt="" width={1280} height={800} decoding="async" className="block h-auto w-full" />
             </picture>
           </div>
+<<<<<<< HEAD
         </div>
       </aside>
     </div>
+=======
+        )}
+
+        {methods?.unavailable && (
+          <p className="mt-4 text-xs text-ink-subtle">
+            sign-in providers unavailable — use email and password
+          </p>
+        )}
+
+        {(!methods || methods.password) && (
+          <form onSubmit={onSubmit}>
+            <label
+              className="mt-5 block text-xs text-ink-subtle"
+              htmlFor="email"
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              autoFocus
+              className="mt-1 w-full rounded-sm border border-control bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-lining-strong"
+            />
+
+            <label
+              className="mt-4 block text-xs text-ink-subtle"
+              htmlFor="password"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              className="mt-1 w-full rounded-sm border border-control bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-lining-strong"
+            />
+
+            <button
+              type="submit"
+              disabled={pending}
+              className="mt-6 w-full rounded-sm bg-accent px-3 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60"
+            >
+              {pending ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
+        )}
+      </div>
+      <LegalLinks className="mt-4 text-[12px] text-ink-tertiary" />
+    </main>
+>>>>>>> db7ef51 (feat(web): Settings > Usage, plan-limit copy, public legal and trust pages)
   );
 }

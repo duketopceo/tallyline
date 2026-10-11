@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { TallyMark } from "@/components/tally-mark";
 import { BoardLoop } from "@/components/landing/board-loop";
+import { LegalLinks } from "@/components/legal-links";
 
 const REPO = "https://github.com/duketopceo/tallyline";
 
@@ -213,6 +214,7 @@ docker compose -f docker-compose.selfhost.yml up -d
           <a href={`${REPO}/blob/main/docs/deploy.md`} target="_blank" rel="noreferrer" className="hover:text-ink">Docs</a>
           <a href={`${REPO}/blob/main/SECURITY.md`} target="_blank" rel="noreferrer" className="hover:text-ink">Security</a>
           <a href={`${REPO}/blob/main/LICENSING.md`} target="_blank" rel="noreferrer" className="hover:text-ink">AGPL-3.0 license</a>
+          <LegalLinks />
           <span className="ml-auto">humans, agents, one state machine</span>
         </div>
       </footer>
