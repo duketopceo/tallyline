@@ -19,7 +19,7 @@ const state = await ctx0.storageState();
 await ctx0.close();
 
 const screens = [
-  ["my-issues", "/my-issues"], ["issues", "/issues"], ["board", "/board"], ["issue", "/issues/TLY-1"],
+  ["my-issues", "/my-issues"], ["issues", "/issues"], ["board", "/board"], ["issue", `/issues/${process.env.SHOOT_ISSUE ?? "TLY-37"}`],
   ["triage", "/triage"], ["review", "/review"], ["cycle", "/cycle"], ["roadmap", "/roadmap"],
   ["insights", "/insights"], ["activity", "/activity"],
   ["landing", "/", "out"], ["login", "/login", "out"],

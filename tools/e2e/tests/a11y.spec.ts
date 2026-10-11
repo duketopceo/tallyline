@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { agentIssue, failSession } from "./helpers";
 
 // PLAN-044: every app screen, WCAG 2.0/2.1/2.2 A + AA tags, both themes,
 // desktop and phone widths. Zero violations gates the run.
@@ -135,6 +136,25 @@ for (const vp of VIEWPORTS) {
         await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
         v = await scan(page);
         expect(v, `palette: ${v.join("\n")}`).toHaveLength(0);
+      });
+    });
+  }
+}
+
+// issue detail with an agent identity, a failed session and an agent state change
+for (const vp of VIEWPORTS) {
+  for (const theme of THEMES) {
+    test.describe(`axe provenance ${theme} @${vp.name}`, () => {
+      test.use({ viewport: { width: vp.width, height: vp.height } });
+      test(`@a11y /issues/:key with agent session`, async ({ page }) => {
+        const f = await agentIssue(page, "a11y");
+        await fetch(`${f.ws}/issues/${f.issueKey}`, { method: "PATCH", headers: { "content-type": "application/json", authorization: `Bearer ${f.key}` }, body: JSON.stringify({ state: "todo" }) });
+        await failSession(f);
+        await page.goto(`/issues/${f.issueKey}`);
+        await page.waitForLoadState("networkidle");
+        await setTheme(page, theme);
+        const violations = await scan(page);
+        expect(violations, violations.join("\n")).toHaveLength(0);
       });
     });
   }

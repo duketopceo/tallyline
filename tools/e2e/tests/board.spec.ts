@@ -69,7 +69,7 @@ test("board: illegal column move is rejected", async ({ page }) => {
   ).not.toBeVisible();
 });
 
-test("board: space grab + arrows moves a card (dnd keyboard path)", async ({
+test("@keyboard board: m grab + arrows + space drop moves a card (dnd keyboard path)", async ({
   page,
 }) => {
   // TITLE issue is in backlog; grab → arrow → drop into todo.
@@ -79,7 +79,7 @@ test("board: space grab + arrows moves a card (dnd keyboard path)", async ({
   await expect(card).toBeVisible();
   await card.focus();
 
-  await page.keyboard.press("Space");
+  await page.keyboard.press("m"); // grab (Space is peek, Silver Lining section 7)
   await page.waitForTimeout(200);
   const moved = patchFor(page);
   await page.keyboard.press("ArrowRight");
@@ -91,4 +91,33 @@ test("board: space grab + arrows moves a card (dnd keyboard path)", async ({
   await expect(
     todo.getByRole("button", { name: new RegExp(TITLE) }),
   ).toBeVisible();
+});
+
+test("@keyboard board: s opens the state picker and moves the card; Space peeks; undo moves it back", async ({ page }) => {
+  const T = `e2e board s ${Date.now()}`;
+  const r = await page.request.post("/api/issues", { data: { title: T, state: "backlog" } });
+  const key = ((await r.json()) as { key: string }).key;
+  await page.goto("/board");
+  const backlog = page.getByRole("region", { name: /backlog column/i });
+  const card = backlog.locator(`[data-board-card="${key}"]`);
+  await expect(card).toBeVisible();
+  await card.hover();
+  await page.keyboard.press("Space");
+  await expect(page.getByRole("complementary", { name: `Peek ${key}` })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await card.hover();
+  await page.keyboard.press("s");
+  await page.getByRole("dialog", { name: "Set state" }).getByRole("option", { name: "Todo" }).click();
+  const todo = page.getByRole("region", { name: /todo column/i });
+  await expect(todo.locator(`[data-board-card="${key}"]`)).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "→ Todo" })).toBeVisible();
+  await page.keyboard.press("Control+z");
+  await expect(backlog.locator(`[data-board-card="${key}"]`)).toBeVisible();
+});
+
+test("board: empty columns collapse to a rail and the column summary scrolls to a column", async ({ page }) => {
+  await page.goto("/board");
+  await expect(page.getByRole("navigation", { name: "Columns" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Columns" }).getByRole("button", { name: /In review/ }).click();
+  await expect(page.getByRole("region", { name: /in review column/i })).toBeInViewport();
 });
