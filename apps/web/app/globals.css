@@ -38,6 +38,8 @@
   --color-attention-soft: var(--sl-status-attention-soft);
   --color-healthy-soft: var(--sl-status-healthy-soft);
   --color-neutral-soft: var(--sl-status-neutral-soft);
+  --font-sans: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 body {
@@ -46,9 +48,14 @@ body {
 }
 
 html {
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-feature-settings: "calt", "kern";
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01", "tnum", "calt", "kern";
 }
+
+.toast-in { animation: toast-in 120ms ease-out; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.scroll-quiet { scrollbar-width: thin; scrollbar-color: var(--color-lining) transparent; }
 
 /* Focus is lining + ring, never just color (DESIGN.md text-input-focused). */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
