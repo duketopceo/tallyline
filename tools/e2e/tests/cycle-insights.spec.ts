@@ -46,7 +46,7 @@ test("insights: stat tiles, readable durations, table fallback", async ({ page }
   await page.goto("/insights");
   await expect(page.getByText("Median cycle time")).toBeVisible();
   await expect(page.getByText("Finished by agents")).toBeVisible();
-  expect(await page.locator("main").innerText()).not.toMatch(/\de-\d/);
+  expect(await page.locator("main:visible").first().innerText()).not.toMatch(/\de-\d/);
   const panel = page.getByRole("region", { name: "Cycle time" });
   await panel.getByRole("button", { name: "Show table" }).click();
   await expect(panel.getByRole("table", { name: "Cycle time" })).toBeVisible();

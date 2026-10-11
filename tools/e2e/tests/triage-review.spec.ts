@@ -17,7 +17,7 @@ test("@keyboard triage: 12 items cleared with the keyboard alone in under 60s", 
   const t0 = Date.now();
   await page.goto("/triage");
   await page.waitForSelector("[data-qc-ready]", { timeout: 20_000 });
-  const rows = page.locator("[data-issue-row]");
+  const rows = page.locator("[data-issue-row]:visible");
   await expect(rows.first()).toBeVisible();
   const keys = ["a", "m", "d", "a"];
   let n = 0;
@@ -34,7 +34,7 @@ test("@keyboard triage: 12 items cleared with the keyboard alone in under 60s", 
 test("triage rows show where an item came from", async ({ page }) => {
   await page.request.post("/api/issues", { data: { title: `e2e source ${RUN}`, state: "triage", source: "api" } });
   await page.goto("/triage");
-  await expect(page.locator("[data-issue-row]").first().getByText("api", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-issue-row]:visible").first().getByText("api", { exact: true })).toBeVisible();
 });
 
 test("@keyboard review: evidence pane, held approval with undo, required note on send back", async ({ page }) => {
@@ -48,7 +48,7 @@ test("@keyboard review: evidence pane, held approval with undo, required note on
 
   await page.goto("/review");
   await page.waitForSelector("[data-qc-ready]", { timeout: 20_000 });
-  const row = page.locator(`[role="listitem"]`).filter({ hasText: f.issueKey });
+  const row = page.locator(`[role="listitem"]:visible`).filter({ hasText: f.issueKey });
   await expect(row).toBeVisible();
   await row.hover();
   const evidence = page.getByRole("region", { name: "Evidence" });
