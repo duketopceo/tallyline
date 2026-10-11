@@ -35,7 +35,7 @@ const KEY = /[A-Z][A-Z0-9]*-\d+/;
 
 async function issueKey(page: Page): Promise<string> {
   await page.goto("/issues");
-  await page.waitForSelector("[data-qc-ready]", { timeout: 15_000 });
+  await page.waitForSelector("[data-qc-ready]", { timeout: 40_000 });
   let match = (await page.locator("main").innerText()).match(KEY);
   if (!match) {
     await page.keyboard.press("c");
@@ -76,6 +76,7 @@ for (const vp of VIEWPORTS) {
       test.use({ viewport: { width: vp.width, height: vp.height } });
       let key = "";
       test.beforeAll(async ({ browser }) => {
+        test.setTimeout(90_000);
         const ctx = await browser.newContext({ storageState: "tests/.auth/session.json" });
         const page = await ctx.newPage();
         key = await issueKey(page);

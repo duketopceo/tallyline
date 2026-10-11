@@ -21,7 +21,7 @@ test("roadmap: g p navigates, project form creates a span, j/k + enter work", as
     { timeout: 10_000 },
   );
   await page.getByPlaceholder("project name").fill(NAME);
-  await page.getByLabel("target date (optional)").fill("2026-12-31T00:00");
+  await page.getByLabel("target date (optional)").fill("2026-12-31");
   await page.getByRole("button", { name: "New project" }).click();
   await created;
 
@@ -61,7 +61,7 @@ test("roadmap: g p navigates, project form creates a span, j/k + enter work", as
     { timeout: 10_000 },
   );
   await page.getByPlaceholder("milestone title").fill(MS);
-  await page.getByLabel("milestone target date").fill("2026-11-15T00:00");
+  await page.getByLabel("milestone target date").fill("2026-11-15");
   await page.getByRole("button", { name: "add", exact: true }).click();
   await msAdded;
   await expect(

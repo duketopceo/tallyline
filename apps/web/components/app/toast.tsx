@@ -12,7 +12,14 @@ export interface ToastInput {
 }
 interface ToastItem extends ToastInput { id: number }
 
-const Ctx = createContext<{ push: (t: ToastInput) => void } | null>(null);
+export interface DeferInput {
+  message: string;
+  // runs after 8s unless undone; also flushed (keepalive) if the tab is hidden
+  commit: (opts: { keepalive: boolean }) => void | Promise<void>;
+  onUndo?: () => void;
+}
+
+const Ctx = createContext<{ push: (t: ToastInput) => void; defer: (d: DeferInput) => void } | null>(null);
 export const useToast = () => {
   const v = useContext(Ctx);
   if (!v) throw new Error("ToastProvider missing");
@@ -34,6 +41,40 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     if (!t.error) setTimeout(() => dismiss(id), t.undo ? UNDO_MS : 4000);
   }, [dismiss]);
 
+  // Undo instead of confirm for irreversible actions (approve, complete a cycle,
+  // delete): the action is held for 8s, Undo cancels it, hiding the tab flushes it.
+  const pendingDefers = useRef<Set<() => void>>(new Set());
+  const defer = useCallback((d: DeferInput) => {
+    let done = false;
+    const flush = (keepalive: boolean) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      pendingDefers.current.delete(flushNow);
+      void d.commit({ keepalive });
+    };
+    const flushNow = () => flush(true);
+    const timer = setTimeout(() => flush(false), UNDO_MS);
+    pendingDefers.current.add(flushNow);
+    push({
+      message: d.message,
+      undo: () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        pendingDefers.current.delete(flushNow);
+        d.onUndo?.();
+      },
+    });
+  }, [push]);
+  useEffect(() => {
+    const flushAll = () => { for (const f of [...pendingDefers.current]) f(); };
+    const onVis = () => { if (document.visibilityState === "hidden") flushAll(); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", flushAll);
+    return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("pagehide", flushAll); };
+  }, []);
+
   const runUndo = useCallback((t: ToastItem) => {
     dismiss(t.id);
     void t.undo?.();
@@ -54,7 +95,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [runUndo]);
 
-  const value = useMemo(() => ({ push }), [push]);
+  const value = useMemo(() => ({ push, defer }), [push, defer]);
   return (
     <Ctx.Provider value={value}>
       {children}
