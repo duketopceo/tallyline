@@ -327,3 +327,151 @@ Four distinct flavors — never the same "nothing here":
 - **Brand exceptions stay custom:** the four-point **glint** and the **TallyMark** are owned geometry, not icon-set stock.
 - **A11y:** every icon-only control carries an accessible name; status always pairs icon + label (section 5).
 - **One import surface:** `components/app/icons.ts` names every icon the product uses. Components import the name, not the library — the set stays auditable and swap-able in one file.
+## 18. Agent workspace
+
+The pattern for watching and steering an agent working toward a goal. open-computer uses it as its main screen, a Perplexity Computer-style product. Tallyline uses a reduced version for agent sessions.
+
+It's modeled on Perplexity Computer's context panel and opencode's right-side region. Sources and notes: `~/Downloads/claude/agent-workspace-research/REPORT.md`.
+
+**The chat holds the story and the decisions. The right sidebar holds the state: what the agent knows, what it made, what would leave the box, and what it cost.**
+
+### 18.1 Layout
+
+| Column | Width | Contents |
+|---|---|---|
+| Left: goals | 240px, collapsible (`[`) | Goals grouped **Needs you · Running · Done · Failed**, with search and **New goal**. Pin and archive. |
+| Center: conversation | Flexible, min 480px, content at most 760px | Title bar (status chip, elapsed time, spend/cap chip, context ring), timeline, composer. The composer region hosts the approval dock and queued messages. |
+| Right: sidebar | 360px, resizable 280–560px, toggle `]` | The tabs in 16.2. Width persists per device. The toggle sits top-right and shows its shortcut in a tooltip. |
+
+The spend/cap chip and the context ring (how full the context window is) are **always visible** in the title bar, whichever tab is open.
+
+### 18.2 Sidebar tabs
+
+Tabs are switched with `1`–`7` while the sidebar has focus, or from the palette. They don't use `g` shortcuts, which stay reserved for top-level navigation.
+
+| # | Tab | Shows |
+|---|---|---|
+| 1 | **Progress** (default) | The plan as a checklist: pending, running (the only shimmering item), done, failed, skipped. Elapsed time per step. One row per sub-agent or sandbox, with **Stop** and **Send note**. |
+| 2 | **Sources** | Deduplicated list. Each row has favicon, title, domain, how many times it's cited, and when it was fetched. Hovering shows the snippet. Clicking scrolls the chat to the first citation, and a citation clicked in chat highlights its row. A source the agent cited without fetching is flagged **Not verified**. |
+| 3 | **Artifacts** | What the goal produced, grouped by type, with a version badge and an unreviewed dot. Opens in the panel's viewer (16.5). |
+| 4 | **Changes** | Diff of the sandbox against its starting point (files, +/−), reviewable per hunk. This is what would leave the box. |
+| 5 | **Outbox** | Everything that would leave the box (network egress, pushes, emails, spend), each pending, approved or denied, with who decided and when. Badge shows the pending count. |
+| 6 | **Box** | Live view of the sandbox (terminal tail, browser frames when available), resource limits, the network allow-list and time to live. |
+| 7 | **Cost** | Spend against the cap, tokens in, out and cached, split per model, context-window usage, and **Export run**. |
+
+Tallyline's agent session view uses tabs 1, 2, 3, 5 and 7. It adds Changes only when the session edits files.
+
+A **side chat** is optional: read-only questions about the run that never interrupt it.
+
+### 18.3 Live updates
+
+- **One event stream per goal.** The sidebar and timeline are pure projections of it, so reloading rebuilds exactly the same view. Event types:
+  - `run`
+  - `step`
+  - `tool_call`
+  - `source`
+  - `artifact`
+  - `change`
+  - `approval`
+  - `cost`
+  - `note`
+  - `error`
+- **Never move what the user is looking at.** Scroll position, selected tab and focus stay put. New items appear behind an **N new** pill (section 9).
+- **Pace updates:** coalesce to at most 4 per second, and only the single active item shimmers.
+- **Tabs never switch on their own.** A new pending approval turns the Outbox badge amber and docks the approval card above the composer (16.4), without stealing focus.
+- **Spend is always current.** Reaching 80% and 100% of the cap posts an inline event in the chat. At 100% the run **pauses** instead of cancelling, with a single **Raise cap and resume** action.
+- **Background goals notify** only when they need approval, finish, fail or hit the cap. Notifications are deduplicated across windows, and the channel (toast or system notification) is a per-event setting.
+- **On reconnect,** pending approvals are swept so none is missed, and a disconnected banner shows while the stream is down.
+
+### 18.4 Approvals
+
+- An approval is a **card in the timeline** at the moment of the request. While it's pending, **the same card docks above the composer**. It's never a modal.
+- **The card states:**
+  - the action
+  - the destination (host or path)
+  - the exact payload preview or diff
+  - why the agent wants it
+  - the cost impact
+  - what happens if it's denied
+- **Choices:**
+  - **Allow once** (primary)
+  - **Allow for this goal** (the scoped pattern is shown, for example `GET api.github.com/repos/duketopceo/*`)
+  - **Deny** (with an optional note to the agent)
+
+  There's no "always allow" by default: the box boundary is the product. High-risk items (risk = high, or spend above a threshold) render **Allow once** as a secondary button and require a second press. A risky approval is never a reflex.
+- **Keys when the card has focus:** `a` allow once, `Shift+A` allow for this goal, `r` deny or send back with a note, `f` view the payload full screen. `Esc` defers without denying. These are the same keys as Tallyline's review queue (section 10).
+- **Plan before spend:** goals estimated above a cost threshold draft a plan and wait for **Approve plan** before any paid call.
+- **Loop guard:** after 3 identical tool calls in a row, the agent pauses and asks.
+- **Resolved approvals** collapse to a single line in the timeline and remain in Outbox.
+- **Binding:** an approval is tied to the payload hash and is single-use. Any change to the payload makes it a new request.
+
+### 18.5 Artifacts and viewers
+
+There's one artifact registry with one viewer per type:
+
+| Type | Viewer |
+|---|---|
+| Markdown | Rendered, with export |
+| HTML or app | Sandboxed iframe with no network; opening in a new tab is a separate, explicit action |
+| Image, SVG | Image view |
+| PDF | Document view |
+| CSV or table | First 100 rows, with "Showing 100 of 4,210" |
+| Office documents | Read-only preview |
+| Code or text | Preview/Source toggle |
+| Diff | Diff view |
+| Mermaid | Rendered diagram |
+| Audio, video | Media player |
+| Archive | File listing |
+
+- **Opening:**
+  - A single click opens the artifact in the panel.
+  - `Enter` or `f` expands it to a full-width overlay over the center column.
+  - `Esc` returns.
+- **The chat chip and the panel row are the same object.**
+- **Every artifact shows:**
+  - its version
+  - the step that produced it
+  - **Approve to export** if taking it out of the box needs approval
+
+### 18.6 Citations
+
+- **In chat:** numbered superscript chips `[1]`, with adjacent chips merging as `[1–3]`.
+  - Hovering shows the favicon, title, domain and the quoted passage.
+  - Clicking focuses and highlights the Sources row.
+  - Keyboard: `Tab` reaches a chip, `Enter` jumps to it, `Esc` returns to where you were.
+- **File citations** use `[path:line]` and open the Files or Changes viewer at that line.
+- **Each source records:** URL, title, fetch time, content hash, which steps cited it, and whether it was actually fetched.
+
+### 18.7 Keyboard
+
+This adds to section 7; nothing here overrides it.
+
+| Key | Action |
+|---|---|
+| `/` | Focus the composer |
+| `Cmd/Ctrl+Enter` | Send |
+| `[` / `]` | Toggle the left / right column |
+| `1`–`7` | Sidebar tab (when the sidebar has focus) |
+| `Shift+J` / `Shift+K` | Next / previous message |
+| `.` | Stop the run (confirm with a second `.`) |
+| `j` / `k`, `Enter`, `x` | Move, open, select in the goal list, Sources, Artifacts and Outbox |
+| `g g` | Goals |
+| `Cmd/Ctrl+K` | Search goals, artifacts, sources and commands |
+
+Every key is listed in `?`, shown in tooltips and rebindable. No multi-key sequence waits longer than 1.5s.
+
+### 18.8 Phone width (below 768px)
+
+- **Layout:** chat only. The goal list becomes its own screen, and the sidebar becomes a **bottom sheet** with snap points (peek 30%, half, full), a handle and swipe-down to close.
+- **A sticky strip above the composer** shows status, spend/cap and badge chips (Outbox N, Sources N, Artifacts N). Tapping a chip opens the sheet on that tab.
+- **A pending approval** is a full-width card above the composer with large **Deny** and **Allow once** targets. It's the first thing shown when the app is opened from a notification.
+- **Artifacts** open full screen with a back chevron.
+
+### 18.9 Gates (added to section 13)
+
+| Gate | What it checks | Command |
+|---|---|---|
+| Projection determinism | Replaying a recorded event stream twice gives identical sidebar and timeline DOM snapshots | `test:replay` |
+| Approval safety | An approval can't be reused after a payload change; Esc never denies or approves; high-risk items need two presses | `test:e2e --grep @approval` |
+| Live stability | A 200-event burst keeps scroll position, the selected tab and focus | `test:e2e --grep @live` |
+| Artifact viewers | Every artifact type renders its fixture with axe at 0 violations; the HTML viewer can't reach the network | `test:e2e --grep @artifacts` |
