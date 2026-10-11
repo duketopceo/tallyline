@@ -7,8 +7,6 @@ import {
   invites,
   sessions,
   users,
-  workspaceMembers,
-  workspaces,
 } from "../db/schema.js";
 import { config_ } from "../env.js";
 import { hashPassword } from "./auth.js";
@@ -183,16 +181,19 @@ export async function resetPassword(token: string, password: string): Promise<Re
   if (!claimed) return { ok: false };
   const [user] = await db.select().from(users).where(eq(users.id, claimed.userId));
   if (!user) return { ok: false };
+  // the token is bound to the address it was mailed to: if the account's
+  // email changed since, whoever holds the old mailbox must not be able to
+  // take the account over with it
+  if (claimed.email.trim().toLowerCase() !== user.email.trim().toLowerCase()) {
+    return { ok: false };
+  }
   const revoked = await db.transaction(async (tx) => {
     await tx
       .update(users)
       .set({
         passwordHash: hashPassword(password),
         // receiving the reset mail proves control of the address it went to
-        ...(user.emailVerifiedAt === null &&
-        claimed.email.trim().toLowerCase() === user.email.trim().toLowerCase()
-          ? { emailVerifiedAt: clock.now() }
-          : {}),
+        ...(user.emailVerifiedAt === null ? { emailVerifiedAt: clock.now() } : {}),
       })
       .where(eq(users.id, user.id));
     // burn any other outstanding reset links too
@@ -293,30 +294,30 @@ export async function verifyEmail(token: string): Promise<{ userId: string } | n
 
 // ── account deletion ─────────────────────────────────────────────────────────
 
-/** live (not pending-deletion) workspaces where the user is the only owner */
-export async function soleOwnedWorkspaces(
-  userId: string,
-): Promise<{ id: string; slug: string; name: string }[]> {
-  const owned = await db
-    .select({ id: workspaces.id, slug: workspaces.slug, name: workspaces.name })
-    .from(workspaceMembers)
-    .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
-    .where(
-      and(
-        eq(workspaceMembers.userId, userId),
-        eq(workspaceMembers.role, "owner"),
-        isNull(workspaces.deletedAt),
-      ),
-    );
-  const out: { id: string; slug: string; name: string }[] = [];
-  for (const ws of owned) {
-    const [row] = await db
-      .select({ n: sql<number>`count(*)::int` })
-      .from(workspaceMembers)
-      .where(and(eq(workspaceMembers.workspaceId, ws.id), eq(workspaceMembers.role, "owner")));
-    if ((row?.n ?? 0) <= 1) out.push(ws);
+export class SoleOwnerError extends Error {
+  constructor(
+    readonly live: { id: string; name: string }[],
+    readonly pending: { id: string; name: string }[],
+  ) {
+    super("sole owner");
+    this.name = "SoleOwnerError";
   }
-  return out;
+
+  get userMessage(): string {
+    const list = (ws: { name: string }[]) => ws.map((w) => `"${w.name}"`).join(", ");
+    const parts: string[] = [];
+    if (this.live.length > 0) {
+      parts.push(
+        `You are the only owner of ${list(this.live)}. Make someone else an owner, or delete the workspace, then delete your account.`,
+      );
+    }
+    if (this.pending.length > 0) {
+      parts.push(
+        `You are the only owner of ${list(this.pending)}, which is pending deletion. Restore it, or wait for it to be purged, then delete your account.`,
+      );
+    }
+    return parts.join(" ");
+  }
 }
 
 /**
@@ -326,9 +327,45 @@ export async function soleOwnedWorkspaces(
  * workspace — it belongs to the team — but loses its link to a person: the
  * actor ids no longer resolve to a name or email, and open assignments to
  * the user are cleared.
+ *
+ * Refuses (SoleOwnerError) while the user is the only owner of any workspace,
+ * including one pending deletion: its owner is who can still restore it. The
+ * check runs inside the transaction with row locks on every owner membership
+ * of those workspaces, so two co-owners deleting at once serialize and the
+ * second sees the first already gone instead of both passing a stale check.
  */
 export async function deleteAccount(userId: string): Promise<void> {
   await db.transaction(async (tx) => {
+    const { rows } = await tx.execute<{
+      workspace_id: string;
+      name: string;
+      deleted_at: Date | null;
+      user_id: string;
+    }>(sql`
+      select m.workspace_id, w.name, w.deleted_at, m.user_id
+        from workspace_members m
+        join workspaces w on w.id = m.workspace_id
+       where m.role = 'owner'
+         and m.workspace_id in (
+           select workspace_id from workspace_members
+            where user_id = ${userId} and role = 'owner')
+       order by m.id
+         for update of m`);
+    const byWs = new Map<string, { name: string; pending: boolean; owners: number }>();
+    for (const r of rows) {
+      const e = byWs.get(r.workspace_id) ?? { name: r.name, pending: r.deleted_at !== null, owners: 0 };
+      e.owners++;
+      byWs.set(r.workspace_id, e);
+    }
+    const sole = [...byWs.entries()]
+      .filter(([, e]) => e.owners <= 1)
+      .map(([id, e]) => ({ id, name: e.name, pending: e.pending }));
+    if (sole.length > 0) {
+      throw new SoleOwnerError(
+        sole.filter((w) => !w.pending),
+        sole.filter((w) => w.pending),
+      );
+    }
     await tx.execute(
       sql`update issues set assignee_id = null, assignee_type = null
            where assignee_type = 'human' and assignee_id = ${userId}`,

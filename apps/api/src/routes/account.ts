@@ -15,7 +15,7 @@ import {
   requestPasswordReset,
   resetPassword,
   sendVerificationEmail,
-  soleOwnedWorkspaces,
+  SoleOwnerError,
   verifyEmail,
 } from "../services/account.js";
 import { SESSION_COOKIE } from "../services/auth.js";
@@ -136,31 +136,28 @@ export const accountRoutes = new Hono()
     if (c.req.valid("json").confirm.trim().toLowerCase() !== u.email.trim().toLowerCase()) {
       return apiError(c, 400, "CONFIRM_MISMATCH", "type your account email exactly to confirm");
     }
-    const sole = await soleOwnedWorkspaces(u.id);
-    if (sole.length > 0) {
-      const names = sole.map((w) => w.slug).join(", ");
-      return apiError(
-        c,
-        409,
-        "SOLE_OWNER",
-        `You are the only owner of ${names}. Make someone else an owner, or delete the workspace, then delete your account.`,
-      );
+    try {
+      await deleteAccount(u.id);
+    } catch (err) {
+      if (err instanceof SoleOwnerError) return apiError(c, 409, "SOLE_OWNER", err.userMessage);
+      throw err;
     }
-    await deleteAccount(u.id);
     setCookie(c, SESSION_COOKIE, "", { maxAge: 0, path: "/" });
     return c.json({ ok: true });
   })
   // dev-only inbox for the log mail transport; 404 in production or when a
   // real transport is configured. Instance admins only: it holds live links.
   .get("/dev/mail", async (c) => {
+    // existence is decided first: in production (or with a real transport) the
+    // endpoint is a 404 for everyone, admin or not, never a 403 that hints at it
+    if (!devInboxEnabled()) {
+      return apiError(c, 404, "DEV_INBOX_DISABLED", "the dev inbox exists only with MAIL_TRANSPORT=log outside production");
+    }
     const denied = humanOnly(c, "the dev inbox");
     if (denied) return denied;
     const session = c.get("session")!;
     if (!(await isInstanceAdmin({ id: session.userId, email: (await emailOf(session.userId)) ?? "" }))) {
       return apiError(c, 403, "FORBIDDEN_INSTANCE_ADMIN", "the dev inbox is for instance admins");
-    }
-    if (!devInboxEnabled()) {
-      return apiError(c, 404, "DEV_INBOX_DISABLED", "the dev inbox exists only with MAIL_TRANSPORT=log outside production");
     }
     return c.json({ messages: devInbox() });
   })
