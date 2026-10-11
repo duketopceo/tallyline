@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { redirectTo } from "@/lib/redirect";
+import { isPublicPath } from "@/lib/public-paths";
 import {
   buildCsp,
   HSTS_VALUE,
@@ -9,7 +10,6 @@ import {
   STATIC_SECURITY_HEADERS,
 } from "@/lib/security-headers";
 
-const PUBLIC_PATHS = ["/", "/login", "/bootstrap", "/join", "/link"];
 
 function withSecurityHeaders(req: NextRequest, res: NextResponse, csp?: string) {
   for (const [k, v] of Object.entries(STATIC_SECURITY_HEADERS)) res.headers.set(k, v);
@@ -34,12 +34,7 @@ export function middleware(req: NextRequest) {
   const pass = () =>
     withSecurityHeaders(req, NextResponse.next({ request: { headers: requestHeaders } }), csp);
 
-  if (
-    PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api/") ||
-    pathname === "/favicon.ico"
-  ) {
+  if (isPublicPath(pathname)) {
     return pass();
   }
   if (!req.cookies.get("tly_session")) {
