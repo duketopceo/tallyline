@@ -53,6 +53,14 @@ export const rolloverEnum = pgEnum("rollover_behavior", [
   "backlog",
 ]);
 
+// hosted plans (PLAN-059). Only read when BILLING=on; self-host (BILLING=off,
+// the default) is always self_host_unlimited regardless of this column.
+export const workspacePlanEnum = pgEnum("workspace_plan", [
+  "free",
+  "team",
+  "self_host_unlimited",
+]);
+
 export const workspaces = pgTable("workspaces", {
   id: uuid("id").defaultRandom().primaryKey(),
   slug: text("slug").notNull().unique(),
@@ -64,6 +72,7 @@ export const workspaces = pgTable("workspaces", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   purgeAfter: timestamp("purge_after", { withTimezone: true }),
   deletedBy: uuid("deleted_by"),
+  plan: workspacePlanEnum("plan").notNull().default("free"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -1108,3 +1117,29 @@ export const auditEvents = pgTable(
 export type IssueRow = typeof issues.$inferSelect;
 export type NewIssue = typeof issues.$inferInsert;
 export type EventRow = typeof events.$inferSelect;
+
+// ── usage metering (PLAN-059) ─────────────────────────────────────────────
+// One row per workspace per UTC day. seats/agents/storage are end-of-day
+// snapshots written by rollupUsage(); agent_runs is the exact count of
+// dispatches created that day; api_calls is added to by flushApiCalls()
+// from cheap in-process counters. First-party aggregates only: no content,
+// no per-person rows.
+export const usageDaily = pgTable(
+  "usage_daily",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    day: text("day").notNull(), // YYYY-MM-DD (UTC)
+    seats: integer("seats").notNull().default(0),
+    agents: integer("agents").notNull().default(0),
+    agentRuns: integer("agent_runs").notNull().default(0),
+    apiCalls: bigint("api_calls", { mode: "number" }).notNull().default(0),
+    storageBytes: bigint("storage_bytes", { mode: "number" }).notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [unique().on(t.workspaceId, t.day)],
+);

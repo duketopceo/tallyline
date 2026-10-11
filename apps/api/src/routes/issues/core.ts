@@ -10,6 +10,7 @@ import { apiError, HttpError } from "../../lib/errors.js";
 import { llmEnabled } from "../../services/llm.js";
 import { decodeCursor, encodeCursor } from "../../lib/pagination.js";
 import { createDispatch } from "../../services/dispatch.js";
+import { assertWithinLimit } from "../../services/entitlements.js";
 import { createIssue, transitionIssue } from "../../services/issues.js";
 import { notifyUsers } from "../../services/notifications.js";
 import { requireHumanReviewer, requireRole } from "../../services/members.js";
@@ -106,6 +107,10 @@ export const coreIssueRoutes = new Hono()
       // validate before creating: a 422 must not leave an orphan issue behind
       if (body.assigneeId && body.assigneeType) {
         await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
+      }
+      // assigning to an agent starts a run: refuse before writing anything
+      if (body.assigneeType === "agent" && body.assigneeId) {
+        await assertWithinLimit("agent_runs", ws.id);
       }
 
       const issue = await createIssue({
@@ -326,6 +331,10 @@ export const coreIssueRoutes = new Hono()
       // leave a half-applied patch (e.g. state moved, cycle rejected).
       if (body.assigneeId && body.assigneeType) {
         await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
+      }
+      // assigning to an agent starts a run: refuse before writing anything
+      if (body.assigneeType === "agent" && body.assigneeId) {
+        await assertWithinLimit("agent_runs", ws.id);
       }
       if (body.parentId) await validateParent(ws.id, body.parentId, key);
       if (body.labelIds?.length) {

@@ -403,6 +403,7 @@ export const OPERATIONS: Record<string, Builder> = {
 
   // ── feeds ──────────────────────────────────────────────────────────────────
   "GET /v1/workspaces/{ws}/insights": get((t) => `${base(t)}/insights`),
+  "GET /v1/workspaces/{ws}/usage": get((t) => `${base(t)}/usage`),
   "GET /v1/workspaces/{ws}/events": get((t) => `${base(t)}/events`),
   "GET /v1/workspaces/{ws}/events/stream": get((t) => `${base(t)}/events/stream`),
 

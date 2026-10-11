@@ -138,6 +138,10 @@ export const config_ = {
   cloudflareEmailApiToken: env("CLOUDFLARE_EMAIL_API_TOKEN", ""),
   // workspace soft-delete window before the purge job hard deletes
   workspacePurgeDays: Number(env("WORKSPACE_PURGE_DAYS", "7")),
+  // hosted plans + limits (PLAN-059). Default OFF: self-host is
+  // self_host_unlimited and no limit is ever enforced. BILLING=on reads
+  // workspaces.plan and enforces the numbers in src/plans.ts.
+  billing: ["1", "true", "yes", "on"].includes(env("BILLING", "").toLowerCase()),
 
   // LLM assist — entirely opt-in; empty key means every llm surface is off
   llmApiKey: env("TALLYLINE_LLM_API_KEY", ""),

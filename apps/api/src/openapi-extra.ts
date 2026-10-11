@@ -831,4 +831,18 @@ export const extraPaths: Record<string, PathItem> = {
       responses: { "200": { description: "Revoked" }, "404": { description: "Not found" } },
     },
   },
+  "/v1/workspaces/{ws}/usage": {
+    get: {
+      summary:
+        "Workspace usage (PLAN-059): plan + limits, live counters (seats, pending invites, agents, agent runs this month, API calls today, storage bytes) and the usage_daily series. Owner/admin only",
+      parameters: [
+        wsParam,
+        { name: "days", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 90, default: 30 } },
+      ],
+      responses: {
+        "200": { description: "Usage report" },
+        "403": { description: "Requires admin role" },
+      },
+    },
+  },
 };

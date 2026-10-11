@@ -6,6 +6,7 @@ import { db } from "../../db/client.js";
 import { agents, comments, events, users, workspaceMembers } from "../../db/schema.js";
 import { actorFromHeaders } from "../../lib/actor.js";
 import { createDispatch } from "../../services/dispatch.js";
+import { assertWithinLimit } from "../../services/entitlements.js";
 import { mirrorIssueComment } from "../../services/github-sync.js";
 import { notifyUsers } from "../../services/notifications.js";
 import { queueDeliveries } from "../../services/outbound.js";
@@ -77,8 +78,14 @@ export const commentRoutes = new Hono()
           .select()
           .from(agents)
           .where(eq(agents.workspaceId, ws.id));
-        for (const agent of wsAgents) {
-          if (!mentioned.has(agent.name.toLowerCase())) continue;
+        const mentionedAgents = wsAgents.filter((a) =>
+          mentioned.has(a.name.toLowerCase()),
+        );
+        // a mention starts a run: refuse before the dispatch is written
+        if (mentionedAgents.length > 0) {
+          await assertWithinLimit("agent_runs", ws.id, mentionedAgents.length);
+        }
+        for (const agent of mentionedAgents) {
           await createDispatch({
             workspaceId: ws.id,
             issueId: issue.id,

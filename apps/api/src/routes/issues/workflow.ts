@@ -8,6 +8,7 @@ import { comments, dispatches } from "../../db/schema.js";
 import { actorFromHeaders } from "../../lib/actor.js";
 import { HttpError } from "../../lib/errors.js";
 import { createDispatch } from "../../services/dispatch.js";
+import { assertWithinLimit } from "../../services/entitlements.js";
 import { transitionIssue } from "../../services/issues.js";
 import { requireHumanReviewer } from "../../services/members.js";
 import { requireWorkspace } from "../workspaces.js";
@@ -87,6 +88,8 @@ export const workflowRoutes = new Hono()
         .where(eq(dispatches.issueId, issue.id))
         .orderBy(desc(dispatches.createdAt))
         .limit(1);
+      // sending back re-dispatches: refuse before the state moves
+      if (last) await assertWithinLimit("agent_runs", ws.id);
       const updated = await transitionIssue(
         ws.id,
         issue.key,

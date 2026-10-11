@@ -37,12 +37,15 @@ import { providerRoutes } from "./routes/providers.js";
 import { resourceRoutes } from "./routes/resources.js";
 import { slackRoutes } from "./routes/slack.js";
 import { tokenRoutes } from "./routes/tokens.js";
+import { usageRoutes } from "./routes/usage.js";
 import { webhookEndpointRoutes } from "./routes/webhook-endpoints.js";
 import { webhookRoutes } from "./routes/webhooks.js";
 import { whoamiRoutes } from "./routes/whoami.js";
 import { workspaceRoutes } from "./routes/workspaces.js";
 import { SESSION_COOKIE } from "./services/auth.js";
 import { NotFoundError } from "./services/issues.js";
+import { PlanLimitError } from "./services/entitlements.js";
+import { flushApiCalls, rollupTick } from "./services/usage.js";
 
 const rateLimiter = createRateLimiter(config_.rateLimitPerMin);
 // counts unauthenticated traffic + failed credentials per client IP; health
@@ -99,7 +102,16 @@ export const app = new Hono()
   .route("/v1", dispatchRoutes)
   .route("/v1", assistRoutes)
   .route("/v1", accountRoutes)
+  .route("/v1", usageRoutes)
   .onError((err, c) => {
+    if (err instanceof PlanLimitError) {
+      // machine-readable so agents, the CLI and MCP clients can say which
+      // limit was hit and what to do (PLAN-059)
+      return c.json(
+        { error: { code: err.code, message: err.message, ...err.detail } },
+        402,
+      );
+    }
     if (err instanceof HttpError) {
       return apiError(c, err.status, err.code, err.message);
     }
@@ -177,6 +189,15 @@ if (process.env.NODE_ENV !== "test") {
     );
   }
   serve({ fetch: app.fetch, port: config_.port }, (info) => {
+  // usage metering: API-call counters every minute, daily rollup hourly
+  setInterval(() => {
+    void flushApiCalls().catch((err) => console.error("usage flush failed", err));
+  }, 60_000).unref();
+  setInterval(() => {
+    void rollupTick().catch((err) => console.error("usage rollup failed", err));
+  }, 3_600_000).unref();
+  void rollupTick().catch((err) => console.error("usage rollup failed", err));
+    serve({ fetch: app.fetch, port: config_.port }, (info) => {
     console.log(`api listening on http://localhost:${info.port}`);
   });
 }

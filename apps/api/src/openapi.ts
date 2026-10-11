@@ -1075,6 +1075,35 @@ function mergePaths(
   return out;
 }
 
+// Operations that can answer 402 PLAN_LIMIT when BILLING=on (PLAN-059).
+// Never with BILLING=off, the self-host default.
+const PLAN_LIMIT_OPS: [string, string][] = [
+  ["/v1/workspaces", "post"],
+  ["/v1/workspaces/{ws}/invites", "post"],
+  ["/v1/auth/accept-invite", "post"],
+  ["/v1/workspaces/{ws}/agents", "post"],
+  ["/v1/workspaces/{ws}/agents/{id}/keys", "post"],
+  ["/v1/workspaces/{ws}/issues/{key}", "patch"],
+  ["/v1/workspaces/{ws}/issues/{key}/comments", "post"],
+  ["/v1/workspaces/{ws}/issues/{key}/review", "post"],
+];
+
+const planLimitResponse = {
+  description:
+    "PLAN_LIMIT: the workspace's plan does not include one more seat, agent, agent key, agent run or workspace. Body: {error:{code,message,limit,plan,max,used}}. Only when BILLING=on",
+};
+
+function withPlanLimits(
+  paths: Record<string, Record<string, unknown>>,
+): Record<string, Record<string, unknown>> {
+  for (const [path, method] of PLAN_LIMIT_OPS) {
+    const op = paths[path]?.[method] as { responses?: Record<string, unknown> } | undefined;
+    if (!op) throw new Error(`openapi: PLAN_LIMIT op ${method} ${path} not documented`);
+    op.responses = { ...op.responses, "402": planLimitResponse };
+  }
+  return paths;
+}
+
 export const openApiDoc = {
   openapi: "3.1.0",
   info: {
@@ -1090,5 +1119,5 @@ export const openApiDoc = {
       description: "Self-hosted — same origin that served this document",
     },
   ],
-  paths: mergePaths(basePaths, extraPaths),
+  paths: withPlanLimits(mergePaths(basePaths, extraPaths)),
 };

@@ -25,6 +25,7 @@ import {
   projects,
   slackLinks,
   teams,
+  usageDaily,
   users,
   views,
   webhookDeliveries,
@@ -439,6 +440,14 @@ export async function mkOauthCode(t: Tenant, userId: string) {
   return row!;
 }
 
+export async function mkUsageDaily(t: Tenant) {
+  const [row] = await db
+    .insert(usageDaily)
+    .values({ workspaceId: t.ws.id, day: "2026-10-10", seats: 3, agents: 1, agentRuns: 2, apiCalls: 40, storageBytes: 4096 })
+    .returning();
+  return row!;
+}
+
 export async function mkIssueLabel(issueId: string, labelId: string) {
   await db.insert(issueLabels).values({ issueId, labelId });
 }
@@ -485,6 +494,7 @@ export interface Entities {
   oauthCode: Awaited<ReturnType<typeof mkOauthCode>>;
   oauthGrant: Awaited<ReturnType<typeof mkOauthGrant>>;
   notification: Awaited<ReturnType<typeof mkNotification>>;
+  usage: Awaited<ReturnType<typeof mkUsageDaily>>;
 }
 
 /** one row in every tenant-scoped table (except sessions: see newSession) */
@@ -529,5 +539,6 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
     oauthCode: await mkOauthCode(t, t.people.owner.id),
     oauthGrant: await mkOauthGrant(t, t.people.owner.id),
     notification: await mkNotification(t, t.people.owner.id, issue.id),
+    usage: await mkUsageDaily(t),
   };
 }

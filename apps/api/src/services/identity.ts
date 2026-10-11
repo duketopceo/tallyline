@@ -13,6 +13,7 @@ import { config_ } from "../env.js";
 import { inviteFromHash } from "../auth/invite-token.js";
 import type { IdentityResult } from "../auth/providers/types.js";
 import { membershipsFor } from "./members.js";
+import { hasFreeSeat } from "./entitlements.js";
 import { clock } from "./clock.js";
 
 // Identity resolution (U4): a provider IdentityResult becomes a user +
@@ -74,7 +75,12 @@ async function consumeInviteIfPresent(
   if (!invite) return;
   if (invite.email && email !== norm(invite.email)) return; // email-bound miss
   const member = await membershipsFor(userId);
-  if (!member.some((m) => m.workspaceId === invite.workspaceId)) {
+  // no free seat (BILLING=on): the invite stays live; the person still
+  // signs in to the workspaces they already belong to
+  if (
+    !member.some((m) => m.workspaceId === invite.workspaceId) &&
+    (await hasFreeSeat(invite.workspaceId))
+  ) {
     await acceptInvite(userId, invite);
   }
 }
@@ -130,6 +136,9 @@ export async function resolveIdentity(
       if (!email || email !== norm(invite.email)) {
         return { kind: "error", code: "INVITE_EMAIL_MISMATCH" };
       }
+    }
+    if (!(await hasFreeSeat(invite.workspaceId))) {
+      return { kind: "error", code: "PLAN_LIMIT" };
     }
     const [u] = await db.insert(users).values({
       email: email ?? `${ctx.providerKey}-${result.subject}@sso.local`,
@@ -189,6 +198,9 @@ async function createJitUser(
   email: string,
   workspaceId: string,
 ): Promise<Resolved> {
+  if (!(await hasFreeSeat(workspaceId))) {
+    return { kind: "error", code: "PLAN_LIMIT" };
+  }
   const [u] = await db.insert(users).values({
     email,
     name: result.name ?? email,
