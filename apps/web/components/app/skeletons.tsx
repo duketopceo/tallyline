@@ -15,7 +15,7 @@ export function HeaderSkeleton({ title }: { title: string }) {
 
 export function ListSkeleton({ title, rows = 14 }: { title: string; rows?: number }) {
   return (
-    <main className="flex min-h-0 flex-1 flex-col" aria-busy="true" aria-label={`Loading ${title}`}>
+    <div className="flex min-h-0 flex-1 flex-col" role="status" aria-busy="true" aria-label={`Loading ${title}`}>
       <HeaderSkeleton title={title} />
       <div className="min-h-0 flex-1 overflow-hidden">
         {Array.from({ length: rows }, (_, i) => (
@@ -28,13 +28,13 @@ export function ListSkeleton({ title, rows = 14 }: { title: string; rows?: numbe
           </div>
         ))}
       </div>
-    </main>
+    </div>
   );
 }
 
 export function BoardSkeleton() {
   return (
-    <main className="flex min-h-0 flex-1 flex-col" aria-busy="true" aria-label="Loading Board">
+    <div className="flex min-h-0 flex-1 flex-col" role="status" aria-busy="true" aria-label="Loading Board">
       <HeaderSkeleton title="Board" />
       <div className="flex min-h-0 flex-1 gap-3 overflow-hidden p-4">
         {[5, 6, 4, 5].map((n, c) => (
@@ -46,13 +46,13 @@ export function BoardSkeleton() {
           </div>
         ))}
       </div>
-    </main>
+    </div>
   );
 }
 
 export function DetailSkeleton() {
   return (
-    <main className="flex min-h-0 flex-1 flex-col" aria-busy="true" aria-label="Loading issue">
+    <div className="flex min-h-0 flex-1 flex-col" role="status" aria-busy="true" aria-label="Loading issue">
       <header className="flex h-12 items-center gap-3 border-b border-lining-faint px-4"><Skeleton className="h-3 w-16" /></header>
       <div className="mx-auto w-full max-w-5xl space-y-4 px-6 py-8">
         <Skeleton className="h-7 w-2/3" />
@@ -60,18 +60,18 @@ export function DetailSkeleton() {
         <Skeleton className="h-40 w-full" />
         <Skeleton className="h-24 w-full" />
       </div>
-    </main>
+    </div>
   );
 }
 
 export function PanelSkeleton({ title }: { title: string }) {
   return (
-    <main className="flex min-h-0 flex-1 flex-col" aria-busy="true" aria-label={`Loading ${title}`}>
+    <div className="flex min-h-0 flex-1 flex-col" role="status" aria-busy="true" aria-label={`Loading ${title}`}>
       <HeaderSkeleton title={title} />
       <div className="space-y-3 p-4">
         <Skeleton className="h-40 w-full" />
         <Skeleton className="h-40 w-full" />
       </div>
-    </main>
+    </div>
   );
 }

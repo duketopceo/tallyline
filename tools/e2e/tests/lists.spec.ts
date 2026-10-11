@@ -11,10 +11,12 @@ async function make(page: Page, title: string): Promise<string> {
   expect(r.ok()).toBeTruthy();
   return ((await r.json()) as { key: string }).key;
 }
-const rowOf = (page: Page, key: string) => page.locator(`[data-issue-row][data-key="${key}"]`);
+const rowOf = (page: Page, key: string) => page.locator(`[data-issue-row][data-key="${key}"]:visible`);
 async function ready(page: Page, path = "/issues") {
   await page.goto(path);
   await page.waitForSelector("[data-qc-ready]", { timeout: 20_000 });
+  // the layout hydrates before the streamed page content swaps in: wait for rows
+  await page.locator("[data-issue-row]:visible").first().waitFor({ timeout: 20_000 });
 }
 async function focusRow(page: Page, key: string) {
   const row = rowOf(page, key);
@@ -142,8 +144,8 @@ test("@live agent activity shows an N-new pill and never moves the row under the
   const ws = `${API}/v1/workspaces/${me.workspaceSlug}`;
   const agent = (await (await page.request.post(`${ws}/agents`, { data: { name: `e2e-live-${RUN}`, harness: "claude-code" } })).json()) as { id: string };
   const k = (await (await page.request.post(`${ws}/agents/${agent.id}/keys`, { data: { name: "e2e", scopes: ["read", "write"] } })).json()) as { key: string };
-  const firstKey = await page.locator("[data-issue-row]").first().getAttribute("data-key");
-  const before = await page.locator("[data-issue-row]").first().boundingBox();
+  const firstKey = await page.locator("[data-issue-row]:visible").first().getAttribute("data-key");
+  const before = await page.locator("[data-issue-row]:visible").first().boundingBox();
   await page.waitForTimeout(1500); // stream attached at the newest event
   for (let i = 0; i < 5; i++) {
     const r = await fetch(`${ws}/issues`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${k.key}` }, body: JSON.stringify({ title: `agent burst ${RUN} ${i}`, state: "triage" }) });
@@ -151,8 +153,8 @@ test("@live agent activity shows an N-new pill and never moves the row under the
   }
   const pill = page.locator("[data-new-pill]");
   await expect(pill).toContainText(/\d+ new/, { timeout: 8_000 });
-  expect(await page.locator("[data-issue-row]").first().getAttribute("data-key")).toBe(firstKey);
-  expect(await page.locator("[data-issue-row]").first().boundingBox()).toEqual(before);
+  expect(await page.locator("[data-issue-row]:visible").first().getAttribute("data-key")).toBe(firstKey);
+  expect(await page.locator("[data-issue-row]:visible").first().boundingBox()).toEqual(before);
   await pill.click();
   await expect(pill).not.toBeVisible();
 });
@@ -171,7 +173,7 @@ test("@hydration core routes log no hydration warnings", async ({ page }) => {
 
 test("rows are 36px by default and 32px in compact density", async ({ page }) => {
   await ready(page);
-  const h = async () => (await page.locator("[data-issue-row]").first().boundingBox())!.height;
+  const h = async () => (await page.locator("[data-issue-row]:visible").first().boundingBox())!.height;
   expect(await h()).toBe(36);
   await page.getByRole("button", { name: "Display" }).click();
   await page.getByRole("dialog", { name: "Display options" }).getByRole("option", { name: "Density: compact" }).click();

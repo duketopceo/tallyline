@@ -35,7 +35,10 @@ const KEY = /[A-Z][A-Z0-9]*-\d+/;
 async function issueKey(page: Page): Promise<string> {
   await page.goto("/issues");
   await page.waitForSelector("[data-qc-ready]", { timeout: 15_000 });
-  let match = (await page.locator("main").innerText()).match(KEY);
+  // the layout hydrates before the streamed page swaps in: wait for visible content
+  await page.locator("main:visible").first().waitFor({ timeout: 40_000 });
+  await page.locator("[data-issue-row]:visible, :text('No issues')").first().waitFor({ timeout: 40_000 }).catch(() => undefined);
+  let match = (await page.locator("main:visible").first().innerText()).match(KEY);
   if (!match) {
     await page.keyboard.press("c");
     const dialog = page.getByRole("dialog", { name: "Quick create issue" });
@@ -43,8 +46,8 @@ async function issueKey(page: Page): Promise<string> {
     await dialog.getByRole("button", { name: "Create issue" }).click();
     await expect(dialog).not.toBeVisible();
     await page.goto("/issues");
-    await expect(page.locator("main")).toContainText(KEY);
-    match = (await page.locator("main").innerText()).match(KEY);
+    await expect(page.locator("main:visible").first()).toContainText(KEY);
+    match = (await page.locator("main:visible").first().innerText()).match(KEY);
   }
   return match![0];
 }
