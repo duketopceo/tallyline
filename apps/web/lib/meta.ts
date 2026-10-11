@@ -27,9 +27,9 @@ export interface Meta {
 }
 
 // Every page render needs the workspace reference data (9 API calls). A short
-// per-session cache keeps page loads from spending the user's API rate budget
+// per-session cache (3s) keeps page loads from spending the user's API rate budget
 // on data that rarely changes; our own mutations invalidate it.
-const TTL_MS = 10_000;
+const TTL_MS = 3_000;
 // route handlers and pages can be separate module instances (dev bundling), so
 // the cache lives on globalThis to be shared with the invalidating handlers
 const g = globalThis as { __tlMetaCache?: Map<string, { at: number; meta: Meta }> };
