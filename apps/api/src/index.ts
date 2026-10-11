@@ -153,12 +153,20 @@ if (process.env.NODE_ENV !== "test") {
     console.error("dispatch sweep failed", err),
   );
   // workspace purge job: hard-deletes workspaces whose restore window closed
-  const purge = () =>
+  // one sweep at a time: a slow purge never overlaps the next tick
+  let purging = false;
+  const purge = () => {
+    if (purging) return;
+    purging = true;
     void sweepDeletedWorkspaces()
       .then((ids) => {
         if (ids.length > 0) console.log(`purged ${ids.length} deleted workspace(s)`);
       })
-      .catch((err) => console.error("workspace purge failed", err));
+      .catch((err) => console.error("workspace purge failed", err))
+      .finally(() => {
+        purging = false;
+      });
+  };
   setInterval(purge, 60 * 60_000).unref();
   purge();
   // fail at boot, not at the first reset request, on a bad mail config

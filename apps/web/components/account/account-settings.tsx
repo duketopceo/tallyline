@@ -24,7 +24,7 @@ export function AccountSettings({
   isInstanceAdmin: boolean;
   ownedWorkspaces: string[];
 }) {
-  const [resend, setResend] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [resend, setResend] = useState<"idle" | "sending" | "sent" | "recent" | "error">("idle");
   const [resendError, setResendError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -33,8 +33,10 @@ export function AccountSettings({
   async function sendLink() {
     setResend("sending");
     const res = await fetch("/api/account/verify-email", { method: "POST" });
-    if (res.ok) setResend("sent");
-    else {
+    if (res.ok) {
+      const d = (await res.json().catch(() => null)) as { status?: string } | null;
+      setResend(d?.status === "recently_sent" ? "recent" : "sent");
+    } else {
       setResendError(await errorMessage(res, "Could not send the link. Try again in a minute."));
       setResend("error");
     }
@@ -89,6 +91,10 @@ export function AccountSettings({
             </p>
             {resend === "sent" ? (
               <Notice tone="healthy" title={`New link sent to ${email}`} />
+            ) : resend === "recent" ? (
+              <Notice tone="attention" title={`A link went to ${email} less than a minute ago`}>
+                Check your inbox and spam folder. You can ask for another one in a minute.
+              </Notice>
             ) : (
               <button type="button" onClick={sendLink} disabled={resend === "sending"} className={ghostBtn}>
                 {resend === "sending" ? "Sending…" : "Send a new link"}

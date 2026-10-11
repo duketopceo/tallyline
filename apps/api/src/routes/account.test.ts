@@ -312,8 +312,14 @@ describe("email verification", () => {
     // they can still use the product
     expect((await req(`/v1/workspaces/${A.ws.slug}/issues`, { cookie })).status).toBe(200);
 
-    // the claim mailed a link; resending burns it and mails a fresh one
+    // the claim mailed a link; resending inside a minute is held back, after
+    // that it burns the old link and mails a fresh one
     const first = linkToken((await mailsTo(email))[0]!.text, "/verify-email");
+    const early = await req("/v1/me/verify-email/resend", { method: "POST", cookie });
+    expect(early.body.status).toBe("recently_sent");
+    expect(await mailsTo(email)).toHaveLength(1);
+    const t0 = Date.now();
+    setClock(() => t0 + 61_000);
     const resend = await req("/v1/me/verify-email/resend", { method: "POST", cookie });
     expect(resend.status).toBe(202);
     const mails = await mailsTo(email);

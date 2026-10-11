@@ -144,7 +144,32 @@ function redact(row: Record<string, unknown>, cols: string[] | undefined) {
   return row;
 }
 
+type Query = <R extends Record<string, unknown>>(
+  text: string,
+  params: unknown[],
+) => Promise<{ rows: R[] }>;
+
+/**
+ * Runs an export inside one REPEATABLE READ, READ ONLY transaction, so the
+ * paged reads see a single consistent snapshot even while the workspace is
+ * being written to.
+ */
+async function withSnapshot(fn: (q: Query) => Promise<void>): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    await fn((text, params) => client.query(text, params));
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 async function streamRows(
+  q: Query,
   write: Write,
   sqlText: string,
   params: unknown[],
@@ -153,7 +178,7 @@ async function streamRows(
   let offset = 0;
   let n = 0;
   for (;;) {
-    const { rows } = await pool.query<Record<string, unknown>>(
+    const { rows } = await q<Record<string, unknown>>(
       `${sqlText} limit ${PAGE} offset ${offset}`,
       params,
     );
@@ -204,38 +229,42 @@ export async function streamWorkspaceExport(wsId: string, write: Write): Promise
     members,
   };
   const headJson = JSON.stringify(head);
-  await write(`${headJson.slice(0, -1)},"tables":{`);
-  const counts: Record<string, number> = {};
-  let first = true;
-  const tables = Object.entries(TENANT_TABLES).filter(([, p]) => p.export);
-  for (const [table, policy] of tables) {
-    await write(`${first ? "" : ","}\n${JSON.stringify(table)}:[`);
-    first = false;
-    counts[table] = await streamRows(
-      write,
-      `select * from "${table}" where workspace_id = $1 order by id`,
-      [wsId],
-      policy.redact,
+  await withSnapshot(async (q) => {
+    await write(`${headJson.slice(0, -1)},"tables":{`);
+    const counts: Record<string, number> = {};
+    let first = true;
+    const tables = Object.entries(TENANT_TABLES).filter(([, p]) => p.export);
+    for (const [table, policy] of tables) {
+      await write(`${first ? "" : ","}\n${JSON.stringify(table)}:[`);
+      first = false;
+      counts[table] = await streamRows(
+        q,
+        write,
+        `select * from "${table}" where workspace_id = $1 order by id`,
+        [wsId],
+        policy.redact,
+      );
+      await write("]");
+    }
+    for (const [table, { parent, fk }] of Object.entries(TENANT_JOIN_TABLES)) {
+      await write(`,\n${JSON.stringify(table)}:[`);
+      counts[table] = await streamRows(
+        q,
+        write,
+        `select x.* from "${table}" x join "${parent}" p on p.id = x.${fk} where p.workspace_id = $1 order by x.${fk}, x::text`,
+        [wsId],
+      );
+      await write("]");
+    }
+    const excluded = Object.fromEntries(
+      Object.entries(TENANT_TABLES)
+        .filter(([, p]) => !p.export)
+        .map(([t, p]) => [t, p.reason ?? ""]),
     );
-    await write("]");
-  }
-  for (const [table, { parent, fk }] of Object.entries(TENANT_JOIN_TABLES)) {
-    await write(`,\n${JSON.stringify(table)}:[`);
-    counts[table] = await streamRows(
-      write,
-      `select x.* from "${table}" x join "${parent}" p on p.id = x.${fk} where p.workspace_id = $1 order by x.${fk}`,
-      [wsId],
+    await write(
+      `},\n"excludedTables":${JSON.stringify(excluded)},\n"attachments":${JSON.stringify({ count: 0, items: [] })},\n"counts":${JSON.stringify(counts)}}\n`,
     );
-    await write("]");
-  }
-  const excluded = Object.fromEntries(
-    Object.entries(TENANT_TABLES)
-      .filter(([, p]) => !p.export)
-      .map(([t, p]) => [t, p.reason ?? ""]),
-  );
-  await write(
-    `},\n"excludedTables":${JSON.stringify(excluded)},\n"attachments":${JSON.stringify({ count: 0, items: [] })},\n"counts":${JSON.stringify(counts)}}\n`,
-  );
+  });
 }
 
 /** everything Tallyline holds about one person, as one JSON document */
@@ -307,11 +336,13 @@ export async function streamPersonalExport(userId: string, write: Write): Promis
     ],
   ];
   const headJson = JSON.stringify(head);
-  await write(headJson.slice(0, -1));
-  for (const [name, sqlText, red] of sections) {
-    await write(`,\n${JSON.stringify(name)}:[`);
-    await streamRows(write, sqlText, [userId], red);
-    await write("]");
-  }
-  await write("}\n");
+  await withSnapshot(async (q) => {
+    await write(headJson.slice(0, -1));
+    for (const [name, sqlText, red] of sections) {
+      await write(`,\n${JSON.stringify(name)}:[`);
+      await streamRows(q, write, sqlText, [userId], red);
+      await write("]");
+    }
+    await write("}\n");
+  });
 }

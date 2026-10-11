@@ -120,7 +120,8 @@ test("email verification: banner and locked credentials until confirmed @keyboar
   expect(((await pat.json()) as { error: { code: string } }).error.code).toBe("EMAIL_UNVERIFIED");
 
   await p.getByRole("button", { name: "Send a new link" }).click();
-  await expect(p.getByText(`New link sent to ${person.email}`)).toBeVisible();
+  // the claim mailed a link moments ago, so a resend is held back for a minute
+  await expect(p.getByText(/New link sent to|less than a minute ago/).first()).toBeVisible();
   const link = await mailLink(page, person.email, "email_verify", "/verify-email");
   await p.goto(link);
   await p.getByRole("button", { name: "Confirm my email" }).focus();

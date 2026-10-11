@@ -26,6 +26,8 @@ export const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
 // one reset mail per account per minute: stops a script from mail-bombing an
 // address through the (always-202) request endpoint
 const RESET_COOLDOWN_MS = 60 * 1000;
+// same for "send a new confirmation link"
+const RESEND_COOLDOWN_MS = 60 * 1000;
 
 type Purpose = "password_reset" | "email_verify";
 
@@ -236,11 +238,21 @@ export async function isEmailVerified(userId: string): Promise<boolean> {
   return Boolean(u?.at);
 }
 
-export async function sendVerificationEmail(userId: string): Promise<"sent" | "already_verified"> {
+/**
+ * Mails a fresh verification link. `resend` applies the one-per-minute
+ * cooldown (the signup path itself always sends).
+ */
+export async function sendVerificationEmail(
+  userId: string,
+  opts: { resend?: boolean } = {},
+): Promise<"sent" | "already_verified" | "recently_sent"> {
   const [u] = await db.select().from(users).where(eq(users.id, userId));
   if (!u) throw new Error("user not found");
   if (u.emailVerifiedAt) return "already_verified";
-  const token = (await issueAccountToken(u.id, u.email, "email_verify", VERIFY_TTL_MS))!;
+  const token = await issueAccountToken(u.id, u.email, "email_verify", VERIFY_TTL_MS, {
+    ...(opts.resend ? { cooldownMs: RESEND_COOLDOWN_MS } : {}),
+  });
+  if (!token) return "recently_sent";
   await audit("email_verification_sent", { userId: u.id });
   await mailer().send({
     kind: "email_verify",

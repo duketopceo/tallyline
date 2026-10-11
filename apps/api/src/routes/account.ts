@@ -112,7 +112,7 @@ export const accountRoutes = new Hono()
   .post("/me/verify-email/resend", async (c) => {
     const denied = humanOnly(c, "resending the confirmation email");
     if (denied) return denied;
-    const out = await sendVerificationEmail(c.get("session")!.userId);
+    const out = await sendVerificationEmail(c.get("session")!.userId, { resend: true });
     return c.json({ ok: true, status: out }, out === "sent" ? 202 : 200);
   })
   .get("/me/export", async (c) => {
