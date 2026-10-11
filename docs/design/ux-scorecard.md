@@ -1,0 +1,33 @@
+# Tallyline UX scorecard (baseline, 2026-10-11)
+
+Scored 1-10 from screenshots of main@1d0c1e7 on a seeded workspace (3 teams, 120 issues, 3 agents, 38 sessions), 1440 and 390, dark and light. Screens: docs/screenshots/ux-core/before-*.png.
+
+| Screen | Hierarchy | Density | Type | Color | Keyboard | Feedback | States | Mobile | Agent | Avg |
+|---|---|---|---|---|---|---|---|---|---|---|
+| App shell + sidebar | 5 | 6 | 5 | 7 | 6 | 4 | 5 | 2 | 5 | **5.0** |
+| My Issues | 5 | 6 | 5 | 6 | 6 | 4 | 6 | 2 | 5 | **5.0** |
+| All Issues | 5 | 7 | 5 | 6 | 6 | 3 | 5 | 2 | 5 | **4.9** |
+| Board | 5 | 6 | 5 | 6 | 6 | 4 | 4 | 2 | 5 | **4.8** |
+| Issue detail | 4 | 4 | 5 | 5 | 4 | 3 | 4 | 3 | 5 | **4.1** |
+| Triage | 5 | 6 | 5 | 6 | 7 | 3 | 6 | 2 | 4 | **4.9** |
+| Review queue | 5 | 6 | 5 | 6 | 7 | 3 | 5 | 3 | 5 | **5.0** |
+| Cycle | 4 | 5 | 5 | 5 | 4 | 3 | 4 | 2 | 4 | **4.0** |
+| Roadmap | 6 | 6 | 5 | 6 | 6 | 4 | 4 | 3 | 3 | **4.8** |
+| Insights | 3 | 5 | 4 | 3 | 2 | 2 | 3 | 3 | 3 | **3.1** |
+| Palette + keymap | 6 | 6 | 6 | 6 | 7 | 5 | 5 | 5 | 3 | **5.4** |
+| Landing (/) | 6 | 7 | 6 | 6 | 5 | 5 | 5 | 5 | 4 | **5.4** |
+| Login | 6 | 6 | 6 | 7 | 6 | 5 | 5 | 6 | 5 | **5.8** |
+
+## Findings that drive the score
+
+- Mobile (390px): the 208px sidebar is permanent, so every screen shows about 180px of content. Issue titles truncate to one letter. Mobile scores 2-3 everywhere.
+- No feedback loop: every mutation is a blocking fetch followed by router.refresh(). No optimistic update, no undo, no toast, failures are silent on lists.
+- Issue lists are read-only: no inline edit of state, priority or assignee; no assignee shown at all; no filters, no saved views (the views API exists and is unused); selection only supports x, no bulk actions beyond triage a/d.
+- Issue detail edits only state (buttons), cycle and project (native selects). Priority is text, no assignee/labels/estimate/due editing; the agent-created pill says "via web" while the session timeline shows nothing about what changed.
+- Provenance is a lone glint. It does not say which agent, which session, or what it changed.
+- Board is 8 columns wide with no scroll cue and empty columns taking space. Peek does not exist anywhere.
+- Insights: raw floats on the axis (1.4e-7d), indigo/violet series outside the status palette, one data point rendered as a full-width bar.
+- Cycle page is three stacked UIs (list, management table, create form) with native date inputs.
+- Landing page ships stale docketry screenshots and a black empty panel in the agents section.
+- Dev-only Next badge overlaps Sign out (dev only, not scored).
+
