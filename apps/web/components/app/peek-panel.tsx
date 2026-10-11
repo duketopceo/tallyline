@@ -139,7 +139,7 @@ function PeekBody({ issueKey }: { issueKey: string }) {
       <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {error && <p role="alert" className="rounded-md border border-lining-bright bg-surface-2 p-3 text-[13px] text-urgent">Could not load {issueKey}. Check your connection, then press Space to retry.</p>}
         {loading && !error && (
-          <div aria-busy="true" aria-label="Loading issue" className="space-y-3">
+          <div role="status" aria-busy="true" aria-label="Loading issue" className="space-y-3">
             <Skeleton className="h-6 w-3/4" /><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-full" /><Skeleton className="h-24 w-full" />
           </div>
         )}
