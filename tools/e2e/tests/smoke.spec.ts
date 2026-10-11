@@ -22,7 +22,8 @@ test("create issue via quick-create → appears in list → opens detail", async
   await expect(row).toBeVisible();
   await row.click();
   await expect(page).toHaveURL(/\/issues\/[A-Z0-9]+-\d+/);
+  // first visit compiles /issues/[key] under `next dev`: allow for it
   await expect(
     page.getByRole("heading", { name: TITLE }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 30_000 });
 });
