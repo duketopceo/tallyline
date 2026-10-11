@@ -1,4 +1,5 @@
-import { api } from "@/lib/api";
+import { cookies } from "next/headers";
+import { api, SESSION_COOKIE } from "@/lib/api";
 
 // Workspace reference data the shell hands to every client surface (pickers,
 // filters, sidebar counts). Loaded once in the (app) layout, in parallel.
@@ -25,7 +26,34 @@ export interface Meta {
   counts: { triage: number; review: number };
 }
 
+// Every page render needs the workspace reference data (9 API calls). A short
+// per-session cache keeps page loads from spending the user's API rate budget
+// on data that rarely changes; our own mutations invalidate it.
+const TTL_MS = 10_000;
+const cache = new Map<string, { at: number; meta: Meta }>();
+
+export function invalidateMeta(session: string | undefined) {
+  if (!session) return;
+  for (const k of [...cache.keys()]) if (k.startsWith(`${session}|`)) cache.delete(k);
+}
+
 export async function loadMeta(
+  workspace: string,
+  me: { userId: string; name: string; role: string | undefined },
+): Promise<Meta> {
+  const session = (await cookies()).get(SESSION_COOKIE)?.value;
+  const key = `${session ?? ""}|${workspace}`;
+  const hit = session ? cache.get(key) : undefined;
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.meta;
+  const meta = await fetchMeta(workspace, me);
+  if (session) {
+    if (cache.size > 200) cache.delete(cache.keys().next().value!);
+    cache.set(key, { at: Date.now(), meta });
+  }
+  return meta;
+}
+
+async function fetchMeta(
   workspace: string,
   me: { userId: string; name: string; role: string | undefined },
 ): Promise<Meta> {

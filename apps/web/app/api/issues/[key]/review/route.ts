@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
 import { WORKSPACE_COOKIE } from "@/lib/session";
+import { invalidateMeta } from "@/lib/meta";
 import { upstreamFetch } from "@/lib/upstream";
 
 export async function POST(
@@ -30,5 +31,7 @@ export async function POST(
     },
   );
   const data = (await upstream.json().catch(() => null)) as unknown;
+  // sidebar counts (triage, review) are cached briefly; a write makes them stale
+  invalidateMeta(session);
   return NextResponse.json(data, { status: upstream.status });
 }
