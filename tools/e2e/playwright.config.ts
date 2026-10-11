@@ -12,6 +12,8 @@ const API_PORT = process.env.E2E_API_PORT ?? "4100";
 export default defineConfig({
   testDir: "./tests",
   timeout: 45_000,
+  // first visit to a route compiles it under `next dev`; give assertions room
+  expect: { timeout: 10_000 },
   retries: 0,
   workers: 1,
   reporter: [["list"]],

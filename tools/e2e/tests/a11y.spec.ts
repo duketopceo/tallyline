@@ -78,6 +78,7 @@ for (const vp of VIEWPORTS) {
       test.use({ viewport: { width: vp.width, height: vp.height } });
       let key = "";
       test.beforeAll(async ({ browser }) => {
+        test.setTimeout(90_000);
         const ctx = await browser.newContext({ storageState: "tests/.auth/session.json" });
         const page = await ctx.newPage();
         key = await issueKey(page);
