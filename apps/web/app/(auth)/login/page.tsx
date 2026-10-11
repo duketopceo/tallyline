@@ -119,6 +119,9 @@ function LoginInner() {
               <label className="mt-4 block text-[13px] text-ink-muted" htmlFor="password">Password
                 <input id="password" name="password" type="password" required autoComplete="current-password" className={input} />
               </label>
+              <Link href="/forgot-password" className="mt-2 inline-block text-[13px] text-accent hover:underline">
+                Forgot your password?
+              </Link>
               <button type="submit" disabled={pending} className="mt-6 h-10 w-full rounded-sm bg-accent px-3 text-[14px] font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60">
                 {pending ? "Signing in" : "Sign in"}
               </button>

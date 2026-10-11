@@ -40,7 +40,15 @@ export interface Me {
   workspaceSlug: string;
   name: string;
   email: string;
-  memberships: { workspaceId: string; workspaceSlug: string; role: string }[];
+  emailVerified?: boolean;
+  memberships: {
+    workspaceId: string;
+    workspaceSlug: string;
+    workspaceName?: string;
+    role: string;
+    deletedAt?: string | null;
+    purgeAfter?: string | null;
+  }[];
   activeWorkspaceSlug: string;
   isInstanceAdmin: boolean;
 }
