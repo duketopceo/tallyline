@@ -32,20 +32,26 @@ export function ListSkeleton({ title, rows = 14 }: { title: string; rows?: numbe
   );
 }
 
+export function BoardColumnsSkeleton() {
+  return (
+    <div className="flex min-h-0 flex-1 gap-3 overflow-hidden p-4" role="status" aria-busy="true" aria-label="Loading board">
+      {[5, 6, 4, 5].map((n, c) => (
+        <div key={c} className="w-[272px] shrink-0 rounded-lg border border-lining-faint">
+          <div className="flex h-9 items-center border-b border-lining-faint px-3"><Skeleton className="h-3 w-24" /></div>
+          <div className="space-y-2 p-2">
+            {Array.from({ length: n }, (_, i) => <Skeleton key={i} className="h-[76px] w-full" />)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function BoardSkeleton() {
   return (
     <main className="flex min-h-0 flex-1 flex-col" aria-busy="true" aria-label="Loading Board">
       <HeaderSkeleton title="Board" />
-      <div className="flex min-h-0 flex-1 gap-3 overflow-hidden p-4">
-        {[5, 6, 4, 5].map((n, c) => (
-          <div key={c} className="w-[300px] shrink-0 rounded-md border border-lining bg-surface-1">
-            <div className="h-10 border-b border-lining-faint px-3 py-3"><Skeleton className="h-3 w-24" /></div>
-            <div className="space-y-2 p-2">
-              {Array.from({ length: n }, (_, i) => <Skeleton key={i} className="h-[72px] w-full" />)}
-            </div>
-          </div>
-        ))}
-      </div>
+      <BoardColumnsSkeleton />
     </main>
   );
 }

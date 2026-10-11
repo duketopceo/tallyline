@@ -16,13 +16,13 @@ const DIMS = [
   ["state", "State"], ["priority", "Priority"], ["assignee", "Assignee"], ["label", "Label"],
   ["project", "Project"], ["cycle", "Cycle"], ["team", "Team"], ["source", "Source"],
 ] as const;
-type Dim = (typeof DIMS)[number][0];
+export type Dim = (typeof DIMS)[number][0];
 
 const GROUPS = ["none", "state", "assignee", "priority", "project", "cycle"];
 const SORTS = [["created", "Newest"], ["updated", "Recently updated"], ["priority", "Priority"]];
 const DENSITIES = ["compact", "default", "comfortable"];
 
-export function FilterBar({ title, count, hint }: { title: string; count: number; hint?: string }) {
+export function FilterBar({ title, count, hint, dims, display: showDisplay = true }: { title: string; count: number; hint?: string; dims?: Dim[]; display?: boolean }) {
   const meta = useMeta();
   const picker = usePicker();
   const toast = useToast();
@@ -84,7 +84,7 @@ export function FilterBar({ title, count, hint }: { title: string; count: number
   };
 
   const addFilter = (anchor: HTMLElement) =>
-    picker.open({ anchor, title: "Add filter", options: DIMS.map(([id, label]) => ({ id, label })), onSelect: (id) => setTimeout(() => openValues(anchor, id as Dim), 0) });
+    picker.open({ anchor, title: "Add filter", options: DIMS.filter(([d]) => !dims || dims.includes(d)).map(([id, label]) => ({ id, label })), onSelect: (id) => setTimeout(() => openValues(anchor, id as Dim), 0) });
 
   const display = (anchor: HTMLElement) =>
     picker.open({
@@ -138,7 +138,7 @@ export function FilterBar({ title, count, hint }: { title: string; count: number
     if (dim === "assignee") return ({ me: "Me", none: "Unassigned", agent: "Any agent", human: "Any human" } as Record<string, string>)[id] ?? valueOptions("assignee").find((o) => o.id === id)?.label ?? id;
     return valueOptions(dim).find((o) => o.id === id)?.label ?? id;
   };
-  const pills = DIMS.flatMap(([dim, label]) => {
+  const pills = DIMS.filter(([d]) => !dims || dims.includes(d)).flatMap(([dim, label]) => {
     const v = filters[dim];
     const ids = Array.isArray(v) ? v : v ? [v] : [];
     return ids.length ? [{ dim, label, text: ids.map((i) => nameOf(dim, i)).join(", ") }] : [];
@@ -185,7 +185,7 @@ export function FilterBar({ title, count, hint }: { title: string; count: number
             <span className="pointer-events-none absolute right-2 top-1.5 max-sm:hidden"><Kbd>/</Kbd></span>
           </label>
           <button ref={filterBtn} type="button" onClick={(e) => addFilter(e.currentTarget)} className="h-8 rounded-sm border border-control px-2.5 text-[13px] text-ink-muted hover:bg-surface-2 hover:text-ink">Filter <Kbd>f</Kbd></button>
-          <button ref={displayBtn} type="button" onClick={(e) => display(e.currentTarget)} className="h-8 rounded-sm border border-control px-2.5 text-[13px] text-ink-muted hover:bg-surface-2 hover:text-ink">Display</button>
+          {showDisplay && <button ref={displayBtn} type="button" onClick={(e) => display(e.currentTarget)} className="h-8 rounded-sm border border-control px-2.5 text-[13px] text-ink-muted hover:bg-surface-2 hover:text-ink">Display</button>}
         </div>
       </div>
       {(pills.length > 0 || dirty) && (

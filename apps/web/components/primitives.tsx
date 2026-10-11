@@ -149,7 +149,7 @@ export function LoadingState({ label }: { label: string }) {
       {[72, 56, 64, 40].map((w, i) => (
         <div
           key={i}
-          className="h-9 animate-pulse rounded-xs border-b border-lining-faint"
+          className="h-9 rounded-xs border-b border-lining-faint"
         >
           <div
             className="mt-3 h-2 rounded-full bg-surface-3"

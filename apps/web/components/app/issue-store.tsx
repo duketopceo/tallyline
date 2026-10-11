@@ -17,6 +17,8 @@ export type IssuePatch = Partial<{
   cycleId: string | null;
   projectId: string | null;
   estimate: number | null;
+  dueDate: string | null;
+  description: string | null;
 }>;
 
 export interface Edit {
@@ -36,6 +38,10 @@ const useStore = () => {
   if (!v) throw new Error("IssueStoreProvider missing");
   return v;
 };
+
+export function useOverrides() {
+  return useStore().overrides;
+}
 
 export function useIssueEdit() {
   return useStore().apply;
