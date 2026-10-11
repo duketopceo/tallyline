@@ -366,7 +366,7 @@ describe("account deletion", () => {
     const sole = await req("/v1/me/deletion", { method: "POST", cookie, body: { confirm: A.people.owner.email } });
     expect(sole.status).toBe(409);
     expect(code(sole)).toBe("SOLE_OWNER");
-    expect((sole.body.error as { message: string }).message).toContain(A.ws.slug);
+    expect((sole.body.error as { message: string }).message).toContain(`Tenant ${A.sentinel}`);
     expect((sole.body.error as { message: string }).message).toMatch(/owner, or delete the workspace/);
   });
 
@@ -465,12 +465,16 @@ describe("workspace deletion", () => {
     expect(purged.some((a) => (a.meta as { workspaceId?: string }).workspaceId === t.ws.id)).toBe(true);
   });
 
-  it("a workspace pending deletion does not block its owner's account deletion", async () => {
+  it("a workspace pending deletion still blocks its sole owner's account deletion until restored", async () => {
     const t = await seedTenant("own", "OWN");
     const owner = await newSession(t, "owner");
     await req(`/v1/workspaces/${t.ws.slug}/deletion`, { method: "POST", cookie: owner, body: { confirm: t.ws.slug } });
-    const r = await req("/v1/me/deletion", { method: "POST", cookie: owner, body: { confirm: t.people.owner.email } });
-    expect(r.status).toBe(200);
+    const blocked = await req("/v1/me/deletion", { method: "POST", cookie: owner, body: { confirm: t.people.owner.email } });
+    expect(blocked.status).toBe(409);
+    expect(code(blocked)).toBe("SOLE_OWNER");
+    await req(`/v1/workspaces/${t.ws.slug}/restore`, { method: "POST", cookie: owner });
+    // restored and live again: still the sole owner, so still blocked
+    expect((await req("/v1/me/deletion", { method: "POST", cookie: owner, body: { confirm: t.people.owner.email } })).status).toBe(409);
   });
 });
 
