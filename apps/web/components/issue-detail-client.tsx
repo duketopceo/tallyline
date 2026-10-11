@@ -116,7 +116,7 @@ export function SummarizeButton({ issueKey }: { issueKey: string }) {
           }
           setSummary(body.summary);
         }}
-        className="h-6 rounded-sm border border-control px-2 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
+        className="h-6 rounded-sm border border-control px-2 font-mono text-[11px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
       >
         {busy ? "summarizing…" : "✦ summarize"}
       </button>
@@ -183,7 +183,7 @@ export function CommentComposer({ issueKey }: { issueKey: string }) {
         </p>
       )}
       <div className="mt-2 flex items-center justify-between">
-        <span className="font-mono text-[10px] text-ink-tertiary">
+        <span className="font-mono text-[11px] text-ink-tertiary">
           <kbd>⌘⏎</kbd> to comment
         </span>
         <button

@@ -97,7 +97,7 @@ export function ReviewQueue({ queue }: { queue: QueueRow[] }) {
           </Link>
           <Sparkle size={12} label="agent session" />
           <span className="truncate text-[13px] text-ink-muted">{r.title}</span>
-          <span className="ml-auto flex items-center gap-3 font-mono text-[10px] text-ink-tertiary">
+          <span className="ml-auto flex items-center gap-3 font-mono text-[11px] text-ink-tertiary">
             <span>@{r.agentName}</span>
             <span>{r.dispatchStatus}</span>
           </span>

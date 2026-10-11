@@ -121,12 +121,12 @@ export function CycleManager({
               <span className="truncate">
                 {c.name ?? ""}
               </span>
-              <span className="font-mono text-[10px] text-ink-tertiary">
+              <span className="font-mono text-[11px] text-ink-tertiary">
                 {fmt(c.startsAt)} → {fmt(c.endsAt)}
               </span>
             </Link>
             {c.isActive ? (
-              <span className="rounded-full bg-healthy/15 px-2 py-0.5 font-mono text-[10px] text-healthy">
+              <span className="rounded-full bg-healthy/15 px-2 py-0.5 font-mono text-[11px] text-healthy">
                 active
               </span>
             ) : (
@@ -143,7 +143,7 @@ export function CycleManager({
                     c.id,
                   )
                 }
-                className="rounded-sm border border-control px-2 py-0.5 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
+                className="rounded-sm border border-control px-2 py-0.5 font-mono text-[11px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
               >
                 {busy === c.id ? "…" : "activate"}
               </button>
@@ -164,7 +164,7 @@ export function CycleManager({
                   );
                 }
               }}
-              className="rounded-sm border border-control px-2 py-0.5 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
+              className="rounded-sm border border-control px-2 py-0.5 font-mono text-[11px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
             >
               complete
             </button>
@@ -180,7 +180,7 @@ export function CycleManager({
                   void call(`/api/cycles/${c.id}`, { method: "DELETE" }, c.id);
                 }
               }}
-              className="rounded-sm border border-control px-2 py-0.5 font-mono text-[10px] text-ink-subtle hover:border-urgent hover:text-urgent disabled:opacity-50"
+              className="rounded-sm border border-control px-2 py-0.5 font-mono text-[11px] text-ink-subtle hover:border-urgent hover:text-urgent disabled:opacity-50"
             >
               delete
             </button>
@@ -231,7 +231,7 @@ export function CycleManager({
           onChange={(e) => setEndsAt(e.target.value)}
           className="h-7 rounded-sm border border-control bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
         />
-        <label className="flex items-center gap-1 font-mono text-[10px] text-ink-tertiary">
+        <label className="flex items-center gap-1 font-mono text-[11px] text-ink-tertiary">
           <input
             type="checkbox"
             checked={activate}

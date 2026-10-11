@@ -25,3 +25,23 @@ export async function POST(req: Request) {
   const data = (await upstream.json().catch(() => null)) as unknown;
   return NextResponse.json(data, { status: upstream.status });
 }
+
+// list passthrough for "load more" pagination (query string forwarded as-is)
+export async function GET(req: Request) {
+  const jar = await cookies();
+  const session = jar.get(SESSION_COOKIE)?.value;
+  const workspace = jar.get(WORKSPACE_COOKIE)?.value;
+  if (!session || !workspace) {
+    return NextResponse.json(
+      { error: { code: "UNAUTHENTICATED", message: "no session" } },
+      { status: 401 },
+    );
+  }
+  const qs = new URL(req.url).search;
+  const upstream = await upstreamFetch(`${API_URL}/v1/workspaces/${workspace}/issues${qs}`, {
+    headers: { cookie: `${SESSION_COOKIE}=${session}` },
+    cache: "no-store",
+  });
+  const data = (await upstream.json().catch(() => null)) as unknown;
+  return NextResponse.json(data, { status: upstream.status });
+}

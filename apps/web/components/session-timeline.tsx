@@ -98,7 +98,7 @@ export function SessionTimeline({ issueKey }: { issueKey: string }) {
             key={s.id}
             className="rounded-md border border-lining bg-surface-1 p-3"
           >
-            <div className="flex items-center gap-2 font-mono text-[10px] text-ink-tertiary">
+            <div className="flex items-center gap-2 font-mono text-[11px] text-ink-tertiary">
               <Sparkle size={12} label="agent" />
               <span className="text-ink-muted">@{s.agentName}</span>
               <span className="capitalize">{STATUS_LABEL[s.status] ?? s.status}</span>
@@ -118,7 +118,7 @@ export function SessionTimeline({ issueKey }: { issueKey: string }) {
                       {ts(e.createdAt)}
                     </span>
                     <span
-                      className={`w-20 shrink-0 uppercase text-[10px] ${KIND_TONE[e.kind] ?? "text-ink-subtle"}`}
+                      className={`w-20 shrink-0 uppercase text-[11px] ${KIND_TONE[e.kind] ?? "text-ink-subtle"}`}
                     >
                       {e.kind}
                     </span>

@@ -1,47 +1,28 @@
-import {
-  IssueListClient,
-  type ListIssue,
-} from "@/components/issue-list-client";
-import { api } from "@/lib/api";
-import { TallyMark } from "@/components/tally-mark";
-
-interface Me {
-  workspaceSlug: string;
-}
-
-interface IssueList {
-  issues?: ListIssue[];
-}
+import { PageHeader } from "@/components/app/page-header";
+import { IssueListClient, type ListIssue } from "@/components/issue-list-client";
+import { EmptyState, ErrorState } from "@/components/primitives";
+import { api, type Me } from "@/lib/api";
 
 export default async function TriagePage() {
   const me = await api<Me>("/v1/auth/me");
-  if (!me.data) {
-    return <main className="p-8 text-sm text-ink-subtle">Not signed in.</main>;
+  if (!me.data) return <main className="p-8 text-sm text-ink-subtle">Not signed in.</main>;
+  const res = await api<{ issues?: ListIssue[] }>(`/v1/workspaces/${me.data.workspaceSlug}/issues?state=triage&limit=200`);
+  if (!res.ok) {
+    return (
+      <main className="flex min-h-0 flex-1 flex-col">
+        <PageHeader title="Triage" />
+        <div className="p-4"><ErrorState title="Triage did not load" detail="The API did not answer. Nothing was changed." actionLabel="Retry" actionHref="/triage" /></div>
+      </main>
+    );
   }
-  const res = await api<IssueList>(
-    `/v1/workspaces/${me.data.workspaceSlug}/issues?state=triage&limit=200`,
-  );
   const rows = res.data?.issues ?? [];
-
   return (
     <main className="flex min-h-0 flex-1 flex-col">
-      <header className="flex h-12 items-center border-b border-lining-faint px-4">
-        <h1 className="text-sm font-semibold">Triage</h1>
-        <span className="ml-2 font-mono text-[11px] text-ink-tertiary">
-          {rows.length} incoming
-        </span>
-      </header>
+      <PageHeader title="Triage" count={rows.length} hint="incoming" />
       {rows.length === 0 ? (
-        <div className="flex flex-col items-center px-8 py-12 text-center">
-          <TallyMark size={40} quiet />
-          <p className="mt-4 text-sm font-medium text-ink">Triage is empty</p>
-          <p className="mt-1 max-w-sm text-[13px] text-ink-subtle">
-            Intake from GitHub, Slack, and agents lands here for accept/decline.
-            Connect a source under settings when integrations ship.
-          </p>
-        </div>
+        <EmptyState title="Triage is clear" detail="New issues from GitHub, Slack, the API and agents land here. Accept them into the backlog or decline them." />
       ) : (
-        <IssueListClient issues={rows} triage />
+        <IssueListClient issues={rows} mode="triage" />
       )}
     </main>
   );

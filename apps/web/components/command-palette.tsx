@@ -2,7 +2,10 @@
 
 import { Command } from "cmdk";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useActions } from "@/components/app/actions";
+import { useMeta } from "@/components/app/providers";
+import { Kbd, StateGlyph } from "@/components/app/ui";
 import type { ListIssue } from "@/components/issue-list-client";
 import { colonHint, runColonCommand } from "@/lib/colon-commands";
 
@@ -11,18 +14,28 @@ interface CommandPaletteProps {
 }
 
 function isTypingTarget(t: EventTarget | null): boolean {
-  return (
-    t instanceof HTMLInputElement ||
-    t instanceof HTMLTextAreaElement ||
-    (t instanceof HTMLElement && t.isContentEditable)
-  );
+  return t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || (t instanceof HTMLElement && t.isContentEditable);
 }
+
+const RECENT_KEY = "tl:recent";
+export function recordRecent(key: string) {
+  try {
+    const cur = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]") as string[];
+    localStorage.setItem(RECENT_KEY, JSON.stringify([key, ...cur.filter((k) => k !== key)].slice(0, 6)));
+  } catch { /* ignore */ }
+}
+
+const ROW = "flex h-10 cursor-pointer items-center gap-3 rounded-sm px-2 text-[13px] text-ink-muted aria-selected:bg-surface-3 aria-selected:text-ink";
+const GROUP = "px-1 py-1 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.4px] [&_[cmdk-group-heading]]:text-ink-subtle";
 
 export function CommandPalette({ workspace }: CommandPaletteProps) {
   const router = useRouter();
+  const meta = useMeta();
+  const actions = useActions();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ListIssue[]>([]);
+  const [recent, setRecent] = useState<string[]>([]);
   const [status, setStatus] = useState<string | null>(null);
 
   const colonMode = query.startsWith(":");
@@ -34,7 +47,6 @@ export function CommandPalette({ workspace }: CommandPaletteProps) {
         setOpen((o) => !o);
         return;
       }
-      // `:` opens the palette straight into command mode
       if (e.key === ":" && !isTypingTarget(e.target)) {
         e.preventDefault();
         setOpen(true);
@@ -53,173 +65,122 @@ export function CommandPalette({ workspace }: CommandPaletteProps) {
   }, []);
 
   useEffect(() => {
-    if (!open || query.length < 2) {
+    if (open) {
+      try { setRecent(JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]") as string[]); } catch { setRecent([]); }
+    } else setQuery("");
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || query.length < 2 || colonMode) {
       setResults([]);
       return;
     }
     const t = setTimeout(async () => {
-      const res = await fetch(
-        `/api/issues/search?q=${encodeURIComponent(query)}`,
-      );
-      if (res.ok) {
-        const body = (await res.json()) as { issues?: ListIssue[] };
-        setResults(body.issues ?? []);
-      }
+      const res = await fetch(`/api/issues/search?q=${encodeURIComponent(query)}`);
+      if (res.ok) setResults(((await res.json()) as { issues?: ListIssue[] }).issues ?? []);
     }, 150);
     return () => clearTimeout(t);
-  }, [open, query]);
+  }, [open, query, colonMode]);
 
-  const go = useCallback(
-    (path: string) => {
-      setOpen(false);
-      setQuery("");
-      router.push(path);
-    },
-    [router],
-  );
+  const go = useCallback((path: string) => {
+    setOpen(false);
+    router.push(path);
+  }, [router]);
+
+  const grouped = useMemo(() => {
+    const m = new Map<string, typeof actions>();
+    for (const a of actions) m.set(a.group, [...(m.get(a.group) ?? []), a]);
+    const order = ["Issue", "Triage", "Create", "View", "Navigate", "Edit", "Help", "Account"];
+    return [...m.entries()].sort((a, b) => (order.indexOf(a[0]) + 1 || 99) - (order.indexOf(b[0]) + 1 || 99));
+  }, [actions]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
 
   if (!open) return null;
+  void meta;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-canvas/80 pt-[15vh]"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) setOpen(false);
-      }}
+      className="fixed inset-0 z-[80] flex items-start justify-center bg-overlay pt-[12vh] max-sm:pt-[6vh]"
+      onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
     >
       <Command
-        className="w-full max-w-lg overflow-hidden rounded-md border border-lining-bright bg-surface-1 shadow-lg"
+        data-palette
+        className="w-full max-w-[640px] overflow-hidden rounded-md border border-lining-bright bg-surface-1 max-sm:mx-2"
         label="Command palette"
+        aria-label="Command palette"
+        role="dialog"
+        aria-modal="true"
       >
         <Command.Input
+          autoFocus
           value={query}
-          onValueChange={(v) => {
-            setQuery(v);
-            setStatus(null);
-          }}
+          onValueChange={(v) => { setQuery(v); setStatus(null); }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && colonMode) {
               e.preventDefault();
               const line = query.slice(1);
               if (!line.trim()) return;
               void runColonCommand(line).then((r) => {
-                if (r.navigate) {
-                  setOpen(false);
-                  setQuery("");
-                  router.push(r.navigate);
-                } else if (r.ok) {
-                  setStatus(r.message);
-                  router.refresh();
-                } else {
-                  setStatus(r.message);
-                }
+                if (r.navigate) go(r.navigate);
+                else { setStatus(r.message); if (r.ok) router.refresh(); }
               });
             }
           }}
-          placeholder="Search issues, jump to a view, or run an action…"
-          className="w-full border-b border-lining-faint bg-transparent px-4 py-3 text-sm text-ink placeholder:text-ink-tertiary focus:outline-none"
+          placeholder="Search issues or run a command"
+          aria-label="Search issues or run a command"
+          className="h-12 w-full border-b border-lining-faint bg-transparent px-4 text-[14px] text-ink placeholder:text-ink-subtle focus:outline-none"
         />
-        <Command.List className="max-h-80 overflow-y-auto p-1">
+        <Command.List className="scroll-quiet max-h-[min(420px,60vh)] overflow-y-auto p-1">
           {colonMode ? (
             <div className="px-3 py-4">
-              <p className="font-mono text-[12px] text-ink-muted">
-                {colonHint(query.slice(1))}
-              </p>
-              <p className="mt-1 font-mono text-[10px] text-ink-tertiary">
-                <kbd>enter</kbd> run · <kbd>esc</kbd> close
-                {status && <span className="ml-2 text-accent">{status}</span>}
-              </p>
+              <p className="font-mono text-[12px] text-ink-muted">{colonHint(query.slice(1))}</p>
+              <p className="mt-1 text-[11px] text-ink-subtle"><Kbd>Enter</Kbd> run · <Kbd>Esc</Kbd> close{status && <span className="ml-2 text-accent">{status}</span>}</p>
             </div>
           ) : (
             <>
-          <Command.Empty className="px-3 py-6 text-center text-[13px] text-ink-subtle">
-            No results — try a different query.
-          </Command.Empty>
-          {results.length > 0 && (
-            <Command.Group
-              heading="Issues"
-              className="px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-ink-tertiary"
-            >
-              {results.map((issue) => (
-                <Command.Item
-                  key={issue.key}
-                  value={`${issue.key} ${issue.title}`}
-                  onSelect={() => go(`/issues/${issue.key}`)}
-                  className="flex h-8 cursor-pointer items-center gap-3 rounded-sm px-2 text-[13px] text-ink-muted aria-selected:bg-surface-2 aria-selected:text-ink"
-                >
-                  <span className="w-20 shrink-0 font-mono text-xs text-ink-tertiary">
-                    {issue.key}
-                  </span>
-                  <span className="truncate">{issue.title}</span>
-                </Command.Item>
+              <Command.Empty className="px-3 py-6 text-center text-[13px] text-ink-subtle">Nothing matches. Try an issue key or a verb like “assign”.</Command.Empty>
+              {results.length > 0 && (
+                <Command.Group heading="Issues" className={GROUP}>
+                  {results.map((issue) => (
+                    <Command.Item key={issue.key} value={`${issue.key} ${issue.title}`} onSelect={() => { recordRecent(issue.key); go(`/issues/${issue.key}`); }} className={ROW}>
+                      <StateGlyph state={issue.state} labelled={false} />
+                      <span className="w-[68px] shrink-0 font-mono text-[12px] text-ink-subtle">{issue.key}</span>
+                      <span className="truncate">{issue.title}</span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
+              {!query && recent.length > 0 && (
+                <Command.Group heading="Recent" className={GROUP}>
+                  {recent.map((k) => (
+                    <Command.Item key={k} value={`recent ${k}`} onSelect={() => go(`/issues/${k}`)} className={ROW}>
+                      <span className="font-mono text-[12px] text-ink-subtle">{k}</span><span className="text-ink-subtle">Recently opened</span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
+              {grouped.map(([group, list]) => (
+                <Command.Group key={group} heading={group} className={GROUP}>
+                  {list.map((a) => (
+                    <Command.Item key={a.id} value={`${a.group} ${a.label}`} data-action={a.id} onSelect={() => { setOpen(false); setTimeout(a.run, 0); }} className={ROW}>
+                      {a.label}
+                      {a.keys && <span className="ml-auto flex gap-1">{a.keys.split(" ").map((k, i) => <Kbd key={i}>{k}</Kbd>)}</span>}
+                    </Command.Item>
+                  ))}
+                </Command.Group>
               ))}
-            </Command.Group>
-          )}
-          <Command.Group
-            heading="Navigate"
-            className="px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-ink-tertiary"
-          >
-            {[
-              { label: "My Issues", path: "/my-issues", hint: "g i" },
-              { label: "Board", path: "/board", hint: "g b" },
-              { label: "Triage", path: "/triage", hint: "g t" },
-              { label: "Review", path: "/review", hint: "g r" },
-              { label: "Cycle", path: "/cycle", hint: "g c" },
-              { label: "All Issues", path: "/issues", hint: "g a" },
-              { label: "Insights", path: "/insights", hint: "g s" },
-              { label: "Roadmap", path: "/roadmap", hint: "g p" },
-              { label: "Activity", path: "/activity", hint: "g e" },
-              { label: "Settings", path: "/settings/members", hint: "g ," },
-            ].map((item) => (
-              <Command.Item
-                key={item.path}
-                value={item.label}
-                onSelect={() => go(item.path)}
-                className="flex h-8 cursor-pointer items-center justify-between rounded-sm px-2 text-[13px] text-ink-muted aria-selected:bg-surface-2 aria-selected:text-ink"
-              >
-                {item.label}
-                <kbd className="font-mono text-[10px] text-ink-tertiary">
-                  {item.hint}
-                </kbd>
-              </Command.Item>
-            ))}
-          </Command.Group>
-          <Command.Group
-            heading="Actions"
-            className="px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-ink-tertiary"
-          >
-            <Command.Item
-              value="create issue"
-              onSelect={() => {
-                setOpen(false);
-                document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
-              }}
-              className="flex h-8 cursor-pointer items-center justify-between rounded-sm px-2 text-[13px] text-ink-muted aria-selected:bg-surface-2 aria-selected:text-ink"
-            >
-              Create issue
-              <kbd className="font-mono text-[10px] text-ink-tertiary">c</kbd>
-            </Command.Item>
-            <Command.Item
-              value="sign out"
-              onSelect={() => {
-                void fetch("/api/logout", { method: "POST" }).then(() => {
-                  window.location.href = "/login";
-                });
-              }}
-              className="flex h-8 cursor-pointer items-center justify-between rounded-sm px-2 text-[13px] text-ink-muted aria-selected:bg-surface-2 aria-selected:text-ink"
-            >
-              Sign out
-              <kbd className="font-mono text-[10px] text-ink-tertiary">/</kbd>
-            </Command.Item>
-          </Command.Group>
             </>
           )}
         </Command.List>
-        <div className="flex items-center justify-between border-t border-lining-faint px-3 py-1.5 font-mono text-[10px] text-ink-tertiary">
-          <span>{workspace}</span>
-          <span>
-            <kbd>esc</kbd> close
-          </span>
+        <div className="flex h-8 items-center justify-between border-t border-lining-faint px-3 text-[11px] text-ink-subtle">
+          <span>{workspace} · <Kbd>:</Kbd> command mode</span>
+          <span><Kbd>↑</Kbd> <Kbd>↓</Kbd> navigate · <Kbd>Enter</Kbd> run · <Kbd>Esc</Kbd> close</span>
         </div>
       </Command>
     </div>

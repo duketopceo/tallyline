@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useActions } from "@/components/app/actions";
 
 interface Binding {
   keys: string;
@@ -8,42 +9,17 @@ interface Binding {
   context?: string;
 }
 
-const GROUPS: { name: string; bindings: Binding[] }[] = [
+const STATIC: { name: string; bindings: Binding[] }[] = [
   {
     name: "Global",
     bindings: [
-      { keys: "⌘K / ctrl+k", action: "command palette" },
+      { keys: "⌘K / ctrl+k", action: "command palette (every action)" },
       { keys: ":", action: "command mode (in palette)" },
       { keys: "?", action: "this overlay" },
-      { keys: "c", action: "quick-create issue" },
-      { keys: "esc", action: "close overlay / clear selection" },
-    ],
-  },
-  {
-    name: "Navigate (g-sequences)",
-    bindings: [
-      { keys: "g i", action: "my issues" },
-      { keys: "g t", action: "triage" },
-      { keys: "g r", action: "review queue" },
-      { keys: "g b", action: "board" },
-      { keys: "g c", action: "cycle" },
-      { keys: "g a", action: "all issues" },
-      { keys: "g s", action: "insights" },
-      { keys: "g p", action: "roadmap" },
-      { keys: "g e", action: "activity" },
-      { keys: "g ,", action: "settings" },
-    ],
-  },
-  {
-    name: "Lists",
-    bindings: [
-      { keys: "j / ↓", action: "move down" },
-      { keys: "k / ↑", action: "move up" },
-      { keys: "x", action: "select / toggle row" },
-      { keys: "enter", action: "open issue" },
-      { keys: "a", action: "accept (triage) · approve (review)" },
-      { keys: "d", action: "decline (triage)" },
-      { keys: "x", action: "send back (review)" },
+      { keys: "⌘Z / ctrl+z", action: "undo the last change" },
+      { keys: "esc", action: "close the top layer, focus returns" },
+      { keys: "j / k", action: "move down / up" },
+      { keys: "shift+j / shift+k", action: "extend selection" },
     ],
   },
   {
@@ -89,17 +65,23 @@ export function KeymapOverlay() {
     if (open) inputRef.current?.focus();
   }, [open]);
 
+  const registry = useActions();
+  const all = useMemo(() => {
+    const m = new Map<string, Binding[]>();
+    for (const a of registry) if (a.keys) m.set(a.group, [...(m.get(a.group) ?? []), { keys: a.keys, action: a.label }]);
+    return [...[...m.entries()].map(([name, bindings]) => ({ name, bindings })), ...STATIC];
+  }, [registry]);
   const groups = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return GROUPS;
-    return GROUPS.map((g) => ({
+    if (!q) return all;
+    return all.map((g) => ({
       ...g,
       bindings: g.bindings.filter(
         (b) =>
           b.keys.toLowerCase().includes(q) || b.action.toLowerCase().includes(q),
       ),
     })).filter((g) => g.bindings.length > 0);
-  }, [filter]);
+  }, [filter, all]);
 
   if (!open) return null;
 
@@ -108,7 +90,7 @@ export function KeymapOverlay() {
       role="dialog"
       aria-modal="true"
       aria-label="Keyboard shortcuts"
-      className="fixed inset-0 z-50 flex items-start justify-center bg-canvas/80 pt-[12vh]"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-overlay pt-[12vh]"
       onClick={(e) => {
         if (e.target === e.currentTarget) setOpen(false);
       }}
@@ -116,7 +98,7 @@ export function KeymapOverlay() {
         if (e.key === "Escape") setOpen(false);
       }}
     >
-      <div className="w-full max-w-md overflow-hidden rounded-md border border-lining-bright bg-surface-1 shadow-lg">
+      <div className="w-full max-w-md overflow-hidden rounded-md border border-lining-bright bg-surface-1 max-sm:mx-2">
         <input
           ref={inputRef}
           value={filter}
@@ -128,7 +110,7 @@ export function KeymapOverlay() {
         <div className="max-h-[55vh] overflow-y-auto p-3">
           {groups.map((g) => (
             <div key={g.name} className="mb-3 last:mb-0">
-              <p className="px-2 pb-1 font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+              <p className="px-2 pb-1 font-mono text-[11px] uppercase tracking-wider text-ink-tertiary">
                 {g.name}
               </p>
               <ul>
@@ -150,7 +132,7 @@ export function KeymapOverlay() {
             </p>
           )}
         </div>
-        <div className="border-t border-lining-faint px-3 py-1.5 font-mono text-[10px] text-ink-tertiary">
+        <div className="border-t border-lining-faint px-3 py-1.5 font-mono text-[11px] text-ink-tertiary">
           <kbd>esc</kbd> close
         </div>
       </div>

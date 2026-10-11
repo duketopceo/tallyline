@@ -167,7 +167,7 @@ function BoardColumn({
         <span className="font-mono text-[11px] uppercase tracking-wider text-ink-subtle">
           {COLUMN_LABEL[state]}
         </span>
-        <span className="ml-auto font-mono text-[10px] text-ink-tertiary">
+        <span className="ml-auto font-mono text-[11px] text-ink-tertiary">
           {cards.length}
         </span>
       </header>
@@ -577,7 +577,7 @@ export function BoardClient({ issues }: { issues: ListIssue[] }) {
           {error}
         </p>
       )}
-      <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-lining-faint px-4 font-mono text-[10px] text-ink-tertiary">
+      <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-lining-faint px-4 font-mono text-[11px] text-ink-tertiary">
         <span>
           <kbd>j</kbd>/<kbd>k</kbd>/<kbd>h</kbd>/<kbd>l</kbd> cursor
         </span>

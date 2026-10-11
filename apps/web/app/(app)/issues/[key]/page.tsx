@@ -143,7 +143,7 @@ export default async function IssuePage({
         <span className="font-mono text-xs text-ink-muted">{issue.key}</span>
         <StatePill state={issue.state} />
         {issue.creatorType === "agent" && (
-          <span className="flex items-center gap-1 font-mono text-[10px] text-accent">
+          <span className="flex items-center gap-1 font-mono text-[11px] text-accent">
             <Sparkle size={12} label="agent created" />
             agent-created · via {issue.source}
           </span>
@@ -216,7 +216,7 @@ export default async function IssuePage({
                       {child.key}
                     </span>
                     <span className="truncate">{child.title}</span>
-                    <span className="ml-auto font-mono text-[10px] uppercase text-ink-tertiary">
+                    <span className="ml-auto font-mono text-[11px] uppercase text-ink-tertiary">
                       {child.state.replace("_", " ")}
                     </span>
                   </Link>
@@ -238,7 +238,7 @@ export default async function IssuePage({
                 key={c.id}
                 className="rounded-md border border-lining bg-surface-1 p-3"
               >
-                <div className="flex items-center gap-2 font-mono text-[10px] text-ink-tertiary">
+                <div className="flex items-center gap-2 font-mono text-[11px] text-ink-tertiary">
                   <span className="capitalize">{c.actorType}</span>
                   {c.actorType === "agent" && (
                     <Sparkle size={12} label="agent" />

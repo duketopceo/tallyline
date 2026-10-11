@@ -58,7 +58,7 @@ export function WorkspaceChooser({
           <span className="text-sm font-medium text-ink">
             {m.workspaceSlug}
           </span>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-ink-subtle">
+          <span className="font-mono text-[11px] uppercase tracking-widest text-ink-subtle">
             {pending === m.workspaceSlug ? "entering…" : m.role}
           </span>
         </button>

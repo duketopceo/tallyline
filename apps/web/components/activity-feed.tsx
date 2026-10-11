@@ -251,7 +251,7 @@ export function ActivityFeed({
           </li>
         ))}
       </ul>
-      <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-lining-faint px-4 font-mono text-[10px] text-ink-tertiary">
+      <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-lining-faint px-4 font-mono text-[11px] text-ink-tertiary">
         <span className="flex items-center gap-1.5">
           <span className={`h-2 w-2 rounded-full ${meta.dot}`} />
           {meta.label}

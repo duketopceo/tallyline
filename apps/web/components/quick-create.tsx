@@ -145,7 +145,7 @@ export function QuickCreate() {
             New issue → triage
           </span>
           {restored && (
-            <span className="font-mono text-[10px] text-attention">
+            <span className="font-mono text-[11px] text-attention">
               draft restored
             </span>
           )}
@@ -188,7 +188,7 @@ export function QuickCreate() {
           </p>
         )}
         <div className="flex items-center justify-between border-t border-lining-faint px-4 py-2">
-          <span className="font-mono text-[10px] text-ink-tertiary">
+          <span className="font-mono text-[11px] text-ink-tertiary">
             <kbd>⌘⏎</kbd> create · <kbd>esc</kbd> close · draft auto-saves
           </span>
           <button

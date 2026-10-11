@@ -40,7 +40,7 @@ const STATE_PILL: Record<IssueState, string> = {
 export function StatePill({ state }: { state: IssueState }) {
   return (
     <span
-      className={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase ${STATE_PILL[state]}`}
+      className={`rounded-full border px-2 py-0.5 font-mono text-[11px] uppercase ${STATE_PILL[state]}`}
     >
       {state.replace("_", " ")}
     </span>

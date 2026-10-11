@@ -134,7 +134,7 @@ export default async function CyclePage({
               {fmt(selected.startsAt)} → {fmt(selected.endsAt)}
             </span>
             {selected.isActive && (
-              <span className="rounded-full bg-healthy/15 px-2 py-0.5 font-mono text-[10px] text-healthy">
+              <span className="rounded-full bg-healthy/15 px-2 py-0.5 font-mono text-[11px] text-healthy">
                 active
               </span>
             )}
@@ -144,7 +144,7 @@ export default async function CyclePage({
           </>
         )}
         {active.length > 1 && !cycleParam && (
-          <span className="ml-auto font-mono text-[10px] text-ink-tertiary">
+          <span className="ml-auto font-mono text-[11px] text-ink-tertiary">
             also active:{" "}
             {active
               .slice(1)
@@ -169,7 +169,7 @@ export default async function CyclePage({
           No issues in this cycle — assign from an issue&apos;s detail page.
         </p>
       ) : (
-        <IssueListClient groups={groups} />
+        <IssueListClient issues={groups.flatMap((g) => g.issues)} groups={groups} />
       )}
 
       <CycleManager

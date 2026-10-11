@@ -30,7 +30,7 @@ function Glint({ className = "" }: { className?: string }) {
 
 function Key({ children }: { children: string }) {
   return (
-    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-sm border border-lining bg-surface-2 px-1 font-mono text-[10px] text-ink-muted">
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-sm border border-lining bg-surface-2 px-1 font-mono text-[11px] text-ink-muted">
       {children}
     </kbd>
   );
@@ -441,7 +441,7 @@ export function LandingPage() {
           >
             MIT
           </a>
-          <span className="ml-auto font-mono text-[10px]">
+          <span className="ml-auto font-mono text-[11px]">
             humans · agents · one state machine
           </span>
         </div>

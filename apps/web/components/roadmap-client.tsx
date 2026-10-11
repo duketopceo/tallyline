@@ -364,11 +364,11 @@ export function RoadmapClient({
             <span className="truncate text-[13px] text-ink-muted">
               {p.name}
             </span>
-            <span className="shrink-0 font-mono text-[10px] text-ink-tertiary">
+            <span className="shrink-0 font-mono text-[11px] text-ink-tertiary">
               {p.teamId ? (teamById.get(p.teamId) ?? "?") : "ws"}
             </span>
             {iss.length > 0 && (
-              <span className="shrink-0 font-mono text-[10px] text-ink-tertiary">
+              <span className="shrink-0 font-mono text-[11px] text-ink-tertiary">
                 {done}/{iss.length}
               </span>
             )}
@@ -458,7 +458,7 @@ export function RoadmapClient({
               {c.name ?? ""}
             </span>
             {c.isActive && (
-              <span className="shrink-0 rounded-full bg-healthy/15 px-1.5 font-mono text-[9px] text-healthy">
+              <span className="shrink-0 rounded-full bg-healthy/15 px-1.5 font-mono text-[11px] text-healthy">
                 active
               </span>
             )}
@@ -487,21 +487,21 @@ export function RoadmapClient({
     <div className="flex min-h-0 flex-1 flex-col">
       {/* axis header — shares the same grid so ticks align with rows */}
       <div className="grid h-7 shrink-0 grid-cols-[16rem_1fr] items-end border-b border-lining-faint">
-        <span className="px-4 font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+        <span className="px-4 font-mono text-[11px] uppercase tracking-wider text-ink-tertiary">
           roadmap
         </span>
         <div className="relative h-full">
           {ticks.map(({ t, label }) => (
             <span
               key={t}
-              className="absolute bottom-0.5 -translate-x-1/2 font-mono text-[9px] whitespace-nowrap text-ink-tertiary"
+              className="absolute bottom-0.5 -translate-x-1/2 font-mono text-[11px] whitespace-nowrap text-ink-tertiary"
               style={{ left: `${pct(t)}%` }}
             >
               {label}
             </span>
           ))}
           <span
-            className="absolute bottom-0.5 -translate-x-1/2 font-mono text-[9px] text-accent"
+            className="absolute bottom-0.5 -translate-x-1/2 font-mono text-[11px] text-accent"
             style={{ left: `${pct(now)}%` }}
           >
             today
@@ -520,7 +520,7 @@ export function RoadmapClient({
         )}
         {projectCount > 0 && (
           <li>
-            <div className="flex h-7 items-center gap-2 border-b border-lining-faint bg-surface-1 px-4 font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+            <div className="flex h-7 items-center gap-2 border-b border-lining-faint bg-surface-1 px-4 font-mono text-[11px] uppercase tracking-wider text-ink-tertiary">
               Projects
               <span>{projectCount}</span>
             </div>
@@ -533,7 +533,7 @@ export function RoadmapClient({
         )}
         {cycleCount > 0 && (
           <li>
-            <div className="flex h-7 items-center gap-2 border-b border-lining-faint bg-surface-1 px-4 font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+            <div className="flex h-7 items-center gap-2 border-b border-lining-faint bg-surface-1 px-4 font-mono text-[11px] uppercase tracking-wider text-ink-tertiary">
               Cycles
               <span>{cycleCount}</span>
             </div>
@@ -556,7 +556,7 @@ export function RoadmapClient({
           {error}
         </p>
       )}
-      <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-lining-faint px-4 font-mono text-[10px] text-ink-tertiary">
+      <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-lining-faint px-4 font-mono text-[11px] text-ink-tertiary">
         <span>
           <kbd>j</kbd>/<kbd>k</kbd> move
         </span>
@@ -641,11 +641,11 @@ function ProjectDetail({
               </option>
             ))}
           </select>
-          <span className="font-mono text-[10px] text-ink-tertiary">
+          <span className="font-mono text-[11px] text-ink-tertiary">
             {project.teamId ? (teamById.get(project.teamId) ?? "?") : "workspace"}
           </span>
         </div>
-        <p className="mt-2 font-mono text-[10px] text-ink-tertiary">
+        <p className="mt-2 font-mono text-[11px] text-ink-tertiary">
           {fmtDay(
             new Date(project.startDate ?? project.createdAt).getTime(),
           )}{" "}
@@ -663,7 +663,7 @@ function ProjectDetail({
       <div className="border-l border-lining-faint px-4 py-3">
         <div className="flex flex-wrap gap-x-6 gap-y-3">
           <div className="min-w-56">
-            <p className="font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-tertiary">
               Milestones
             </p>
             <ul className="mt-1.5 space-y-1">
@@ -698,7 +698,7 @@ function ProjectDetail({
                   >
                     {m.title}
                   </span>
-                  <span className="font-mono text-[10px] text-ink-tertiary">
+                  <span className="font-mono text-[11px] text-ink-tertiary">
                     {m.targetDate
                       ? fmtDay(new Date(m.targetDate).getTime())
                       : "undated"}
@@ -713,7 +713,7 @@ function ProjectDetail({
                         m.id,
                       )
                     }
-                    className="font-mono text-[10px] text-ink-tertiary hover:text-urgent"
+                    className="font-mono text-[11px] text-ink-tertiary hover:text-urgent"
                     aria-label={`delete milestone ${m.title}`}
                   >
                     ×
@@ -737,20 +737,20 @@ function ProjectDetail({
                 type="datetime-local"
                 value={msDate}
                 onChange={(e) => setMsDate(e.target.value)}
-                className="h-6 rounded-sm border border-control bg-surface-2 px-1 font-mono text-[10px] text-ink-muted"
+                className="h-6 rounded-sm border border-control bg-surface-2 px-1 font-mono text-[11px] text-ink-muted"
                 aria-label="milestone target date"
               />
               <button
                 type="submit"
                 disabled={busy !== null || !msTitle.trim()}
-                className="h-6 rounded-sm border border-control px-2 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
+                className="h-6 rounded-sm border border-control px-2 font-mono text-[11px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
               >
                 add
               </button>
             </form>
           </div>
           <div className="min-w-56 flex-1">
-            <p className="font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-tertiary">
               Issues ({issues.length})
             </p>
             <ul className="mt-1.5 max-h-40 space-y-1 overflow-y-auto">
