@@ -494,5 +494,34 @@ export const OPERATIONS: Record<string, Builder> = {
     await mkDelivery(t, e.id);
     return { method: "GET", path: `${base(t)}/webhook-endpoints/${e.id}/deliveries` };
   },
+
+  // ── account lifecycle ──────────────────────────────────────────────────────
+  // Destructive lifecycle ops carry a confirm that does NOT match, so an
+  // authorized caller gets 400 CONFIRM_MISMATCH (authorization already passed)
+  // and the shared tenant / its people survive the run. The real deletions are
+  // exercised in src/routes/account.test.ts.
+  "POST /v1/auth/password/forgot": async () => ({
+    method: "POST",
+    path: "/v1/auth/password/forgot",
+    body: { email: `nobody-${u()}@matrix.test` },
+  }),
+  "POST /v1/auth/password/reset": simple("POST", () => "/v1/auth/password/reset", {
+    token: "not-a-real-reset-token-0000",
+    password: "matrix-password-123",
+  }),
+  "POST /v1/auth/verify-email": simple("POST", () => "/v1/auth/verify-email", {
+    token: "not-a-real-verify-token-0000",
+  }),
+  "POST /v1/me/verify-email/resend": simple("POST", () => "/v1/me/verify-email/resend"),
+  "GET /v1/me/export": get(() => "/v1/me/export"),
+  "POST /v1/me/deletion": simple("POST", () => "/v1/me/deletion", { confirm: "not-the-account-email@matrix.test" }),
+  "GET /v1/dev/mail": get(() => "/v1/dev/mail"),
+  "GET /v1/workspaces/{ws}/export": get((t) => `${base(t)}/export`),
+  "POST /v1/workspaces/{ws}/deletion": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/deletion`,
+    body: { confirm: `${t.ws.slug}-not-this-one` },
+  }),
+  "POST /v1/workspaces/{ws}/restore": simple("POST", (t) => `${base(t)}/restore`),
 };
 

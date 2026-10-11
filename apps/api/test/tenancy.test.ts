@@ -4,6 +4,8 @@ import { app } from "../src/index.js";
 import { routeDiff } from "../src/lib/route-diff.js";
 import { openApiDoc } from "../src/openapi.js";
 import { OPERATIONS, type Caller, type CredName } from "./matrix-ops.js";
+import { TENANT_JOIN_TABLES, TENANT_TABLES } from "../src/services/tenant-tables.js";
+import { purgeWorkspace } from "../src/services/workspace-lifecycle.js";
 import { newSession, seedEntities, seedTenant, type Entities, type Tenant } from "./tenants.js";
 
 // PLAN-036: two-tenant isolation. A caller authenticated in workspace A must
@@ -176,6 +178,10 @@ const UNSCOPED_TABLES: Record<string, string> = {
     "short-lived pending MCP authorization requests keyed by an unguessable uuid, bound to the viewing user's session + CSRF token; the workspace is chosen and membership-checked only at the decision, which writes the tenant-scoped oauth_grants row",
   oauth_tokens:
     "MCP authorization codes / access / refresh tokens, stored as sha256 hashes and always attached to an oauth_grants row (tenant-scoped, ON DELETE CASCADE); only resolved by hash at /oauth/token and /mcp, never listed",
+  account_tokens:
+    "single-use password-reset / email-verify tokens, user-scoped (sha256 at rest); only resolved by hash at /v1/auth/password/reset and /v1/auth/verify-email, never listed",
+  audit_events:
+    "account-level security log (reset, verify, export, deletion) keyed by user id with no email or names; included only in that user's own /v1/me/export",
   github_webhook_events:
     "global GitHub delivery log keyed by X-GitHub-Delivery: HMAC-authenticated inbound only, deduped, never returned by any route; tenant routing happens later via github_installations/github_repos",
 };
@@ -295,6 +301,14 @@ describe("tenancy: static coverage", () => {
     expect(missing, "tenant-scoped tables with no entry in TABLE_ENDPOINTS").toEqual([]);
     expect(stale, "TABLE_ENDPOINTS entries for tables that no longer have workspace_id").toEqual([]);
     expect(tenantTables.length).toBe(30);
+  });
+
+  it("the export/purge table list (src/services/tenant-tables.ts) is exactly the tenant tables", () => {
+    expect(Object.keys(TENANT_TABLES).sort()).toEqual(tenantTables);
+    for (const [table, p] of Object.entries(TENANT_TABLES)) {
+      if (!p.export) expect(p.reason, `${table} is excluded from export without a reason`).toBeTruthy();
+    }
+    for (const table of Object.keys(TENANT_JOIN_TABLES)) expect(UNSCOPED_TABLES[table]).toBeTruthy();
   });
 
   it("every table either lists swept endpoints or justifies having none", () => {
@@ -513,5 +527,74 @@ describe("tenancy: cross-tenant references in A's writes", () => {
       [A.ws.id, B.ws.id],
     );
     expect(labels.rows[0].n, "A issues carry B labels").toBe(0);
+  });
+});
+
+describe("tenancy: workspace export and hard delete", () => {
+  it("A's export holds every exportable row of A, redacts credentials, and nothing of B", async () => {
+    const r = await call({ method: "GET", path: `/v1/workspaces/${A.ws.slug}/export` }, await authFor(A, "owner"));
+    expect(r.status).toBe(200);
+    const doc = JSON.parse(r.text) as {
+      workspace: { id: string };
+      tables: Record<string, Record<string, unknown>[]>;
+      attachments: { count: number; items: unknown[] };
+      counts: Record<string, number>;
+    };
+    expect(doc.workspace.id).toBe(A.ws.id);
+    expect(doc.attachments).toEqual({ count: 0, items: [] });
+    for (const [table, policy] of Object.entries(TENANT_TABLES)) {
+      if (!policy.export) {
+        expect(doc.tables[table], `${table} must not be exported`).toBeUndefined();
+        continue;
+      }
+      const { rows } = await pool.query(`select count(*)::int n from "${table}" where workspace_id = $1`, [A.ws.id]);
+      expect(doc.tables[table]?.length, `${table} row count`).toBe(rows[0].n);
+      expect(rows[0].n, `${table} seeded`).toBeGreaterThan(0);
+      for (const col of policy.redact ?? []) {
+        for (const row of doc.tables[table]!) expect(row[col], `${table}.${col}`).toBe("[redacted]");
+      }
+    }
+    expect(doc.tables.issue_labels!.length).toBeGreaterThan(0);
+    // no credential material at all
+    const secrets = await pool.query(
+      `select token_hash v from user_tokens where workspace_id = $1
+       union all select token_hash from agent_keys where workspace_id = $1
+       union all select token_hash from invites where workspace_id = $1
+       union all select token_hash from sessions where workspace_id = $1
+       union all select secret from webhook_endpoints where workspace_id = $1`,
+      [A.ws.id],
+    );
+    for (const { v } of secrets.rows) expect(r.text).not.toContain(v);
+    expect(r.text).not.toContain(B.sentinel);
+    for (const id of await idsOf(B)) expect(r.text, `export leaked ${id}`).not.toContain(id);
+  });
+
+  it("purging a third tenant removes every one of its rows and leaves A and B byte-identical", async () => {
+    const C = await seedTenant("c", "CCC");
+    const EC = await seedEntities(C);
+    expect(EC.issue.id).toBeTruthy();
+    const issueIds = (await pool.query(`select id from issues where workspace_id = $1`, [C.ws.id])).rows.map((r) => r.id);
+    const teamIds = (await pool.query(`select id from teams where workspace_id = $1`, [C.ws.id])).rows.map((r) => r.id);
+    const beforeA = await fingerprint(A);
+    const beforeB = await fingerprint(B);
+
+    await purgeWorkspace(C.ws.id);
+
+    for (const table of tenantTables) {
+      const { rows } = await pool.query(`select count(*)::int n from "${table}" where workspace_id = $1`, [C.ws.id]);
+      expect(rows[0].n, `${table} rows left for purged tenant`).toBe(0);
+    }
+    const il = await pool.query(`select count(*)::int n from issue_labels where issue_id = any($1::uuid[])`, [issueIds]);
+    expect(il.rows[0].n).toBe(0);
+    const tm = await pool.query(`select count(*)::int n from team_members where team_id = any($1::uuid[])`, [teamIds]);
+    expect(tm.rows[0].n).toBe(0);
+    const ws = await pool.query(`select count(*)::int n from workspaces where id = $1`, [C.ws.id]);
+    expect(ws.rows[0].n).toBe(0);
+    // people are global identities: they survive, without the membership
+    const people = await pool.query(`select count(*)::int n from users where id = $1`, [C.people.owner.id]);
+    expect(people.rows[0].n).toBe(1);
+
+    expect(await fingerprint(A)).toEqual(beforeA);
+    expect(await fingerprint(B)).toEqual(beforeB);
   });
 });
