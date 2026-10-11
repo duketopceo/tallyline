@@ -267,6 +267,20 @@ export async function streamWorkspaceExport(wsId: string, write: Write): Promise
   });
 }
 
+/**
+ * Row-level tenancy for the personal export: a row from a workspace is only
+ * included while the user is CURRENTLY a member of it and the workspace is not
+ * pending deletion. Content they authored or were assigned in a workspace
+ * they were removed from belongs to that workspace (titles, descriptions and
+ * states can hold another tenant's data), so it is excluded outright rather
+ * than redacted to ids: ids alone still confirm which issues existed and
+ * who touched them. Expects the user id as $1 and a `workspace_id` column.
+ */
+const LIVE_MEMBERSHIP = `workspace_id in (
+  select m.workspace_id from workspace_members m
+    join workspaces w on w.id = m.workspace_id
+   where m.user_id = $1 and w.deleted_at is null)`;
+
 /** everything Tallyline holds about one person, as one JSON document */
 export async function streamPersonalExport(userId: string, write: Write): Promise<void> {
   const [u] = await db.select().from(users).where(eq(users.id, userId));
@@ -309,26 +323,26 @@ export async function streamPersonalExport(userId: string, write: Write): Promis
       "connectedApps",
       `select id, workspace_id, client_name, scopes, revoked_at, last_used_at, created_at from oauth_grants where user_id = $1 order by created_at`,
     ],
-    ["views", `select * from views where owner_id = $1 order by created_at`],
+    ["views", `select * from views where owner_id = $1 and ${LIVE_MEMBERSHIP} order by created_at`],
     [
       "issuesCreated",
       `select id, workspace_id, key, title, description, state, created_at from issues
-        where creator_type = 'human' and creator_id = $1 order by created_at`,
+        where creator_type = 'human' and creator_id = $1 and ${LIVE_MEMBERSHIP} order by created_at`,
     ],
     [
       "issuesAssigned",
       `select id, workspace_id, key, title, state, created_at from issues
-        where assignee_type = 'human' and assignee_id = $1 order by created_at`,
+        where assignee_type = 'human' and assignee_id = $1 and ${LIVE_MEMBERSHIP} order by created_at`,
     ],
     [
       "comments",
       `select id, workspace_id, issue_id, body, created_at from comments
-        where actor_type = 'human' and actor_id = $1 order by created_at`,
+        where actor_type = 'human' and actor_id = $1 and ${LIVE_MEMBERSHIP} order by created_at`,
     ],
     [
       "activity",
       `select id, workspace_id, entity_type, entity_id, action, created_at from events
-        where actor_type = 'human' and actor_id = $1 order by id`,
+        where actor_type = 'human' and actor_id = $1 and ${LIVE_MEMBERSHIP} order by id`,
     ],
     [
       "securityLog",
