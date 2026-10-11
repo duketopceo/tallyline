@@ -54,6 +54,12 @@ A refused request answers **402** with a machine-readable body:
 
 Limits never delete or hide existing data.
 
+Limits are counts, not locks. Agent and invite creation re-check after their
+insert and undo it if a concurrent request took the last slot (both may lose,
+never both win). Agent runs are checked before any write and not re-checked,
+so simultaneous dispatches can pass the monthly cap by the number in flight:
+a soft limit by design.
+
 ## Usage metering
 
 `usage_daily` holds one row per workspace per UTC day:
@@ -65,7 +71,10 @@ Limits never delete or hide existing data.
 | `api_calls` | in-process counter, incremented once an authenticated call passes the workspace gate, flushed every minute |
 | `storage_bytes` | `pg_column_size` over issues, comments, events, run logs and webhook deliveries |
 
-The rollup runs at boot and hourly (today and yesterday). Only counts are stored:
+The rollup runs at boot and hourly: it rolls up today and settles yesterday's
+run count. With several API replicas only one runs it (Postgres advisory lock).
+`api_calls` is approximate: up to a minute of counts can be lost on a restart,
+so nothing bills on it. Only counts are stored:
 no content, no per-person rows, no third-party analytics.
 
 `GET /v1/workspaces/{ws}/usage?days=30` (owner/admin) returns the plan, live

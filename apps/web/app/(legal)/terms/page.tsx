@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { LegalDoc, Section } from "@/components/legal-doc";
 
@@ -48,7 +49,7 @@ export default function TermsPage() {
         <ul>
           <li>break the law or infringe anyone&rsquo;s rights;</li>
           <li>send spam, malware, or abusive content, including through webhooks or agents;</li>
-          <li>probe, overload or attack the service or other customers (security research under the <a href="/security">disclosure policy</a> is welcome);</li>
+          <li>probe, overload or attack the service or other customers (security research under the <Link href="/security">disclosure policy</Link> is welcome);</li>
           <li>get around plan limits or rate limits.</li>
         </ul>
         <p>We may suspend a workspace that puts the service or other people at risk, and we will tell the owner why.</p>
@@ -67,7 +68,7 @@ export default function TermsPage() {
         <p>
           Tallyline Cloud is in beta. It is provided &ldquo;as is&rdquo;, without warranties, and
           there is no uptime guarantee yet. Keep your own exports of anything you cannot afford to
-          lose. Current service status is on the <a href="/status">status page</a>.
+          lose. Current service status is on the <Link href="/status">status page</Link>.
         </p>
       </Section>
 

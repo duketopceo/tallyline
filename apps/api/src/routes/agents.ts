@@ -97,6 +97,12 @@ export const agentRoutes = new Hono()
           capabilities: body.capabilities,
         })
         .returning();
+      try {
+        await assertWithinLimit("agents", ws.id, 0); // lost a race? undo
+      } catch (err) {
+        await db.delete(agents).where(eq(agents.id, agent!.id));
+        throw err;
+      }
       return c.json(agent, 201);
     },
   )

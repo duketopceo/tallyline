@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { LegalDoc, Section } from "@/components/legal-doc";
 import { API_URL } from "@/lib/api";
@@ -19,7 +20,10 @@ async function readHealth(): Promise<{ status: Health; checkedAt: string }> {
       signal: AbortSignal.timeout(3_000),
     });
     const body = (await res.json().catch(() => null)) as { status?: string } | null;
-    return { status: body?.status === "ok" ? "ok" : "degraded", checkedAt };
+    // only the API's own answer counts; a proxy error page means unreachable
+    if (body?.status === "ok") return { status: "ok", checkedAt };
+    if (body?.status === "degraded") return { status: "degraded", checkedAt };
+    return { status: "unreachable", checkedAt };
   } catch {
     return { status: "unreachable", checkedAt };
   }
@@ -68,7 +72,7 @@ export default async function StatusPage() {
         <p>
           Tallyline Cloud is in beta and has no uptime guarantee yet. Planned maintenance and
           incident write-ups will be posted here. Security issues: see the{" "}
-          <a href="/security">security page</a>.
+          <Link href="/security">security page</Link>.
         </p>
       </Section>
     </LegalDoc>

@@ -86,6 +86,12 @@ export const inviteRoutes = new Hono()
         createdBy: session.userId,
         expiresAt: new Date(clock.ms() + body.expiresInDays * 86_400_000),
       });
+      try {
+        await assertWithinLimit("seats", ws.id, 0); // lost a race? undo
+      } catch (err) {
+        await revokeInvite(invite.id, ws.id);
+        throw err;
+      }
       await emit(ws.id, session.userId, "invite_created", invite!.id);
       return c.json(
         {

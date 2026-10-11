@@ -17,7 +17,6 @@ import {
   queueDeliveries,
   queueDispatchDelivery,
 } from "./outbound.js";
-import { assertWithinLimit } from "./entitlements.js";
 import { clock } from "./clock.js";
 
 // ── Adapter contract ─────────────────────────────────────────────
@@ -244,8 +243,9 @@ export async function createDispatch(input: {
     .where(eq(agents.id, input.agentId))
     .limit(1);
   if (!agent) return null;
-  // routes pre-check before writing; this is the backstop for any caller
-  await assertWithinLimit("agent_runs", input.workspaceId);
+  // Plan limit: every caller runs assertWithinLimit("agent_runs") BEFORE its
+  // own writes (issues.ts: assign, @mention, send-back). Not re-checked here:
+  // a 402 at this point would leave the caller's writes half-applied.
 
   const [dispatch] = await db
     .insert(dispatches)

@@ -149,7 +149,7 @@ function monthName(d: Date): string {
 
 // Copy rules (Silver Lining section 12): say what went wrong and what to do
 // next, from the operator's side, no apology.
-function limitMessage(kind: LimitKind, planLabel: string, max: number): string {
+function limitMessage(kind: LimitKind, planLabel: string, max: number, used = max): string {
   switch (kind) {
     case "seats":
       return `This workspace has all ${n(max)} member seats included in the ${planLabel} plan in use (pending invites count). Remove a member or revoke an invite, or move to the Team plan.`;
@@ -162,7 +162,7 @@ function limitMessage(kind: LimitKind, planLabel: string, max: number): string {
       return `This workspace has used all ${n(max)} agent runs included in the ${planLabel} plan this month. Runs reset on ${monthName(end)} 1. Assign the issue to a person for now, or move to the Team plan.`;
     }
     case "workspaces":
-      return `You already own ${n(max)} workspace on the ${planLabel} plan, the most it includes. Use your existing workspace, or move it to the Team plan first.`;
+      return `You already own ${n(used)} workspace${used === 1 ? "" : "s"} on the ${planLabel} plan, which includes ${n(max)}. Use your existing workspace, or move it to the Team plan first.`;
   }
 }
 
@@ -170,6 +170,13 @@ function limitMessage(kind: LimitKind, planLabel: string, max: number): string {
  * Throws PlanLimitError (402 PLAN_LIMIT) when adding `adding` (default 1)
  * more of `kind` would exceed the workspace's plan. No-op with BILLING=off.
  * For "workspaces" pass the acting user's id as `subject`.
+ *
+ * Concurrency: this is a count, not a lock. Agent and invite creation
+ * re-check with `adding = 0` after their insert and undo it when a
+ * concurrent request got there first (both may lose; never both win).
+ * Agent runs are pre-checked only, so simultaneous dispatches can overshoot
+ * the monthly cap by at most the number in flight: a soft limit by design
+ * (go-live PLAN.md: overage = block or upsell, never data loss).
  */
 export async function assertWithinLimit(
   kind: Exclude<LimitKind, "workspaces">,
@@ -186,7 +193,7 @@ export async function assertWithinLimit(kind: LimitKind, subject: string, adding
     if (max === null) return;
     const used = await ownedWorkspaceCount(subject, "free");
     if (used >= max) {
-      throw new PlanLimitError(limitMessage(kind, ent.planLabel, max), {
+      throw new PlanLimitError(limitMessage(kind, ent.planLabel, max, used), {
         limit: kind,
         plan: ent.plan,
         max,

@@ -139,11 +139,48 @@ export async function rollupUsage(opts: { day?: string; workspaceId?: string } =
   return targets.length;
 }
 
-/** scheduler tick: today plus yesterday, so the last hours of a day land */
-export async function rollupTick(): Promise<void> {
-  const now = clock.ms();
-  await rollupUsage({ day: dayKey(now - DAY_MS) });
-  await rollupUsage({ day: dayKey(now) });
+/**
+ * Close out a past day: only agent_runs can still change (late-visible
+ * dispatch rows); the snapshots stay as last written. Cheap: no storage scan.
+ */
+export async function settleDayRuns(day: string): Promise<void> {
+  const rows = await db
+    .select({ workspaceId: usageDaily.workspaceId })
+    .from(usageDaily)
+    .where(eq(usageDaily.day, day));
+  for (const { workspaceId } of rows) {
+    await db
+      .update(usageDaily)
+      .set({ agentRuns: await agentRunsOn(workspaceId, day), updatedAt: clock.now() })
+      .where(and(eq(usageDaily.workspaceId, workspaceId), eq(usageDaily.day, day)));
+  }
+}
+
+/**
+ * Scheduler tick (boot + hourly): settle yesterday's run counts, then roll up
+ * today. With several API replicas only one runs it (session advisory lock).
+ * Returns false when another replica holds the lock.
+ */
+export async function rollupTick(): Promise<boolean> {
+  const client = await pool.connect();
+  try {
+    const { rows } = await client.query<{ ok: boolean }>(
+      "select pg_try_advisory_lock(hashtext('tallyline-usage-rollup')::bigint) as ok",
+    );
+    if (!rows[0]?.ok) return false;
+    try {
+      const now = clock.ms();
+      await settleDayRuns(dayKey(now - DAY_MS));
+      await rollupUsage({ day: dayKey(now) });
+      return true;
+    } finally {
+      await client
+        .query("select pg_advisory_unlock(hashtext('tallyline-usage-rollup')::bigint)")
+        .catch(() => {});
+    }
+  } finally {
+    client.release();
+  }
 }
 
 export interface UsageDay {

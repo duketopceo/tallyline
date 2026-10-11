@@ -141,11 +141,27 @@ describe("daily rollup", () => {
     expect(n).toBe(1);
   });
 
-  it("the scheduler tick rolls up today and yesterday for every workspace", async () => {
+  it("the scheduler tick rolls up today and settles yesterday's run count", async () => {
     const t = await seedTenant(`tick${seq}`, nextKey());
-    await rollupTick();
-    expect(await row(t, TODAY)).toBeDefined();
-    expect(await row(t, "2026-10-10")).toBeDefined();
+    await db.insert(usageDaily).values({ workspaceId: t.ws.id, day: "2026-10-10", seats: 3, agentRuns: 0, storageBytes: 77 });
+    // a run that became visible after yesterday's last rollup
+    await dispatchAt(t, new Date("2026-10-10T22:00:00.000Z"));
+    expect(await rollupTick()).toBe(true);
+    expect(await row(t, TODAY)).toMatchObject({ seats: 3, agents: 1 });
+    // yesterday: run count settled, snapshots untouched (no storage rescan)
+    expect(await row(t, "2026-10-10")).toMatchObject({ agentRuns: 1, seats: 3, storageBytes: 77 });
+  });
+
+  it("only one replica runs the tick at a time", async () => {
+    const holder = await pool.connect();
+    try {
+      await holder.query("select pg_advisory_lock(hashtext('tallyline-usage-rollup')::bigint)");
+      expect(await rollupTick()).toBe(false);
+    } finally {
+      await holder.query("select pg_advisory_unlock(hashtext('tallyline-usage-rollup')::bigint)");
+      holder.release();
+    }
+    expect(await rollupTick()).toBe(true);
   });
 
   it("storage only counts the workspace's own rows", async () => {

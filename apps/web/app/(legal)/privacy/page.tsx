@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { LegalDoc, Section } from "@/components/legal-doc";
 
@@ -127,7 +128,7 @@ export default function PrivacyPage() {
       <Section id="contact" title="Contact">
         <p>
           Privacy questions: <a href="mailto:privacy@tallyline.app">privacy@tallyline.app</a>.
-          Security reports: see the <a href="/security">security page</a>.
+          Security reports: see the <Link href="/security">security page</Link>.
         </p>
       </Section>
     </LegalDoc>

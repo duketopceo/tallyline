@@ -35,14 +35,14 @@ function shortDay(day: string): string {
 }
 
 export function UsageCharts({ daily }: { daily: UsageDay[] }) {
-  const data = daily.map((d) => ({ ...d, label: shortDay(d.day), storageMb: d.storageBytes / 1_048_576 }));
+  const data = daily.map((d) => ({ ...d, label: shortDay(d.day), storageMb: d.storageBytes / 1_000_000 }));
   const runs = daily.reduce((s, d) => s + d.agentRuns, 0);
   const calls = daily.reduce((s, d) => s + d.apiCalls, 0);
 
   return (
     <div className="grid grid-cols-1 gap-px lg:grid-cols-2">
       <Panel title="Agent runs" hint={`${runs.toLocaleString("en-US")} in ${daily.length} days`}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={176}>
           <BarChart data={data} margin={MARGIN} accessibilityLayer>
             <CartesianGrid stroke="var(--sl-lining-faint)" vertical={false} />
             <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={false} minTickGap={16} />
@@ -54,7 +54,7 @@ export function UsageCharts({ daily }: { daily: UsageDay[] }) {
       </Panel>
 
       <Panel title="API calls" hint={`${calls.toLocaleString("en-US")} in ${daily.length} days`}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={176}>
           <BarChart data={data} margin={MARGIN} accessibilityLayer>
             <CartesianGrid stroke="var(--sl-lining-faint)" vertical={false} />
             <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={false} minTickGap={16} />
@@ -66,7 +66,7 @@ export function UsageCharts({ daily }: { daily: UsageDay[] }) {
       </Panel>
 
       <Panel title="Members and agents" hint="end-of-day count">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={176}>
           <LineChart data={data} margin={MARGIN} accessibilityLayer>
             <CartesianGrid stroke="var(--sl-lining-faint)" vertical={false} />
             <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={false} minTickGap={16} />
@@ -80,7 +80,7 @@ export function UsageCharts({ daily }: { daily: UsageDay[] }) {
       </Panel>
 
       <Panel title="Storage" hint="issues, comments, activity and run logs">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={176}>
           <LineChart data={data} margin={MARGIN} accessibilityLayer>
             <CartesianGrid stroke="var(--sl-lining-faint)" vertical={false} />
             <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={false} minTickGap={16} />

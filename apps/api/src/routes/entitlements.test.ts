@@ -357,9 +357,40 @@ describe("BILLING=on: 402 PLAN_LIMIT at the choke points", () => {
     const on = await call("POST", "/v1/workspaces", cookie, { slug: `third-${seq++}`, name: "Third" });
     expect(on.status).toBe(402);
     expect(on.json.error).toMatchObject({ code: "PLAN_LIMIT", limit: "workspaces", max: 1 });
-    expect(String(on.json.error!.message)).toContain("Use your existing workspace");
+    expect(String(on.json.error!.message)).toContain("You already own 2 workspaces on the Free plan, which includes 1");
     const [{ n }] = (await pool.query(`select count(*)::int n from workspaces where slug like 'third-%'`)).rows;
     expect(n).toBe(0);
+    await db.update(workspaces).set({ plan: first!.plan }).where(eq(workspaces.id, first!.id));
+  });
+
+  it("concurrent agent creates never both win the last slot", async () => {
+    setBillingForTests(true);
+    const t = await tenant("free");
+    const owner = await newSession(t, "owner");
+    await mkAgent(t); // 2 of 3
+    const results = await Promise.all(
+      ["race-a", "race-b", "race-c"].map((name) =>
+        call("POST", `/v1/workspaces/${t.ws.slug}/agents`, owner, { name, harness: "test" }),
+      ),
+    );
+    const created = results.filter((r) => r.status === 201).length;
+    expect(created).toBeLessThanOrEqual(1);
+    for (const r of results) expect([201, 402]).toContain(r.status);
+    const [{ n }] = (await pool.query(`select count(*)::int n from agents where workspace_id = $1`, [t.ws.id])).rows;
+    expect(n).toBeLessThanOrEqual(3);
+  });
+
+  it("concurrent invites never push members + pending past the cap", async () => {
+    setBillingForTests(true);
+    const t = await tenant("free");
+    await pool.query(`delete from workspace_members where id = $1`, [t.people.member.memberRowId]); // 2 of 3
+    const owner = await newSession(t, "owner");
+    const results = await Promise.all(
+      [1, 2, 3].map(() => call("POST", `/v1/workspaces/${t.ws.slug}/invites`, owner, { role: "member" })),
+    );
+    expect(results.filter((r) => r.status === 201).length).toBeLessThanOrEqual(1);
+    const [{ n }] = (await pool.query(`select count(*)::int n from invites where workspace_id = $1`, [t.ws.id])).rows;
+    expect(n).toBeLessThanOrEqual(1);
   });
 
   it("402 bodies are machine-readable for agents and the CLI", async () => {
