@@ -1,10 +1,6 @@
 {
   "_comment": "Ratchet for `pnpm lint:design` (docs/design/silver-lining.md section 13). Each entry is the number of raw-colour / off-scale-font violations tolerated in that file. Counts may only go down: the gate fails if a file exceeds its count AND if it drops below (lower the entry in the same change). New files get no allowance. Tracking: migrate text-[10px]/[9px] to the 11px floor and text-lg/xl/4xl/5xl to the type scale as screens are restyled (ui/core-overhaul).",
   "files": {
-    "apps/web/app/(app)/issues/[key]/page.tsx": {
-      "count": 1,
-      "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
-    },
     "apps/web/app/(auth)/bootstrap/page.tsx": {
       "count": 2,
       "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
