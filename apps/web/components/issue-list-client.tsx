@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRegisterActions } from "./app/actions";
-import { useMerged } from "./app/issue-store";
+import { useMerged, useOverrides } from "./app/issue-store";
 import { NewPill, useLiveCount } from "./app/live";
 import { type IssueLike, useIssueEditors } from "./app/pickers";
 import { useMeta, useNames, usePeek } from "./app/providers";
@@ -73,6 +73,7 @@ export function IssueListClient({
   const peek = usePeek();
   const editors = useIssueEditors();
   const live = useLiveCount();
+  const overrides = useOverrides();
   const filters = useMemo(() => parseFilters(search), [search]);
   const viewKey = `tl:view:${pathname}?${[...search.entries()].filter(([k]) => k !== "cursor").map(([k, v]) => `${k}=${v}`).join("&")}`;
 
@@ -103,11 +104,13 @@ export function IssueListClient({
   // client-side filters the API can't express (unassigned / any agent / any human)
   const all = useMemo(() => {
     let l = [...issues, ...extra];
+    // triage: an accepted or declined item leaves the queue immediately, so `a` a `a` a clears it
+    if (mode === "triage") l = l.filter((i) => (overrides[i.key]?.state ?? i.state) === "triage");
     if (filters.assignee === "none") l = l.filter((i) => !i.assigneeId);
     else if (filters.assignee === "agent") l = l.filter((i) => i.assigneeType === "agent");
     else if (filters.assignee === "human") l = l.filter((i) => i.assigneeType === "human");
     return l;
-  }, [issues, extra, filters.assignee]);
+  }, [issues, extra, filters.assignee, mode, overrides]);
 
   const groups: IssueGroup[] | undefined = useMemo(() => {
     if (fixedGroups) return fixedGroups;
@@ -292,6 +295,7 @@ export function IssueListClient({
         names={names}
         editors={editors}
         peekOpen={peek.key === issue.key}
+        mode={mode}
         onPeek={() => { setCursor(i); peek.toggle(issue.key); }}
       />
     );
@@ -353,8 +357,9 @@ export function IssueListClient({
 }
 
 function Row({
-  issue, index, isCursor, isSelected, anySelected, editing, onEditDone, onCursor, onToggle, names, editors, peekOpen, onPeek,
+  issue, index, isCursor, isSelected, anySelected, editing, onEditDone, onCursor, onToggle, names, editors, peekOpen, onPeek, mode,
 }: {
+  mode: Mode;
   issue: ListIssue; index: number; isCursor: boolean; isSelected: boolean; anySelected: boolean; editing: boolean;
   onEditDone: () => void; onCursor: () => void; onToggle: (range: boolean) => void;
   names: ReturnType<typeof useNames>; editors: ReturnType<typeof useIssueEditors>; peekOpen: boolean; onPeek: () => void;
@@ -407,6 +412,7 @@ function Row({
           <span className="font-mono text-[12px] text-ink-subtle sm:hidden">{issue.key} </span>{m.title}
         </Link>
       )}
+      {mode === "triage" && issue.source && <span className="hidden shrink-0 rounded-full border border-lining px-2 text-[11px] text-ink-muted sm:inline">{issue.source}</span>}
       {agentFiled && <span title={`Filed by ${names.actor("agent", issue.creatorId)}`}><Glint size={12} label={`Filed by agent ${names.actor("agent", issue.creatorId)}`} /></span>}
       <button type="button" tabIndex={tab} onClick={onPeek} aria-label={`Peek ${issue.key}`} aria-pressed={peekOpen} className={`${ctl} text-ink-subtle opacity-0 focus-visible:opacity-100 group-hover:opacity-100 max-sm:hidden`}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden><rect x="1.5" y="2.5" width="11" height="9" rx="1.5" /><path d="M8.5 2.5v9" /></svg>
