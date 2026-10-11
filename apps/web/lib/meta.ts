@@ -30,7 +30,10 @@ export interface Meta {
 // per-session cache keeps page loads from spending the user's API rate budget
 // on data that rarely changes; our own mutations invalidate it.
 const TTL_MS = 10_000;
-const cache = new Map<string, { at: number; meta: Meta }>();
+// route handlers and pages can be separate module instances (dev bundling), so
+// the cache lives on globalThis to be shared with the invalidating handlers
+const g = globalThis as { __tlMetaCache?: Map<string, { at: number; meta: Meta }> };
+const cache = (g.__tlMetaCache ??= new Map());
 
 export function invalidateMeta(session: string | undefined) {
   if (!session) return;
