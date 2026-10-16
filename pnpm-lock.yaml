@@ -198,7 +198,11 @@ importers:
         specifier: ^8.5.29
         version: 8.5.29
 
-  packages/types: {}
+  packages/types:
+    dependencies:
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
 
   tools/cli:
     devDependencies:

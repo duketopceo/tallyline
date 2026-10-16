@@ -19,6 +19,7 @@ import {
 } from "./outbound.js";
 import { clock } from "./clock.js";
 import { withAgentRunSlot } from "./entitlements.js";
+import { ensureSession } from "./agent-sessions.js";
 
 // ── Adapter contract ─────────────────────────────────────────────
 // Third-party harnesses implement this shape and register by harness
@@ -260,6 +261,15 @@ export async function createDispatch(input: {
       commentBody: input.commentBody ?? null,
     })
     .returning());
+
+  // plan L1: one typed agent session per dispatch, pending until the
+  // agent's first activity
+  await ensureSession({
+    workspaceId: input.workspaceId,
+    dispatchId: dispatch!.id,
+    issueId: input.issueId,
+    agentId: input.agentId,
+  });
 
   await db.insert(events).values({
     workspaceId: input.workspaceId,

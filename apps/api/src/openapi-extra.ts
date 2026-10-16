@@ -358,6 +358,79 @@ export const extraPaths: Record<string, PathItem> = {
       },
     },
   },
+  "/v1/workspaces/{ws}/issues/{key}/agent-sessions": {
+    get: {
+      summary: "Agent sessions on an issue (plan L1), newest first",
+      parameters: [wsParam, keyParam],
+      responses: {
+        "200": { description: "Sessions" },
+        "404": { description: "Issue not found" },
+      },
+    },
+  },
+  "/v1/workspaces/{ws}/agent-sessions/{id}": {
+    get: {
+      summary: "One agent session with its typed activity log",
+      parameters: [wsParam, idParam],
+      responses: {
+        "200": { description: "Session and activities" },
+        "403": { description: "Agent key reading another agent's session" },
+        "404": { description: "Session not found" },
+      },
+    },
+    patch: {
+      summary: "Set the session plan and pull-request links",
+      parameters: [wsParam, idParam],
+      requestBody: jsonBody({
+        type: "object",
+        properties: {
+          plan: { type: "object", additionalProperties: true },
+          pullRequests: { type: "array", maxItems: 50, items: { type: "string", format: "uri" } },
+        },
+      }),
+      responses: {
+        "200": { description: "Session updated" },
+        "403": { description: "Agent key patching another agent's session" },
+        "404": { description: "Session not found" },
+      },
+    },
+  },
+  "/v1/workspaces/{ws}/agent-sessions/{id}/activities": {
+    post: {
+      summary:
+        "Append a typed activity (thought | action | elicitation | response | error | prompt); the transition table sets the session status",
+      parameters: [wsParam, idParam],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["content"],
+        properties: {
+          content: {
+            type: "object",
+            required: ["type"],
+            properties: {
+              type: {
+                type: "string",
+                enum: ["thought", "action", "elicitation", "response", "error", "prompt"],
+              },
+              body: { type: "string", maxLength: 4000 },
+              action: { type: "string", maxLength: 200 },
+              parameter: { type: "string", maxLength: 4000 },
+              result: { type: "string", maxLength: 4000 },
+              final: { type: "boolean" },
+            },
+          },
+          ephemeral: { type: "boolean" },
+          signal: { type: "string", enum: ["stop"] },
+        },
+      }),
+      responses: {
+        "201": { description: "Activity recorded; returns session and activity" },
+        "403": { description: "Wrong agent key, or a non-agent posting in the agent's voice" },
+        "404": { description: "Session not found" },
+        "409": { description: "Activity not allowed in the current session status" },
+      },
+    },
+  },
   "/v1/workspaces/{ws}/github/manifest": {
     get: {
       summary:

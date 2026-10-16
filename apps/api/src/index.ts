@@ -17,11 +17,13 @@ import { sweepWebhookEvents } from "./services/retention.js";
 import { mailer } from "./services/mailer.js";
 import { sweepDeletedWorkspaces } from "./services/workspace-lifecycle.js";
 import { accountPublicRoutes, accountRoutes } from "./routes/account.js";
+import { sweepStaleSessions } from "./services/agent-sessions.js";
 import { agentRoutes } from "./routes/agents.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { authRoutes, requireSession } from "./routes/auth.js";
 import { assistRoutes } from "./routes/assist.js";
 import { dispatchRoutes } from "./routes/dispatches.js";
+import { agentSessionRoutes } from "./routes/agent-sessions.js";
 import { eventRoutes } from "./routes/events.js";
 import { githubPublicRoutes, githubRoutes } from "./routes/github.js";
 import { importRoutes } from "./routes/import.js";
@@ -107,6 +109,7 @@ export const app = new Hono()
   .route("/v1", importRoutes)
   .route("/v1", webhookEndpointRoutes)
   .route("/v1", dispatchRoutes)
+  .route("/v1", agentSessionRoutes)
   .route("/v1", assistRoutes)
   .route("/v1", accountRoutes)
   .route("/v1", usageRoutes)
@@ -153,6 +156,12 @@ if (process.env.NODE_ENV !== "test") {
       console.error("dispatch sweep failed", err),
     );
   }, 30_000).unref();
+  // agent session sweep: pending past ack window / active past idle window
+  setInterval(() => {
+    void sweepStaleSessions().catch((err) =>
+      console.error("session sweep failed", err),
+    );
+  }, 10_000).unref();
   // cycle boundary sweep: complete expired active cycles unattended
   // then the auto-schedule tick refills upcoming cycles and activates the one
   // now covering the clock; sequenced so a rollover always finds its next cycle

@@ -3,6 +3,7 @@ import { consentView, registerClient } from "../src/services/mcp-oauth.js";
 import { createAuthRequest, RESOURCE } from "../src/services/mcp-oauth.js";
 import {
   mkAgent,
+  mkAgentSession,
   mkCycle,
   mkDelivery,
   mkDispatch,
@@ -148,6 +149,15 @@ const dispatchOp =
     const i = await mkIssue(t);
     const d = await mkDispatch(t, i.id);
     return { method, path: `${base(t)}/dispatches/${d.id}${suffix}`, ...(body === undefined ? {} : { body }) };
+  };
+
+const sessionOp =
+  (method: string, suffix: string, body?: unknown): Builder =>
+  async (t) => {
+    const i = await mkIssue(t);
+    const d = await mkDispatch(t, i.id);
+    const s = await mkAgentSession(t, d.id, i.id);
+    return { method, path: `${base(t)}/agent-sessions/${s.id}${suffix}`, ...(body === undefined ? {} : { body }) };
   };
 
 const providerOp =
@@ -415,6 +425,16 @@ export const OPERATIONS: Record<string, Builder> = {
   "GET /v1/workspaces/{ws}/dispatches/{id}/events": dispatchOp("GET", "/events"),
   "POST /v1/workspaces/{ws}/dispatches/{id}/events": dispatchOp("POST", "/events", {
     events: [{ kind: "note", message: "progress" }],
+  }),
+
+  // ── agent sessions (plan L1) ───────────────────────────────────────────────
+  "GET /v1/workspaces/{ws}/issues/{key}/agent-sessions": issueOp("GET", "/agent-sessions"),
+  "GET /v1/workspaces/{ws}/agent-sessions/{id}": sessionOp("GET", ""),
+  "POST /v1/workspaces/{ws}/agent-sessions/{id}/activities": sessionOp("POST", "/activities", {
+    content: { type: "prompt", body: "carry on" },
+  }),
+  "PATCH /v1/workspaces/{ws}/agent-sessions/{id}": sessionOp("PATCH", "", {
+    pullRequests: ["https://github.com/example/repo/pull/1"],
   }),
 
   // ── github / import ────────────────────────────────────────────────────────

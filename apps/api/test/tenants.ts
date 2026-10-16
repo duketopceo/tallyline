@@ -7,6 +7,8 @@ import {
   cycles,
   cycleVelocity,
   dispatchEvents,
+  agentActivities,
+  agentSessions,
   dispatches,
   events,
   githubInstallations,
@@ -293,6 +295,37 @@ export async function mkDispatchEvent(t: Tenant, dispatchId: string) {
   return row!;
 }
 
+export async function mkAgentSession(t: Tenant, dispatchId: string, issueId: string) {
+  const [row] = await db
+    .insert(agentSessions)
+    .values({
+      workspaceId: t.ws.id,
+      dispatchId,
+      issueId,
+      agentId: t.agent.id,
+      status: "active",
+      lastActivityAt: new Date(),
+      plan: { note: t.sentinel },
+    })
+    .returning();
+  return row!;
+}
+
+export async function mkAgentActivity(t: Tenant, sessionId: string) {
+  const [row] = await db
+    .insert(agentActivities)
+    .values({
+      sessionId,
+      workspaceId: t.ws.id,
+      type: "thought",
+      content: { body: `thinking ${t.sentinel}` },
+      actorType: "agent",
+      actorId: t.agent.id,
+    })
+    .returning();
+  return row!;
+}
+
 export async function mkInvite(t: Tenant, createdBy: string) {
   const [row] = await db
     .insert(invites)
@@ -482,6 +515,8 @@ export interface Entities {
   delivery: Awaited<ReturnType<typeof mkDelivery>>;
   dispatch: Awaited<ReturnType<typeof mkDispatch>>;
   dispatchEvent: Awaited<ReturnType<typeof mkDispatchEvent>>;
+  agentSession: Awaited<ReturnType<typeof mkAgentSession>>;
+  agentActivity: Awaited<ReturnType<typeof mkAgentActivity>>;
   invite: Awaited<ReturnType<typeof mkInvite>>;
   extraMember: Awaited<ReturnType<typeof mkMember>>;
   extraAgent: Awaited<ReturnType<typeof mkAgent>>;
@@ -511,6 +546,7 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
     .insert(intakeEvents)
     .values({ workspaceId: t.ws.id, provider: "matrix", issueId: issue.id });
   const dispatch = await mkDispatch(t, issue.id);
+  const agentSession = await mkAgentSession(t, dispatch.id, issue.id);
   await newSession(t, "owner"); // sessions row
   return {
     issue,
@@ -527,6 +563,8 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
     delivery: await mkDelivery(t, endpoint.id),
     dispatch,
     dispatchEvent: await mkDispatchEvent(t, dispatch.id),
+    agentSession,
+    agentActivity: await mkAgentActivity(t, agentSession.id),
     invite: await mkInvite(t, t.people.owner.id),
     extraMember: await mkMember(t),
     extraAgent: await mkAgent(t),

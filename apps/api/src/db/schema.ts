@@ -680,6 +680,96 @@ export const dispatchEvents = pgTable(
   (t) => [index().on(t.dispatchId), index().on(t.workspaceId)],
 );
 
+// ── Agent sessions (plan L1) ─────────────────────────────────────
+// One session per dispatch. Status values mirror Linear's AgentSession so
+// adapters written against either map one-to-one. A session is `pending`
+// until the agent's first activity; the sweeper marks it `stale` when no
+// activity arrives inside the ack window, or when an active session goes
+// quiet past the idle window.
+export const agentSessionStatuses = [
+  "pending",
+  "active",
+  "awaitingInput",
+  "complete",
+  "error",
+  "stale",
+  "stopping",
+] as const;
+export type AgentSessionStatus = (typeof agentSessionStatuses)[number];
+
+export const agentSessions = pgTable(
+  "agent_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    dispatchId: uuid("dispatch_id")
+      .notNull()
+      .references(() => dispatches.id, { onDelete: "cascade" }),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    agentId: uuid("agent_id")
+      .notNull()
+      .references(() => agents.id, { onDelete: "cascade" }),
+    status: text("status", { enum: agentSessionStatuses })
+      .notNull()
+      .default("pending"),
+    plan: jsonb("plan").$type<Record<string, unknown>>(),
+    pullRequests: jsonb("pull_requests").$type<string[]>().default([]).notNull(),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    unique().on(t.dispatchId),
+    index().on(t.workspaceId, t.issueId),
+    index().on(t.workspaceId, t.status),
+  ],
+);
+
+// Typed activity log inside a session. `ephemeral` rows are replaced by the
+// next ephemeral row (progress text that should not pile up). `signal`
+// carries out-of-band control such as `stop`.
+export const agentActivityTypes = [
+  "thought",
+  "action",
+  "elicitation",
+  "response",
+  "error",
+  "prompt",
+] as const;
+export type AgentActivityType = (typeof agentActivityTypes)[number];
+
+export const agentActivities = pgTable(
+  "agent_activities",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => agentSessions.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    type: text("type", { enum: agentActivityTypes }).notNull(),
+    content: jsonb("content").$type<Record<string, unknown>>().notNull(),
+    ephemeral: boolean("ephemeral").default(false).notNull(),
+    signal: text("signal"),
+    actorType: actorTypeEnum("actor_type").default("agent").notNull(),
+    actorId: uuid("actor_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.sessionId), index().on(t.workspaceId)],
+);
+
 // outbound webhook endpoints — consumers subscribe to issue.*/dispatch.* actions
 export const webhookEndpoints = pgTable(
   "webhook_endpoints",
