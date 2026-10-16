@@ -4,7 +4,7 @@ import { and, desc, eq, ilike, inArray, lt, or, type SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import type { IssueState } from "@tallyline/types";
 import { db } from "../../db/client.js";
-import { issueLabels, issues, labels, projects, teams } from "../../db/schema.js";
+import { events, issueLabels, issues, labels, projects, teams } from "../../db/schema.js";
 import { actorFromHeaders } from "../../lib/actor.js";
 import { apiError, HttpError } from "../../lib/errors.js";
 import { llmEnabled } from "../../services/llm.js";
@@ -16,7 +16,7 @@ import { notifyUsers } from "../../services/notifications.js";
 import { requireHumanReviewer, requireRole } from "../../services/members.js";
 import { requireWorkspace } from "../workspaces.js";
 import { clock } from "../../services/clock.js";
-import { assist, BULK_MAX, bulkSchema, createSchema, findIssue, listQuerySchema, patchSchema, replaceIssueLabels, setIssueLabels, slack, validateAgentActor, validateAssignee, validateCycle, validateMilestone, validateParent, validateProject } from "./shared.js";
+import { assist, BULK_MAX, bulkSchema, createSchema, findIssue, listQuerySchema, patchSchema, replaceIssueLabels, setIssueLabels, slack, validateAgentActor, validateAssignee, validateCycle, validateDelegate, validateMilestone, validateParent, validateProject } from "./shared.js";
 
 export const coreIssueRoutes = new Hono()
   .post(
@@ -112,6 +112,7 @@ export const coreIssueRoutes = new Hono()
       if (body.assigneeType === "agent" && body.assigneeId) {
         await assertWithinLimit("agent_runs", ws.id);
       }
+      await validateDelegate(ws.id, body.delegateType, body.delegateId);
 
       const issue = await createIssue({
         workspaceId: ws.id,
@@ -132,6 +133,8 @@ export const coreIssueRoutes = new Hono()
       if (
         body.priority !== undefined ||
         body.assigneeId !== undefined ||
+        body.delegateType !== undefined ||
+        body.delegateId !== undefined ||
         body.cycleId !== undefined ||
         body.projectId !== undefined ||
         body.milestoneId !== undefined ||
@@ -148,6 +151,12 @@ export const coreIssueRoutes = new Hono()
               : {}),
             ...(body.assigneeId !== undefined
               ? { assigneeId: body.assigneeId }
+              : {}),
+            ...(body.delegateType !== undefined
+              ? { delegateType: body.delegateType }
+              : {}),
+            ...(body.delegateId !== undefined
+              ? { delegateId: body.delegateId }
               : {}),
             ...(body.cycleId !== undefined ? { cycleId: body.cycleId } : {}),
             ...(body.projectId !== undefined
@@ -172,6 +181,27 @@ export const coreIssueRoutes = new Hono()
           kind: "assigned",
           issueId: result.id,
           actor,
+        });
+      }
+
+      if (body.assigneeType === "agent") {
+        await db.insert(events).values({
+          workspaceId: ws.id,
+          entityType: "issue",
+          entityId: result.id,
+          action: "deprecated_agent_assignee",
+          actorType: actor.type,
+          actorId: actor.id,
+          after: { assigneeId: body.assigneeId ?? null },
+        });
+      }
+
+      if (body.delegateType === "agent" && body.delegateId) {
+        await createDispatch({
+          workspaceId: ws.id,
+          issueId: result.id,
+          agentId: body.delegateId,
+          trigger: "assign",
         });
       }
 
@@ -336,6 +366,7 @@ export const coreIssueRoutes = new Hono()
       if (body.assigneeType === "agent" && body.assigneeId) {
         await assertWithinLimit("agent_runs", ws.id);
       }
+      await validateDelegate(ws.id, body.delegateType, body.delegateId);
       if (body.parentId) await validateParent(ws.id, body.parentId, key);
       if (body.labelIds?.length) {
         const found = await db
@@ -407,20 +438,28 @@ export const coreIssueRoutes = new Hono()
       if (body.assigneeType !== undefined)
         fields.assigneeType = body.assigneeType;
       if (body.assigneeId !== undefined) fields.assigneeId = body.assigneeId;
+      if (body.delegateType !== undefined)
+        fields.delegateType = body.delegateType;
+      if (body.delegateId !== undefined) fields.delegateId = body.delegateId;
       if (body.cycleId !== undefined) fields.cycleId = body.cycleId;
       if (body.projectId !== undefined) fields.projectId = body.projectId;
       if (body.milestoneId !== undefined) fields.milestoneId = body.milestoneId;
       else if (clearMilestone) fields.milestoneId = null;
       if (body.parentId !== undefined) fields.parentId = body.parentId;
 
-      // prior assignee for the change-detection below — one extra read only
-      // when the patch touches assignment
-      const prevAssignee =
-        body.assigneeId !== undefined || body.assigneeType !== undefined
+      // prior assignee / delegate for the change-detection below — one extra
+      // read only when the patch touches assignment or delegation
+      const prevAssignment =
+        body.assigneeId !== undefined ||
+        body.assigneeType !== undefined ||
+        body.delegateId !== undefined ||
+        body.delegateType !== undefined
           ? await db
               .select({
                 assigneeType: issues.assigneeType,
                 assigneeId: issues.assigneeId,
+                delegateType: issues.delegateType,
+                delegateId: issues.delegateId,
               })
               .from(issues)
               .where(
@@ -451,11 +490,28 @@ export const coreIssueRoutes = new Hono()
       if (body.labelIds !== undefined && issue) {
         await replaceIssueLabels(issue.id, ws.id, body.labelIds);
       }
-      if (body.assigneeType === "agent" && body.assigneeId && issue) {
+      if (body.assigneeType === "agent" && issue) {
+        await db.insert(events).values({
+          workspaceId: ws.id,
+          entityType: "issue",
+          entityId: issue.id,
+          action: "deprecated_agent_assignee",
+          actorType: actor.type,
+          actorId: actor.id,
+          after: { assigneeId: body.assigneeId ?? null },
+        });
+      }
+      if (
+        body.delegateType === "agent" &&
+        body.delegateId &&
+        issue &&
+        (prevAssignment?.delegateType !== "agent" ||
+          prevAssignment?.delegateId !== body.delegateId)
+      ) {
         await createDispatch({
           workspaceId: ws.id,
           issueId: issue.id,
-          agentId: body.assigneeId,
+          agentId: body.delegateId,
           trigger: "assign",
         });
       }
@@ -465,7 +521,7 @@ export const coreIssueRoutes = new Hono()
         body.assigneeType === "human" &&
         body.assigneeId &&
         issue &&
-        prevAssignee?.assigneeId !== body.assigneeId
+        prevAssignment?.assigneeId !== body.assigneeId
       ) {
         await notifyUsers(ws.id, [body.assigneeId], {
           kind: "assigned",

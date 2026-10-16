@@ -7,12 +7,15 @@ import { app } from "../../api/src/index.js";
 import { closeDb, db } from "../../api/src/db/client.js";
 import { runMigrations } from "../../api/src/db/migrate.js";
 import {
+  agentActivities,
   agentKeys,
   agents,
+  agentSessions,
   authIdentities,
   authProviders,
   comments,
   cycles,
+  dispatches,
   events,
   invites,
   issueLabels,
@@ -46,6 +49,9 @@ vi.hoisted(() => {
 const SLUG = `mcp-${Date.now()}`;
 
 const WIPE_ORDER = [
+  agentActivities,
+  agentSessions,
+  dispatches,
   comments,
   events,
   issueLabels,
@@ -536,6 +542,56 @@ describe("tool surface over the real API", () => {
     expect(deniedComment.res.isError).toBe(true);
     expect(deniedComment.data.error!.code).toBe("FORBIDDEN_SCOPE");
   });
+
+  it("session_get and session_post_activity drive an agent session over MCP", async () => {
+    const issue = await db.query.issues.findFirst({
+      where: (i, { eq }) => eq(i.workspaceId, wsId),
+    });
+    const [disp] = await db
+      .insert(dispatches)
+      .values({
+        workspaceId: wsId,
+        issueId: issue!.id,
+        agentId,
+        trigger: "assign",
+      })
+      .returning();
+    const [sess] = await db
+      .insert(agentSessions)
+      .values({
+        workspaceId: wsId,
+        dispatchId: disp!.id,
+        issueId: issue!.id,
+        agentId,
+      })
+      .returning();
+
+    const got = await call("session_get", { id: sess!.id });
+    expect(got.res.isError).toBeFalsy();
+    expect((got.data.session as { status: string }).status).toBe("pending");
+    expect(got.data.activities).toEqual([]);
+
+    const ack = await call("session_post_activity", {
+      id: sess!.id,
+      content: { type: "thought", body: "inspecting repository" },
+      ephemeral: true,
+    });
+    expect(ack.res.isError).toBeFalsy();
+    expect((ack.data.session as { status: string }).status).toBe("active");
+    expect((ack.data.activity as { type: string; ephemeral: boolean }).type).toBe("thought");
+    expect((ack.data.activity as { ephemeral: boolean }).ephemeral).toBe(true);
+
+    const done = await call("session_post_activity", {
+      id: sess!.id,
+      content: { type: "response", body: "all tests green", final: true },
+    });
+    expect(done.res.isError).toBeFalsy();
+    expect((done.data.session as { status: string }).status).toBe("complete");
+
+    const after = await call("session_get", { id: sess!.id });
+    expect((after.data.session as { status: string }).status).toBe("complete");
+    expect((after.data.activities as unknown[]).length).toBe(2);
+  });
 });
 
 describe("projects and plan import", () => {
@@ -697,6 +753,8 @@ describe("MCP protocol end-to-end (InMemoryTransport)", () => {
       "list_teams",
       "list_labels",
       "list_events",
+      "session_get",
+      "session_post_activity",
       "whoami",
       "create_project",
       "update_project",

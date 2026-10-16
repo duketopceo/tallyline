@@ -359,3 +359,174 @@ describe("agent sessions (plan L1)", () => {
     expect(await sweepStaleSessions(0, 0, new Date(NOW + 999_999))).toBe(0);
   });
 });
+
+describe("delegate separate from assignee (plan L2)", () => {
+  it("creating and patching an issue with human assignee and agent delegate preserves human owner and dispatches to delegate", async () => {
+    const [owner] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, "as@test.dev"));
+    expect(owner).toBeDefined();
+
+    // 1. Create issue with human assignee AND agent delegate
+    const created = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "human owned, agent delegated on create",
+        assigneeType: "human",
+        assigneeId: owner!.id,
+        delegateType: "agent",
+        delegateId: agentId,
+      }),
+    });
+    expect(created.status).toBe(201);
+    const createdIssue = created.body as {
+      id: string;
+      key: string;
+      assigneeType: string;
+      assigneeId: string;
+      delegateType: string;
+      delegateId: string;
+    };
+    expect(createdIssue.assigneeType).toBe("human");
+    expect(createdIssue.assigneeId).toBe(owner!.id);
+    expect(createdIssue.delegateType).toBe("agent");
+    expect(createdIssue.delegateId).toBe(agentId);
+
+    const createSessions = await req(
+      `/v1/workspaces/${SLUG}/issues/${createdIssue.key}/agent-sessions`,
+    );
+    expect(createSessions.status).toBe(200);
+    const sList1 = (
+      createSessions.body as { sessions: { id: string; status: string; agentId: string }[] }
+    ).sessions;
+    expect(sList1).toHaveLength(1);
+    expect(sList1[0]!.status).toBe("pending");
+    expect(sList1[0]!.agentId).toBe(agentId);
+
+    // 2. Create issue with human assignee only, then PATCH delegate
+    const created2 = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "human owned, delegated via patch",
+        assigneeType: "human",
+        assigneeId: owner!.id,
+      }),
+    });
+    expect(created2.status).toBe(201);
+    const key2 = (created2.body as { key: string }).key;
+
+    const patched = await req(`/v1/workspaces/${SLUG}/issues/${key2}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        delegateType: "agent",
+        delegateId: agentId,
+      }),
+    });
+    expect(patched.status).toBe(200);
+    const patchedIssue = patched.body as {
+      assigneeType: string;
+      assigneeId: string;
+      delegateType: string;
+      delegateId: string;
+    };
+    expect(patchedIssue.assigneeType).toBe("human");
+    expect(patchedIssue.assigneeId).toBe(owner!.id);
+    expect(patchedIssue.delegateType).toBe("agent");
+    expect(patchedIssue.delegateId).toBe(agentId);
+
+    const patchSessions = await req(
+      `/v1/workspaces/${SLUG}/issues/${key2}/agent-sessions`,
+    );
+    expect(patchSessions.status).toBe(200);
+    const sList2 = (
+      patchSessions.body as { sessions: { id: string; status: string; agentId: string }[] }
+    ).sessions;
+    expect(sList2).toHaveLength(1);
+    expect(sList2[0]!.status).toBe("pending");
+    expect(sList2[0]!.agentId).toBe(agentId);
+  });
+
+  it("rejects cross-workspace agent delegateId and mismatched delegateType/delegateId", async () => {
+    const [foreignWs] = await db
+      .insert(workspaces)
+      .values({ slug: `${SLUG}-foreign`, name: "Foreign WS" })
+      .returning();
+    const [foreignAgent] = await db
+      .insert(agents)
+      .values({
+        workspaceId: foreignWs!.id,
+        name: "foreign-bot",
+        harness: "local",
+      })
+      .returning();
+
+    try {
+      const badCreate = await req(`/v1/workspaces/${SLUG}/issues`, {
+        method: "POST",
+        body: JSON.stringify({
+          title: "cross-tenant delegate create",
+          delegateType: "agent",
+          delegateId: foreignAgent!.id,
+        }),
+      });
+      expect(badCreate.status).toBe(422);
+
+      const goodIssue = await req(`/v1/workspaces/${SLUG}/issues`, {
+        method: "POST",
+        body: JSON.stringify({ title: "target for cross-tenant delegate patch" }),
+      });
+      const key = (goodIssue.body as { key: string }).key;
+
+      const badPatch = await req(`/v1/workspaces/${SLUG}/issues/${key}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          delegateType: "agent",
+          delegateId: foreignAgent!.id,
+        }),
+      });
+      expect(badPatch.status).toBe(422);
+
+      const missingId = await req(`/v1/workspaces/${SLUG}/issues/${key}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          delegateType: "agent",
+        }),
+      });
+      expect(missingId.status).toBe(400);
+    } finally {
+      await db.delete(agents).where(eq(agents.id, foreignAgent!.id));
+      await db.delete(workspaces).where(eq(workspaces.id, foreignWs!.id));
+    }
+  });
+
+  it("keeps assigneeType='agent' working and emits deprecated_agent_assignee event", async () => {
+    const created = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "legacy agent assignee on create",
+        assigneeType: "agent",
+        assigneeId: agentId,
+      }),
+    });
+    expect(created.status).toBe(201);
+    const createdId = (created.body as { id: string }).id;
+    const createEvs = await db
+      .select()
+      .from(events)
+      .where(eq(events.entityId, createdId));
+    expect(createEvs.some((e) => e.action === "deprecated_agent_assignee")).toBe(true);
+
+    const { key, session } = await newDispatchSession("legacy agent assignee on patch");
+    expect(session.status).toBe("pending");
+    const [patchedIssue] = await db
+      .select()
+      .from(issues)
+      .where(eq(issues.key, key));
+    const patchEvs = await db
+      .select()
+      .from(events)
+      .where(eq(events.entityId, patchedIssue!.id));
+    expect(patchEvs.some((e) => e.action === "deprecated_agent_assignee")).toBe(true);
+  });
+});

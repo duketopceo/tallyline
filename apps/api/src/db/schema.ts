@@ -296,6 +296,8 @@ export const issues = pgTable(
     dueDate: timestamp("due_date", { withTimezone: true }),
     assigneeType: assigneeTypeEnum("assignee_type"),
     assigneeId: uuid("assignee_id"),
+    delegateType: actorTypeEnum("delegate_type"),
+    delegateId: uuid("delegate_id"),
     creatorType: actorTypeEnum("creator_type").notNull().default("human"),
     creatorId: uuid("creator_id"),
     projectId: uuid("project_id").references(() => projects.id),
@@ -332,6 +334,7 @@ export const issues = pgTable(
     index().on(t.workspaceId, t.cycleId),
     index().on(t.workspaceId, t.assigneeId),
     index().on(t.milestoneId),
+    index().on(t.workspaceId, t.delegateId),
     index("issues_intake_fingerprint_index")
       .on(t.workspaceId, t.intakeFingerprint)
       .where(sql`${t.intakeFingerprint} is not null`),

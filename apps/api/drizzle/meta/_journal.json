@@ -225,6 +225,13 @@
       "when": 1792798254814,
       "tag": "0031_agent_sessions_index",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792192816062,
+      "tag": "0023_issue_delegate",
+      "breakpoints": true
     }
   ]
 }
