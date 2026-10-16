@@ -731,6 +731,9 @@ export const agentSessions = pgTable(
     unique().on(t.dispatchId),
     index().on(t.workspaceId, t.issueId),
     index().on(t.workspaceId, t.status),
+    // sweeper scans by status across workspaces
+    index().on(t.status, t.createdAt),
+    index().on(t.status, t.lastActivityAt),
   ],
 );
 

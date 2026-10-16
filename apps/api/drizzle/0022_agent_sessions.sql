@@ -36,4 +36,6 @@ ALTER TABLE "agent_sessions" ADD CONSTRAINT "agent_sessions_agent_id_agents_id_f
 CREATE INDEX "agent_activities_session_id_index" ON "agent_activities" USING btree ("session_id");--> statement-breakpoint
 CREATE INDEX "agent_activities_workspace_id_index" ON "agent_activities" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "agent_sessions_workspace_id_issue_id_index" ON "agent_sessions" USING btree ("workspace_id","issue_id");--> statement-breakpoint
-CREATE INDEX "agent_sessions_workspace_id_status_index" ON "agent_sessions" USING btree ("workspace_id","status");
+CREATE INDEX "agent_sessions_workspace_id_status_index" ON "agent_sessions" USING btree ("workspace_id","status");--> statement-breakpoint
+CREATE INDEX "agent_sessions_status_created_at_index" ON "agent_sessions" USING btree ("status","created_at");--> statement-breakpoint
+CREATE INDEX "agent_sessions_status_last_activity_at_index" ON "agent_sessions" USING btree ("status","last_activity_at");
