@@ -23,6 +23,8 @@ export const createSchema = z.object({
   state: z.enum(["triage", "backlog"]).default("backlog"),
   assigneeType: z.enum(["human", "agent"]).optional(),
   assigneeId: z.uuid().optional(),
+  delegateType: z.enum(["agent"]).nullable().optional(),
+  delegateId: z.uuid().nullable().optional(),
   cycleId: z.uuid().optional(),
   projectId: z.uuid().optional(),
   milestoneId: z.uuid().optional(),
@@ -39,6 +41,8 @@ export const patchSchema = z.object({
   dueDate: z.iso.datetime().nullable().optional(),
   assigneeType: z.enum(["human", "agent"]).nullable().optional(),
   assigneeId: z.uuid().nullable().optional(),
+  delegateType: z.enum(["agent"]).nullable().optional(),
+  delegateId: z.uuid().nullable().optional(),
   cycleId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
   milestoneId: z.uuid().nullable().optional(),
@@ -125,6 +129,33 @@ export async function validateAssignee(
       );
     if (!m)
       throw new HttpError(422, "INVALID_ASSIGNEE", "user not in workspace");
+  }
+}
+
+// Delegate is the issue's working owner, separate from assignee (L2): it may
+// only be an agent in the same workspace, and type/id always move together.
+export async function validateDelegate(
+  workspaceId: string,
+  type: "agent" | null | undefined,
+  id: string | null | undefined,
+): Promise<void> {
+  if (type === undefined && id === undefined) return;
+  if (type === null && id === null) return;
+  if ((type === "agent") !== Boolean(id)) {
+    throw new HttpError(
+      400,
+      "INVALID_DELEGATE",
+      "delegateType='agent' and delegateId must be provided together",
+    );
+  }
+  if (type === "agent" && id) {
+    const [a] = await db
+      .select({ id: agents.id })
+      .from(agents)
+      .where(and(eq(agents.id, id), eq(agents.workspaceId, workspaceId)));
+    if (!a) {
+      throw new HttpError(422, "INVALID_DELEGATE", "agent not in workspace");
+    }
   }
 }
 
