@@ -365,7 +365,7 @@ export function BoardClient({ issues }: { issues: ListIssue[] }) {
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      <NewPill count={live.count} onShow={() => { live.reset(); router.refresh(); }} />
+      <NewPill count={live.count} down={live.down} onShow={() => { live.reset(); router.refresh(); }} />
       <nav aria-label="Columns" className="flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-lining-faint px-4 text-[12px]">
         {ACTIVE_STATES.map((s) => (
           <button key={s} type="button" onClick={() => document.getElementById(`col-${s}`)?.scrollIntoView({ behavior: "auto", inline: "start", block: "nearest" })} className="flex h-7 shrink-0 items-center gap-1.5 rounded-sm px-2 text-ink-muted hover:bg-surface-2 hover:text-ink">

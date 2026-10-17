@@ -6,9 +6,10 @@ import { useMeta } from "./providers";
 // Live data never moves rows under the cursor (Silver Lining section 9):
 // events from other actors are counted in batches of at most one per 250ms
 // and surfaced as a "N new" pill; the list only changes when the user clicks.
-export function useLiveCount(opts?: { enabled?: boolean }): { count: number; reset: () => void } {
+export function useLiveCount(opts?: { enabled?: boolean }): { count: number; down: boolean; reset: () => void } {
   const meta = useMeta();
   const [count, setCount] = useState(0);
+  const [down, setDown] = useState(false);
   const pending = useRef(0);
   const enabled = opts?.enabled ?? true;
 
@@ -39,6 +40,10 @@ export function useLiveCount(opts?: { enabled?: boolean }): { count: number; res
       if (cancelled) return;
       es = new EventSource(`/api/events/stream${after}`);
       es.onmessage = onMessage;
+      // §16: surface the stream dropping — EventSource retries natively, we
+      // just make the gap visible instead of silently going stale.
+      es.onerror = () => setDown(true);
+      es.onopen = () => setDown(false);
     })();
     const t = setInterval(() => {
       if (pending.current) {
@@ -58,11 +63,20 @@ export function useLiveCount(opts?: { enabled?: boolean }): { count: number; res
     pending.current = 0;
     setCount(0);
   }, []);
-  return { count, reset };
+  return { count, down, reset };
 }
 
-export function NewPill({ count, onShow }: { count: number; onShow: () => void }) {
-  if (!count) return null;
+export function NewPill({ count, down, onShow }: { count: number; down?: boolean; onShow: () => void }) {
+  if (!count) {
+    if (!down) return null;
+    return (
+      <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center">
+        <span className="h-7 rounded-full border border-lining bg-surface-3 px-3 text-[12px] font-medium leading-7 text-ink-subtle">
+          Reconnecting to updates…
+        </span>
+      </div>
+    );
+  }
   return (
     <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center">
       <button

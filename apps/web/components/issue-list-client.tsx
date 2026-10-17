@@ -11,8 +11,11 @@ import { type IssueLike, useIssueEditors } from "./app/pickers";
 import { useMeta, useNames, usePeek } from "./app/providers";
 import { Assignee, Glint, Kbd, PriorityGlyph, StateGlyph } from "./app/ui";
 import { PRIORITY_LABEL, relTime, STATE_LABEL } from "@/lib/format";
+
 import { apiQuery, parseFilters } from "@/lib/filters";
 import { IconCheck, IconPeek } from "./app/icons";
+
+const FILTER_PARAMS = ["state", "priority", "assignee", "label", "project", "cycle", "team", "source", "q"] as const;
 
 export interface ListLabel {
   id: string;
@@ -316,10 +319,33 @@ export function IssueListClient({
   };
 
   if (flat.length === 0) {
+    // §16 empty flavors: filtered-empty offers a one-click clear; a truly empty
+    // workspace gets the first-run hint instead.
+    const filtered = FILTER_PARAMS.some((k) => search.get(k) !== null);
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-8 py-12 text-center">
-        <p className="text-[14px] font-medium text-ink">No issues match</p>
-        <p className="mt-1 max-w-sm text-[13px] text-ink-subtle">Nothing here yet for these filters. Clear a filter, or press <Kbd>c</Kbd> to create an issue.</p>
+        {filtered ? (
+          <>
+            <p className="text-[14px] font-medium text-ink">No issues match these filters</p>
+            <p className="mt-1 max-w-sm text-[13px] text-ink-subtle">Widen or clear a filter to see more.</p>
+            <button
+              type="button"
+              className="mt-3 h-7 rounded-sm border border-lining px-3 text-[13px] font-medium text-ink hover:bg-overlay"
+              onClick={() => {
+                const q = new URLSearchParams(search.toString());
+                for (const k of FILTER_PARAMS) q.delete(k);
+                router.replace(q.size ? `${pathname}?${q}` : pathname);
+              }}
+            >
+              Clear filters
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-[14px] font-medium text-ink">No issues yet</p>
+            <p className="mt-1 max-w-sm text-[13px] text-ink-subtle">Press <Kbd>c</Kbd> to create the first one.</p>
+          </>
+        )}
         {emptyAction}
       </div>
     );
@@ -327,7 +353,7 @@ export function IssueListClient({
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col" style={{ ["--row-h" as string]: `${rowH}px` }}>
-      <NewPill count={live.count} onShow={() => { live.reset(); router.refresh(); }} />
+      <NewPill count={live.count} down={live.down} onShow={() => { live.reset(); router.refresh(); }} />
       <div ref={listRef} className="scroll-quiet min-h-0 flex-1 overflow-y-auto" data-issue-list>
         {groups
           ? groups.map((g) => (
