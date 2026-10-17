@@ -137,13 +137,13 @@ export async function newSession(t: Tenant, role: Role): Promise<string> {
 // Each creates one fresh row in the tenant, so destructive operations never
 // run out of targets and denial is always observed against a real resource.
 
-let issueSeq = 100;
+let issueSeq = 100_000 + (randomBytes(2).readUInt16BE(0) % 1_000) * 100_000;
 
 export async function mkIssue(
   t: Tenant,
   over: Partial<typeof issues.$inferInsert> = {},
 ) {
-  const number = ++issueSeq + Math.floor(Math.random() * 1_000_000);
+  const number = ++issueSeq;
   const [row] = await db
     .insert(issues)
     .values({
