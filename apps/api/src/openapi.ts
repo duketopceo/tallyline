@@ -430,9 +430,30 @@ const basePaths = {
             name: { type: "string" },
             harness: { type: "string" },
             capabilities: { type: "array", items: { type: "string" } },
+            skills: { type: "array", items: { type: "string" } },
           },
         }),
         responses: { "201": { description: "Agent registered" } },
+      },
+      patch: {
+        summary: "Update an agent by body id (human session only)",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["id"],
+          properties: {
+            id: { type: "string", format: "uuid" },
+            name: { type: "string" },
+            harness: { type: "string" },
+            endpointUrl: { type: ["string", "null"] },
+            capabilities: { type: "array", items: { type: "string" } },
+            skills: { type: "array", items: { type: "string" } },
+          },
+        }),
+        responses: {
+          "200": { description: "Agent updated" },
+          "404": { description: "Agent not found" },
+        },
       },
     },
     "/v1/workspaces/{ws}/agents/{id}/keys/{keyId}": {

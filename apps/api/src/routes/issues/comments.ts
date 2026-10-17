@@ -1,10 +1,11 @@
 // Issue comments and the per-issue event feed.
 import { zValidator } from "@hono/zod-validator";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { db } from "../../db/client.js";
-import { agents, comments, events, users, workspaceMembers } from "../../db/schema.js";
+import { agents, agentSessions, comments, events, users, workspaceMembers } from "../../db/schema.js";
 import { actorFromHeaders } from "../../lib/actor.js";
+import { postActivity } from "../../services/agent-sessions.js";
 import { createDispatch } from "../../services/dispatch.js";
 import { assertWithinLimit } from "../../services/entitlements.js";
 import { mirrorIssueComment } from "../../services/github-sync.js";
@@ -116,6 +117,29 @@ export const commentRoutes = new Hono()
             issueId: issue.id,
             actor,
           });
+        }
+      }
+
+      // plan L3: when a human comments on an issue with an awaitingInput
+      // agent session, resume the session with a prompt activity.
+      if (actor.type === "human") {
+        const waitingSessions = await db
+          .select({ id: agentSessions.id })
+          .from(agentSessions)
+          .where(
+            and(
+              eq(agentSessions.workspaceId, ws.id),
+              eq(agentSessions.issueId, issue.id),
+              eq(agentSessions.status, "awaitingInput"),
+            ),
+          )
+          .orderBy(desc(agentSessions.createdAt));
+        for (const s of waitingSessions) {
+          await postActivity(
+            s.id,
+            { content: { type: "prompt", body: comment!.body } },
+            { actorType: "human", actorId: actor.id },
+          );
         }
       }
 

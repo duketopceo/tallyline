@@ -918,4 +918,157 @@ export const extraPaths: Record<string, PathItem> = {
       },
     },
   },
+
+  "/v1/workspaces/{ws}/agents/{id}": {
+    patch: {
+      summary: "Update a registered agent (skills, capabilities, endpoint)",
+      parameters: [wsParam, idParam],
+      requestBody: jsonBody({
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          harness: { type: "string" },
+          endpointUrl: { type: ["string", "null"] },
+          capabilities: { type: "array", items: { type: "string" } },
+          skills: { type: "array", items: { type: "string" } },
+        },
+      }),
+      responses: {
+        "200": { description: "Updated agent" },
+        "404": { description: "Agent not found" },
+      },
+    },
+  },
+
+  "/v1/workspaces/{ws}/issues/{key}/suggestions": {
+    get: {
+      summary: "List triage suggestions for an issue",
+      parameters: [wsParam, keyParam],
+      responses: { "200": { description: "Suggestions list" } },
+    },
+    post: {
+      summary: "Create or auto-generate triage suggestions for an issue (idempotent)",
+      parameters: [wsParam, keyParam],
+      requestBody: jsonBody({
+        type: "object",
+        properties: {
+          kind: {
+            type: "string",
+            enum: ["label", "project", "team", "assignee", "duplicate"],
+          },
+          suggestedValue: { type: "string" },
+          reason: { type: ["string", "null"] },
+          suggestions: { type: "array", items: { type: "object" } },
+        },
+      }),
+      responses: { "201": { description: "Suggestions created/generated" } },
+    },
+  },
+
+  "/v1/workspaces/{ws}/issues/{key}/suggestions/{sid}": {
+    patch: {
+      summary: "Accept or dismiss an issue suggestion",
+      parameters: [wsParam, keyParam, sidParam],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["state"],
+        properties: {
+          state: { type: "string", enum: ["accepted", "dismissed"] },
+          dismissedReason: { type: ["string", "null"] },
+        },
+      }),
+      responses: {
+        "200": { description: "Updated suggestion" },
+        "404": { description: "Suggestion not found" },
+      },
+    },
+  },
+
+  "/v1/workspaces/{ws}/issues/{key}/relations": {
+    get: {
+      summary: "List relations touching an issue",
+      parameters: [wsParam, keyParam],
+      responses: { "200": { description: "Issue relations" } },
+    },
+    post: {
+      summary: "Create a typed relation from this issue to another issue",
+      parameters: [wsParam, keyParam],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["relationType"],
+        properties: {
+          targetIssueId: { type: "string", format: "uuid" },
+          targetIssueKey: { type: "string" },
+          relationType: {
+            type: "string",
+            enum: ["blocks", "duplicate", "related", "similar"],
+          },
+        },
+      }),
+      responses: {
+        "201": { description: "Relation created" },
+        "409": { description: "Self-relation or blocks cycle" },
+      },
+    },
+  },
+
+  "/v1/workspaces/{ws}/issues/{key}/relations/{rid}": {
+    delete: {
+      summary: "Delete an issue relation",
+      parameters: [wsParam, keyParam, ridParam],
+      responses: {
+        "200": { description: "Relation deleted" },
+        "404": { description: "Relation not found" },
+      },
+    },
+  },
+
+  "/v1/workspaces/{ws}/workflows": {
+    get: {
+      summary: "List workflow definitions (loops) for the workspace",
+      parameters: [wsParam],
+      responses: { "200": { description: "Workflow definitions" } },
+    },
+    post: {
+      summary: "Create a workflow definition (loop) for the workspace",
+      parameters: [wsParam],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["name", "trigger", "action"],
+        properties: {
+          name: { type: "string" },
+          trigger: {
+            type: "string",
+            enum: ["issue.transition", "schedule", "webhook", "pull_request"],
+          },
+          condition: { type: "object" },
+          action: { type: "object" },
+          enabled: { type: "boolean" },
+        },
+      }),
+      responses: { "201": { description: "Workflow definition created" } },
+    },
+  },
+
+  "/v1/workspaces/{ws}/sync": {
+    get: {
+      summary: "Delta sync event stream read path (events with id > since)",
+      parameters: [
+        wsParam,
+        {
+          name: "since",
+          in: "query",
+          schema: { type: "integer", minimum: 0, default: 0 },
+        },
+        {
+          name: "limit",
+          in: "query",
+          schema: { type: "integer", minimum: 1, maximum: 200, default: 50 },
+        },
+      ],
+      responses: {
+        "200": { description: "Ordered delta events and nextCursor" },
+      },
+    },
+  },
 };

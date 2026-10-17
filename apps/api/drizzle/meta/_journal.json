@@ -232,6 +232,13 @@
       "when": 1792192816062,
       "tag": "0023_issue_delegate",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792197432581,
+      "tag": "0024_linear_l3_l8",
+      "breakpoints": true
     }
   ]
 }

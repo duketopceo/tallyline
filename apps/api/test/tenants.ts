@@ -18,6 +18,8 @@ import {
   issueExternalRefs,
   issueLabels,
   intakeEvents,
+  issueRelations,
+  issueSuggestions,
   issues,
   labels,
   notifications,
@@ -32,6 +34,7 @@ import {
   views,
   webhookDeliveries,
   webhookEndpoints,
+  workflowDefinitions,
   workspaceMembers,
   workspaces,
 } from "../src/db/schema.js";
@@ -326,6 +329,53 @@ export async function mkAgentActivity(t: Tenant, sessionId: string) {
   return row!;
 }
 
+export async function mkSuggestion(t: Tenant, issueId: string) {
+  const [row] = await db
+    .insert(issueSuggestions)
+    .values({
+      workspaceId: t.ws.id,
+      issueId,
+      kind: "label",
+      suggestedValue: `lbl-${t.sentinel}-${uniq()}`,
+      reason: `reason ${t.sentinel}`,
+      state: "pending",
+    })
+    .returning();
+  return row!;
+}
+
+export async function mkRelation(
+  t: Tenant,
+  sourceIssueId: string,
+  targetIssueId: string,
+) {
+  const [row] = await db
+    .insert(issueRelations)
+    .values({
+      workspaceId: t.ws.id,
+      sourceIssueId,
+      targetIssueId,
+      relationType: "related",
+    })
+    .returning();
+  return row!;
+}
+
+export async function mkWorkflow(t: Tenant) {
+  const [row] = await db
+    .insert(workflowDefinitions)
+    .values({
+      workspaceId: t.ws.id,
+      name: `wf-${t.sentinel}-${uniq()}`,
+      trigger: "issue.transition",
+      condition: { to: "in_review" },
+      action: { type: "comment", body: `wf ${t.sentinel}` },
+      enabled: true,
+    })
+    .returning();
+  return row!;
+}
+
 export async function mkInvite(t: Tenant, createdBy: string) {
   const [row] = await db
     .insert(invites)
@@ -517,6 +567,9 @@ export interface Entities {
   dispatchEvent: Awaited<ReturnType<typeof mkDispatchEvent>>;
   agentSession: Awaited<ReturnType<typeof mkAgentSession>>;
   agentActivity: Awaited<ReturnType<typeof mkAgentActivity>>;
+  suggestion: Awaited<ReturnType<typeof mkSuggestion>>;
+  relation: Awaited<ReturnType<typeof mkRelation>>;
+  workflow: Awaited<ReturnType<typeof mkWorkflow>>;
   invite: Awaited<ReturnType<typeof mkInvite>>;
   extraMember: Awaited<ReturnType<typeof mkMember>>;
   extraAgent: Awaited<ReturnType<typeof mkAgent>>;
@@ -565,6 +618,9 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
     dispatchEvent: await mkDispatchEvent(t, dispatch.id),
     agentSession,
     agentActivity: await mkAgentActivity(t, agentSession.id),
+    suggestion: await mkSuggestion(t, issue.id),
+    relation: await mkRelation(t, issue.id, reviewIssue.id),
+    workflow: await mkWorkflow(t),
     invite: await mkInvite(t, t.people.owner.id),
     extraMember: await mkMember(t),
     extraAgent: await mkAgent(t),

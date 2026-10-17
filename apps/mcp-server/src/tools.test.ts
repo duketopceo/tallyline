@@ -19,6 +19,8 @@ import {
   events,
   invites,
   issueLabels,
+  issueRelations,
+  issueSuggestions,
   issues,
   labels,
   oauthCodes,
@@ -31,6 +33,7 @@ import {
   users,
   userTokens,
   views,
+  workflowDefinitions,
   workspaceMembers,
   workspaces,
 } from "../../api/src/db/schema.js";
@@ -54,6 +57,9 @@ const WIPE_ORDER = [
   dispatches,
   comments,
   events,
+  issueRelations,
+  issueSuggestions,
+  workflowDefinitions,
   issueLabels,
   issues,
   labels,
@@ -581,6 +587,26 @@ describe("tool surface over the real API", () => {
     expect((ack.data.activity as { type: string; ephemeral: boolean }).type).toBe("thought");
     expect((ack.data.activity as { ephemeral: boolean }).ephemeral).toBe(true);
 
+    const elicited = await call("session_elicit", {
+      id: sess!.id,
+      body: "Should we use approach A or B?",
+    });
+    expect(elicited.res.isError).toBeFalsy();
+    expect((elicited.data.session as { status: string }).status).toBe("awaitingInput");
+    expect((elicited.data.activity as { type: string }).type).toBe("elicitation");
+
+    const replied = await call(
+      "session_reply",
+      {
+        id: sess!.id,
+        body: "Use approach A.",
+      },
+      patClient,
+    );
+    expect(replied.res.isError).toBeFalsy();
+    expect((replied.data.session as { status: string }).status).toBe("active");
+    expect((replied.data.activity as { type: string }).type).toBe("prompt");
+
     const done = await call("session_post_activity", {
       id: sess!.id,
       content: { type: "response", body: "all tests green", final: true },
@@ -590,7 +616,7 @@ describe("tool surface over the real API", () => {
 
     const after = await call("session_get", { id: sess!.id });
     expect((after.data.session as { status: string }).status).toBe("complete");
-    expect((after.data.activities as unknown[]).length).toBe(2);
+    expect((after.data.activities as unknown[]).length).toBe(4);
   });
 });
 
@@ -755,6 +781,8 @@ describe("MCP protocol end-to-end (InMemoryTransport)", () => {
       "list_events",
       "session_get",
       "session_post_activity",
+      "session_elicit",
+      "session_reply",
       "whoami",
       "create_project",
       "update_project",
