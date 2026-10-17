@@ -134,6 +134,9 @@ export async function resolveIdentity(
     const [u] = await db.insert(users).values({
       email: email ?? `${ctx.providerKey}-${result.subject}@sso.local`,
       name: result.name ?? email ?? "sso user",
+      // the column defaults to now(), but only the provider claim proves the
+      // address — an unverified SSO email stays NULL like the invite path
+      emailVerifiedAt: result.emailVerified ? clock.now() : null,
     }).returning();
     await db.insert(authIdentities).values({
       userId: u!.id, providerKey: ctx.providerKey,
@@ -189,6 +192,9 @@ async function createJitUser(
   const [u] = await db.insert(users).values({
     email,
     name: result.name ?? email,
+    // honor the provider claim: an unverified SSO email stays NULL and the
+    // account still needs a verify link, same as the invite path
+    emailVerifiedAt: result.emailVerified ? clock.now() : null,
   }).returning();
   await db.insert(authIdentities).values({
     userId: u!.id, providerKey: ctx.providerKey,
