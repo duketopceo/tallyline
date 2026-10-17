@@ -30,6 +30,20 @@ const agentSchema = z.object({
   harness: z.string().min(1).max(80),
   endpointUrl: z.url().optional(),
   capabilities: z.array(z.string().max(80)).max(20).default([]),
+  skills: z.array(z.string().min(1).max(80)).max(50).default([]),
+});
+
+const patchAgentSchema = z.object({
+  name: z
+    .string()
+    .min(1)
+    .max(80)
+    .regex(/^[a-z0-9][a-z0-9-]*$/, "kebab-case identifier")
+    .optional(),
+  harness: z.string().min(1).max(80).optional(),
+  endpointUrl: z.url().nullable().optional(),
+  capabilities: z.array(z.string().max(80)).max(20).optional(),
+  skills: z.array(z.string().min(1).max(80)).max(50).optional(),
 });
 
 const keySchema = z.object({
@@ -95,6 +109,7 @@ export const agentRoutes = new Hono()
           harness: body.harness,
           endpointUrl: body.endpointUrl ?? null,
           capabilities: body.capabilities,
+          skills: Array.from(new Set(body.skills)),
         })
         .returning();
       try {
@@ -113,8 +128,35 @@ export const agentRoutes = new Hono()
       .from(agents)
       .where(eq(agents.workspaceId, ws.id))
       .orderBy(asc(agents.name));
-    return c.json({ agents: rows });
+    const skillFilterRaw = c.req.query("skill") ?? c.req.query("skills");
+    const requiredSkills = skillFilterRaw
+      ? skillFilterRaw
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+    const filtered =
+      requiredSkills.length > 0
+        ? rows.filter((r) =>
+            requiredSkills.every((s) => (r.skills ?? []).includes(s)),
+          )
+        : rows;
+    return c.json({ agents: filtered });
   })
+  // plan L8: skills are settable via PATCH — by path id or body id
+  .patch(
+    "/workspaces/:ws/agents",
+    zValidator("json", patchAgentSchema.extend({ id: z.uuid() })),
+    async (c) => {
+      const body = c.req.valid("json");
+      return patchAgent(c, body.id, body);
+    },
+  )
+  .patch(
+    "/workspaces/:ws/agents/:id",
+    zValidator("json", patchAgentSchema),
+    async (c) => patchAgent(c, c.req.param("id"), c.req.valid("json")),
+  )
   .post(
     "/workspaces/:ws/agents/:id/keys",
     zValidator("json", keySchema),
@@ -236,3 +278,54 @@ export const agentRoutes = new Hono()
       );
     },
   );
+
+  });
+
+async function patchAgent(
+  c: Context,
+  id: string,
+  body: z.infer<typeof patchAgentSchema>,
+) {
+  if (!isCookieSession(c)) {
+    return apiError(c, 403, "FORBIDDEN", "agent registry requires a human session");
+  }
+  const ws = await requireWorkspace(c);
+  requireRole(c, "admin");
+  if (body.endpointUrl) {
+    try {
+      await assertSafeOutboundUrl(body.endpointUrl);
+    } catch (err) {
+      throw new HttpError(
+        422,
+        "UNSAFE_URL",
+        err instanceof Error ? err.message : "endpoint URL rejected",
+      );
+    }
+  }
+  const [existing] = await db
+    .select()
+    .from(agents)
+    .where(and(eq(agents.id, id), eq(agents.workspaceId, ws.id)));
+  if (!existing) throw new HttpError(404, "NOT_FOUND", "agent not found");
+  if (body.name !== undefined && body.name !== existing.name) {
+    const dup = await db
+      .select({ id: agents.id })
+      .from(agents)
+      .where(and(eq(agents.workspaceId, ws.id), eq(agents.name, body.name)));
+    if (dup.length > 0) {
+      throw new HttpError(409, "CONFLICT", "agent name already exists");
+    }
+  }
+  const [updated] = await db
+    .update(agents)
+    .set({
+      ...(body.name !== undefined ? { name: body.name } : {}),
+      ...(body.harness !== undefined ? { harness: body.harness } : {}),
+      ...(body.endpointUrl !== undefined ? { endpointUrl: body.endpointUrl } : {}),
+      ...(body.capabilities !== undefined ? { capabilities: body.capabilities } : {}),
+      ...(body.skills !== undefined ? { skills: Array.from(new Set(body.skills)) } : {}),
+    })
+    .where(eq(agents.id, existing.id))
+    .returning();
+  return c.json(updated!);
+}

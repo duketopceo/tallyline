@@ -12,7 +12,11 @@ import {
   dispatches,
   events,
   invites,
+  issueLabels,
+  issueRelations,
+  issueSuggestions,
   issues,
+  labels,
   oauthCodes,
   sessions,
   teams,
@@ -20,6 +24,7 @@ import {
   users,
   webhookDeliveries,
   webhookEndpoints,
+  workflowDefinitions,
   workspaceMembers,
   workspaces,
 } from "../db/schema.js";
@@ -108,15 +113,24 @@ afterAll(async () => {
       .where(
         sql`${users.id} in (select ${workspaceMembers.userId} from ${workspaceMembers} where ${workspaceMembers.workspaceId} = ${ws.id})`,
       );
+    await db
+      .delete(issueLabels)
+      .where(
+        sql`${issueLabels.issueId} in (select ${issues.id} from ${issues} where ${issues.workspaceId} = ${ws.id})`,
+      );
     for (const t of [
       agentActivities,
       agentSessions,
       comments,
       events,
+      issueRelations,
+      issueSuggestions,
+      workflowDefinitions,
       webhookDeliveries,
       webhookEndpoints,
       dispatches,
       issues,
+      labels,
       agentKeys,
       agents,
       userTokens,
@@ -528,5 +542,353 @@ describe("delegate separate from assignee (plan L2)", () => {
       .from(events)
       .where(eq(events.entityId, patchedIssue!.id));
     expect(patchEvs.some((e) => e.action === "deprecated_agent_assignee")).toBe(true);
+  });
+});
+
+describe("elicitation reply loop (plan L3)", () => {
+  it("resumes an awaitingInput session to active when a human posts a comment on the issue", async () => {
+    const { key, session } = await newDispatchSession("L3 elicitation reply loop");
+
+    const elicit = await req(
+      `/v1/workspaces/${SLUG}/agent-sessions/${session.id}/activities`,
+      {
+        method: "POST",
+        token: agentToken,
+        body: JSON.stringify({
+          content: {
+            type: "elicitation",
+            body: "Which database migration name should I use?",
+          },
+        }),
+      },
+    );
+    expect(elicit.status).toBe(201);
+    expect((elicit.body.session as { status: string }).status).toBe("awaitingInput");
+
+    // Human posts a comment on the issue
+    const humanComment = await req(
+      `/v1/workspaces/${SLUG}/issues/${key}/comments`,
+      {
+        method: "POST",
+        body: JSON.stringify({ body: "Use 0024_linear_l3_l8.sql" }),
+      },
+    );
+    expect(humanComment.status).toBe(201);
+
+    // Session should now be resumed to active with a human prompt activity
+    const after = await req(`/v1/workspaces/${SLUG}/agent-sessions/${session.id}`);
+    expect(after.status).toBe(200);
+    const sessAfter = after.body.session as { status: string };
+    expect(sessAfter.status).toBe("active");
+    const acts = after.body.activities as {
+      type: string;
+      actorType: string;
+      content: { body?: string };
+    }[];
+    const promptAct = acts.find((a) => a.type === "prompt");
+    expect(promptAct).toBeDefined();
+    expect(promptAct!.actorType).toBe("human");
+    expect(promptAct!.content.body).toBe("Use 0024_linear_l3_l8.sql");
+  });
+});
+
+describe("issue suggestions (plan L4)", () => {
+  it("generates/creates suggestions idempotently, lists them, and accepts or dismisses with reason", async () => {
+    const lbl = await req(`/v1/workspaces/${SLUG}/labels`, {
+      method: "POST",
+      body: JSON.stringify({ name: "security", color: "#ff0000" }),
+    });
+    expect(lbl.status).toBe(201);
+
+    const issue = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Audit security headers",
+        description: "Ensure security CSP is strict",
+      }),
+    });
+    expect(issue.status).toBe(201);
+    const key = issue.body.key as string;
+
+    // Auto-generate suggestions idempotently
+    const gen1 = await req(
+      `/v1/workspaces/${SLUG}/issues/${key}/suggestions`,
+      { method: "POST", body: JSON.stringify({}) },
+    );
+    expect(gen1.status).toBe(201);
+    const list1 = gen1.body.suggestions as {
+      id: string;
+      kind: string;
+      suggestedValue: string;
+      state: string;
+    }[];
+    expect(list1.length).toBeGreaterThanOrEqual(1);
+
+    const gen2 = await req(
+      `/v1/workspaces/${SLUG}/issues/${key}/suggestions`,
+      { method: "POST", body: JSON.stringify({}) },
+    );
+    expect(gen2.status).toBe(201);
+    expect((gen2.body.suggestions as unknown[]).length).toBe(list1.length);
+
+    // Explicit suggestion creation (also idempotent)
+    const explicit = await req(
+      `/v1/workspaces/${SLUG}/issues/${key}/suggestions`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          kind: "duplicate",
+          suggestedValue: "AS-1",
+          reason: "looks similar",
+        }),
+      },
+    );
+    expect(explicit.status).toBe(201);
+
+    const listed = await req(`/v1/workspaces/${SLUG}/issues/${key}/suggestions`);
+    expect(listed.status).toBe(200);
+    const allSuggestions = listed.body.suggestions as {
+      id: string;
+      kind: string;
+      suggestedValue: string;
+      state: string;
+      dismissedReason: string | null;
+    }[];
+    const labelSug = allSuggestions.find((s) => s.kind === "label")!;
+    const dupSug = allSuggestions.find((s) => s.kind === "duplicate")!;
+    expect(labelSug).toBeDefined();
+    expect(dupSug).toBeDefined();
+
+    // Accept the label suggestion -> attaches label to issue
+    const accepted = await req(
+      `/v1/workspaces/${SLUG}/issues/${key}/suggestions/${labelSug.id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ state: "accepted" }),
+      },
+    );
+    expect(accepted.status).toBe(200);
+    expect(accepted.body.state).toBe("accepted");
+
+    const fetchedIssue = await req(`/v1/workspaces/${SLUG}/issues/${key}`);
+    expect(fetchedIssue.status).toBe(200);
+    const attachedLabels = fetchedIssue.body.labels as { name: string }[];
+    expect(attachedLabels.map((l) => l.name)).toContain("security");
+
+    // Dismiss the duplicate suggestion -> records dismissedReason
+    const dismissed = await req(
+      `/v1/workspaces/${SLUG}/issues/${key}/suggestions/${dupSug.id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          state: "dismissed",
+          dismissedReason: "different root cause",
+        }),
+      },
+    );
+    expect(dismissed.status).toBe(200);
+    expect(dismissed.body.state).toBe("dismissed");
+    expect(dismissed.body.dismissedReason).toBe("different root cause");
+  });
+});
+
+describe("issue relations (plan L5)", () => {
+  it("rejects self-relation and blocks cycles with 409, transitions duplicate source, and deletes relations", async () => {
+    const mkIss = async (title: string) => {
+      const r = await req(`/v1/workspaces/${SLUG}/issues`, {
+        method: "POST",
+        body: JSON.stringify({ title }),
+      });
+      expect(r.status).toBe(201);
+      return r.body as { id: string; key: string; state: string };
+    };
+    const i1 = await mkIss("Rel issue 1");
+    const i2 = await mkIss("Rel issue 2");
+    const i3 = await mkIss("Rel issue 3");
+
+    // Reject self-relation with 409
+    const selfRel = await req(
+      `/v1/workspaces/${SLUG}/issues/${i1.key}/relations`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          targetIssueId: i1.id,
+          relationType: "related",
+        }),
+      },
+    );
+    expect(selfRel.status).toBe(409);
+
+    // Create i1 blocks i2, i2 blocks i3
+    const b12 = await req(
+      `/v1/workspaces/${SLUG}/issues/${i1.key}/relations`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          targetIssueId: i2.id,
+          relationType: "blocks",
+        }),
+      },
+    );
+    expect(b12.status).toBe(201);
+
+    const b23 = await req(
+      `/v1/workspaces/${SLUG}/issues/${i2.key}/relations`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          targetIssueId: i3.id,
+          relationType: "blocks",
+        }),
+      },
+    );
+    expect(b23.status).toBe(201);
+
+    // Reject cycle i3 blocks i1 with 409
+    const cycleRel = await req(
+      `/v1/workspaces/${SLUG}/issues/${i3.key}/relations`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          targetIssueId: i1.id,
+          relationType: "blocks",
+        }),
+      },
+    );
+    expect(cycleRel.status).toBe(409);
+
+    // Duplicate relation transitions source issue to 'duplicate'
+    const dupSource = await mkIss("Duplicate source");
+    const dupRel = await req(
+      `/v1/workspaces/${SLUG}/issues/${dupSource.key}/relations`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          targetIssueId: i1.id,
+          relationType: "duplicate",
+        }),
+      },
+    );
+    expect(dupRel.status).toBe(201);
+    const checkDup = await req(`/v1/workspaces/${SLUG}/issues/${dupSource.key}`);
+    expect(checkDup.body.state).toBe("duplicate");
+
+    // List and delete relation
+    const listRels = await req(
+      `/v1/workspaces/${SLUG}/issues/${i1.key}/relations`,
+    );
+    expect(listRels.status).toBe(200);
+    const rels = listRels.body.relations as { id: string }[];
+    expect(rels.length).toBeGreaterThanOrEqual(2);
+
+    const del = await req(
+      `/v1/workspaces/${SLUG}/issues/${i1.key}/relations/${b12.body.id as string}`,
+      { method: "DELETE" },
+    );
+    expect(del.status).toBe(200);
+  });
+});
+
+describe("loops / workflow definitions (plan L6)", () => {
+  it("creates and lists workflows and evaluates issue.transition triggers", async () => {
+    const wf = await req(`/v1/workspaces/${SLUG}/workflows`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: "Auto comment on in_review",
+        trigger: "issue.transition",
+        condition: { to: "in_review" },
+        action: { type: "comment", body: "Automated review checklist posted" },
+      }),
+    });
+    expect(wf.status).toBe(201);
+
+    const listed = await req(`/v1/workspaces/${SLUG}/workflows`);
+    expect(listed.status).toBe(200);
+    expect((listed.body.workflows as { name: string }[]).some((w) => w.name === "Auto comment on in_review")).toBe(true);
+
+    const iss = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({ title: "Workflow transition issue" }),
+    });
+    expect(iss.status).toBe(201);
+    const key = iss.body.key as string;
+
+    const toTodo = await req(`/v1/workspaces/${SLUG}/issues/${key}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "todo" }),
+    });
+    expect(toTodo.status).toBe(200);
+
+    const toInProg = await req(`/v1/workspaces/${SLUG}/issues/${key}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "in_progress" }),
+    });
+    expect(toInProg.status).toBe(200);
+
+    const transitioned = await req(`/v1/workspaces/${SLUG}/issues/${key}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "in_review" }),
+    });
+    expect(transitioned.status).toBe(200);
+
+    const thread = await req(`/v1/workspaces/${SLUG}/issues/${key}/comments`);
+    expect(thread.status).toBe(200);
+    const bodies = (thread.body.comments as { body: string }[]).map((c) => c.body);
+    expect(bodies).toContain("Automated review checklist posted");
+  });
+});
+
+describe("delta sync read path (plan L7)", () => {
+  it("returns ordered events with id > since and nextCursor", async () => {
+    const page1 = await req(`/v1/workspaces/${SLUG}/sync?since=0&limit=3`);
+    expect(page1.status).toBe(200);
+    const evs1 = page1.body.events as { id: number }[];
+    expect(evs1).toHaveLength(3);
+    expect(evs1[0]!.id).toBeGreaterThan(0);
+    expect(evs1[1]!.id).toBeGreaterThan(evs1[0]!.id);
+    expect(evs1[2]!.id).toBeGreaterThan(evs1[1]!.id);
+    expect(page1.body.nextCursor).toBe(String(evs1[2]!.id));
+
+    const page2 = await req(
+      `/v1/workspaces/${SLUG}/sync?since=${page1.body.nextCursor as string}&limit=3`,
+    );
+    expect(page2.status).toBe(200);
+    const evs2 = page2.body.events as { id: number }[];
+    expect(evs2.length).toBeGreaterThan(0);
+    for (const e of evs2) {
+      expect(e.id).toBeGreaterThan(evs1[2]!.id);
+    }
+  });
+});
+
+describe("agent skills (plan L8)", () => {
+  it("sets skills on POST and PATCH and filters agents by skill on GET", async () => {
+    const created = await req(`/v1/workspaces/${SLUG}/agents`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: "rust-specialist",
+        harness: "local",
+        skills: ["rust", "postgres"],
+      }),
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.skills).toEqual(["rust", "postgres"]);
+    const rustAgentId = created.body.id as string;
+
+    const patched = await req(
+      `/v1/workspaces/${SLUG}/agents/${rustAgentId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ skills: ["rust", "postgres", "ebpf"] }),
+      },
+    );
+    expect(patched.status).toBe(200);
+    expect(patched.body.skills).toEqual(["rust", "postgres", "ebpf"]);
+
+    const filtered = await req(`/v1/workspaces/${SLUG}/agents?skill=ebpf`);
+    expect(filtered.status).toBe(200);
+    const agentsOut = filtered.body.agents as { id: string; name: string; skills: string[] }[];
+    expect(agentsOut).toHaveLength(1);
+    expect(agentsOut[0]!.id).toBe(rustAgentId);
   });
 });

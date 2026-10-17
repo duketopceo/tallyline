@@ -1239,3 +1239,114 @@ export const usageDaily = pgTable(
   },
   (t) => [unique().on(t.workspaceId, t.day)],
 );
+// ── Issue suggestions (plan L4) ──────────────────────────────────
+export const issueSuggestionKinds = [
+  "label",
+  "project",
+  "team",
+  "assignee",
+  "duplicate",
+] as const;
+export type IssueSuggestionKind = (typeof issueSuggestionKinds)[number];
+
+export const issueSuggestionStates = [
+  "pending",
+  "accepted",
+  "dismissed",
+] as const;
+export type IssueSuggestionState = (typeof issueSuggestionStates)[number];
+
+export const issueSuggestions = pgTable(
+  "issue_suggestions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: issueSuggestionKinds }).notNull(),
+    suggestedValue: text("suggested_value").notNull(),
+    reason: text("reason"),
+    state: text("state", { enum: issueSuggestionStates })
+      .notNull()
+      .default("pending"),
+    dismissedReason: text("dismissed_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    unique().on(t.issueId, t.kind, t.suggestedValue),
+    index().on(t.workspaceId, t.issueId),
+  ],
+);
+
+// ── Issue relations (plan L5) ────────────────────────────────────
+export const issueRelationTypes = [
+  "blocks",
+  "duplicate",
+  "related",
+  "similar",
+] as const;
+export type IssueRelationType = (typeof issueRelationTypes)[number];
+
+export const issueRelations = pgTable(
+  "issue_relations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    sourceIssueId: uuid("source_issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    targetIssueId: uuid("target_issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    relationType: text("relation_type", { enum: issueRelationTypes }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    unique().on(t.sourceIssueId, t.targetIssueId, t.relationType),
+    index().on(t.workspaceId, t.sourceIssueId),
+    index().on(t.workspaceId, t.targetIssueId),
+  ],
+);
+
+// ── Loops / workflow definitions (plan L6) ───────────────────────
+export const workflowTriggers = [
+  "issue.transition",
+  "schedule",
+  "webhook",
+  "pull_request",
+] as const;
+export type WorkflowTrigger = (typeof workflowTriggers)[number];
+
+export const workflowDefinitions = pgTable(
+  "workflow_definitions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    trigger: text("trigger", { enum: workflowTriggers }).notNull(),
+    condition: jsonb("condition")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    action: jsonb("action")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.workspaceId, t.trigger)],
+);
+

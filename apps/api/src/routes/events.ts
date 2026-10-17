@@ -31,6 +31,11 @@ const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 
+const syncQuerySchema = z.object({
+  since: z.coerce.number().int().nonnegative().default(0),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
 export const eventRoutes = new Hono()
   .get(
     "/workspaces/:ws/events",
@@ -64,6 +69,27 @@ export const eventRoutes = new Hono()
                 id: String(last.id),
               })
             : null,
+      });
+    },
+  )
+  // ── Plan L7: Delta sync read path ──────────────────────────────
+  .get(
+    "/workspaces/:ws/sync",
+    zValidator("query", syncQuerySchema),
+    async (c) => {
+      const ws = await requireWorkspace(c);
+      const q = c.req.valid("query");
+      const rows = await feedEventsQuery(
+        and(eq(events.workspaceId, ws.id), gt(events.id, q.since)),
+        "asc",
+        q.limit + 1,
+      );
+      const hasMore = rows.length > q.limit;
+      const page = hasMore ? rows.slice(0, q.limit) : rows;
+      const last = page.at(-1);
+      return c.json({
+        events: page.map((r) => ({ ...toFeedEvent(r), id: r.id })),
+        nextCursor: hasMore && last ? String(last.id) : null,
       });
     },
   )

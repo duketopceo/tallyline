@@ -17,6 +17,8 @@ import {
   mkOauthGrant,
   mkProject,
   mkProvider,
+  mkRelation,
+  mkSuggestion,
   mkToken,
   mkView,
   PASSWORD,
@@ -436,6 +438,70 @@ export const OPERATIONS: Record<string, Builder> = {
   "PATCH /v1/workspaces/{ws}/agent-sessions/{id}": sessionOp("PATCH", "", {
     pullRequests: ["https://github.com/example/repo/pull/1"],
   }),
+
+  // ── L4: suggestions, L5: relations, L6: workflows, L7: sync, L8: agent skills ──
+  "PATCH /v1/workspaces/{ws}/agents": async (t) => {
+    const a = await mkAgent(t);
+    return {
+      method: "PATCH",
+      path: `${base(t)}/agents`,
+      body: { id: a.id, skills: ["typescript"] },
+    };
+  },
+  "PATCH /v1/workspaces/{ws}/agents/{id}": async (t) => {
+    const a = await mkAgent(t);
+    return {
+      method: "PATCH",
+      path: `${base(t)}/agents/${a.id}`,
+      body: { skills: ["typescript"] },
+    };
+  },
+  "GET /v1/workspaces/{ws}/issues/{key}/suggestions": issueOp("GET", "/suggestions"),
+  "POST /v1/workspaces/{ws}/issues/{key}/suggestions": issueOp("POST", "/suggestions", {
+    kind: "label",
+    suggestedValue: "bug",
+    reason: "matches title",
+  }),
+  "PATCH /v1/workspaces/{ws}/issues/{key}/suggestions/{sid}": async (t) => {
+    const i = await mkIssue(t);
+    const s = await mkSuggestion(t, i.id);
+    return {
+      method: "PATCH",
+      path: `${base(t)}/issues/${i.key}/suggestions/${s.id}`,
+      body: { state: "dismissed", dismissedReason: "not relevant" },
+    };
+  },
+  "GET /v1/workspaces/{ws}/issues/{key}/relations": issueOp("GET", "/relations"),
+  "POST /v1/workspaces/{ws}/issues/{key}/relations": async (t) => {
+    const src = await mkIssue(t);
+    const tgt = await mkIssue(t);
+    return {
+      method: "POST",
+      path: `${base(t)}/issues/${src.key}/relations`,
+      body: { targetIssueId: tgt.id, relationType: "related" },
+    };
+  },
+  "DELETE /v1/workspaces/{ws}/issues/{key}/relations/{rid}": async (t) => {
+    const src = await mkIssue(t);
+    const tgt = await mkIssue(t);
+    const r = await mkRelation(t, src.id, tgt.id);
+    return {
+      method: "DELETE",
+      path: `${base(t)}/issues/${src.key}/relations/${r.id}`,
+    };
+  },
+  "GET /v1/workspaces/{ws}/workflows": get((t) => `${base(t)}/workflows`),
+  "POST /v1/workspaces/{ws}/workflows": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/workflows`,
+    body: {
+      name: `wf-${u()}`,
+      trigger: "issue.transition",
+      condition: { to: "in_review" },
+      action: { type: "comment", body: "automated check" },
+    },
+  }),
+  "GET /v1/workspaces/{ws}/sync": get((t) => `${base(t)}/sync`),
 
   // ── github / import ────────────────────────────────────────────────────────
   "GET /v1/workspaces/{ws}/github/manifest": get((t) => `${base(t)}/github/manifest`),
