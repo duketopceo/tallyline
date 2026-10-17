@@ -347,12 +347,12 @@ The spend/cap chip and the context ring (how full the context window is) are **a
 
 ### 18.2 Sidebar tabs
 
-Tabs are switched with `1`–`7` while the sidebar has focus, or from the palette. They don't use `g` shortcuts, which stay reserved for top-level navigation.
+Tabs are switched with `1`–`7` while the sidebar has focus, or from the palette. They don't use `g` shortcuts, which stay reserved for top-level navigation. Digit keys only fire while the sidebar has focus — in the composer they type normally.
 
 | # | Tab | Shows |
 |---|---|---|
 | 1 | **Progress** (default) | The plan as a checklist: pending, running (the only shimmering item), done, failed, skipped. Elapsed time per step. One row per sub-agent or sandbox, with **Stop** and **Send note**. |
-| 2 | **Sources** | Deduplicated list. Each row has favicon, title, domain, how many times it's cited, and when it was fetched. Hovering shows the snippet. Clicking scrolls the chat to the first citation, and a citation clicked in chat highlights its row. A source the agent cited without fetching is flagged **Not verified**. |
+| 2 | **Sources** | Deduplicated by URL — the latest fetch wins. Each row has favicon, title, domain, how many times it's cited, and when it was fetched. Hovering shows the snippet. Clicking scrolls the chat to the first citation, and a citation clicked in chat highlights its row. A source the agent cited without fetching is flagged **Not verified**. |
 | 3 | **Artifacts** | What the goal produced, grouped by type, with a version badge and an unreviewed dot. Opens in the panel's viewer (16.5). |
 | 4 | **Changes** | Diff of the sandbox against its starting point (files, +/−), reviewable per hunk. This is what would leave the box. |
 | 5 | **Outbox** | Everything that would leave the box (network egress, pushes, emails, spend), each pending, approved or denied, with who decided and when. Badge shows the pending count. |
@@ -377,7 +377,7 @@ A **side chat** is optional: read-only questions about the run that never interr
   - `note`
   - `error`
 - **Never move what the user is looking at.** Scroll position, selected tab and focus stay put. New items appear behind an **N new** pill (section 9).
-- **Pace updates:** coalesce to at most 4 per second, and only the single active item shimmers.
+- **Pace updates:** coalesce to at most 4 per second, and only the single active item shimmers. Cost and spend events bypass the throttle so totals never go stale.
 - **Tabs never switch on their own.** A new pending approval turns the Outbox badge amber and docks the approval card above the composer (16.4), without stealing focus.
 - **Spend is always current.** Reaching 80% and 100% of the cap posts an inline event in the chat. At 100% the run **pauses** instead of cancelling, with a single **Raise cap and resume** action.
 - **Background goals notify** only when they need approval, finish, fail or hit the cap. Notifications are deduplicated across windows, and the channel (toast or system notification) is a per-event setting.
@@ -424,9 +424,9 @@ There's one artifact registry with one viewer per type:
 | Archive | File listing |
 
 - **Opening:**
-  - A single click opens the artifact in the panel.
+  - A single click opens the artifact in the panel. Executable types (HTML pages, mini apps) ask before rendering.
   - `Enter` or `f` expands it to a full-width overlay over the center column.
-  - `Esc` returns.
+  - `Esc` returns; with no overlay open, `Esc` closes the panel.
 - **The chat chip and the panel row are the same object.**
 - **Every artifact shows:**
   - its version
