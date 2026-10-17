@@ -157,10 +157,16 @@ if (process.env.NODE_ENV !== "test") {
     );
   }, 30_000).unref();
   // agent session sweep: pending past ack window / active past idle window
+  // single-flight: a slow sweep must not overlap the next tick
+  let sessionSweepRunning = false;
   setInterval(() => {
-    void sweepStaleSessions().catch((err) =>
-      console.error("session sweep failed", err),
-    );
+    if (sessionSweepRunning) return;
+    sessionSweepRunning = true;
+    void sweepStaleSessions()
+      .catch((err) => console.error("session sweep failed", err))
+      .finally(() => {
+        sessionSweepRunning = false;
+      });
   }, 10_000).unref();
   // cycle boundary sweep: complete expired active cycles unattended
   // then the auto-schedule tick refills upcoming cycles and activates the one
