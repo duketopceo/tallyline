@@ -85,9 +85,9 @@ export const agentSessionRoutes = new Hono()
       const agent = c.get("agentAuth");
       const humanSession = c.get("session");
       const body = c.req.valid("json");
-      // humans and system may only speak to the agent through `prompt`
-      // or a stop signal; everything else is the agent's voice
-      if (!agent && body.content.type !== "prompt" && body.signal !== "stop") {
+      // humans and system may only speak to the agent through a `prompt`
+      // (which may carry signal=stop); everything else is the agent's voice
+      if (!agent && body.content.type !== "prompt") {
         throw new HttpError(
           403,
           "FORBIDDEN",

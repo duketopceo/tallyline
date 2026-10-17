@@ -43,9 +43,11 @@ export const config_ = {
   // delivery retries (max ~7.5 min) must finish inside it. 0 disables.
   dispatchAckTimeoutMs: Number(env("DISPATCH_ACK_TIMEOUT_MS", "600000")),
   // agent session windows (plan L1): first activity must land inside the
-  // ack window (Linear uses 10 s); an active session quiet past the idle
-  // window is marked stale. 0 disables either sweep.
-  sessionAckTimeoutMs: Number(env("SESSION_ACK_TIMEOUT_MS", "10000")),
+  // ack window; it matches the dispatch delivery budget so slow local
+  // runners (15 s poll) and retrying webhooks (first retry at 30 s) are not
+  // staled early. An active session quiet past the idle window is marked
+  // stale. 0 disables either sweep.
+  sessionAckTimeoutMs: Number(env("SESSION_ACK_TIMEOUT_MS", "600000")),
   sessionIdleTimeoutMs: Number(env("SESSION_IDLE_TIMEOUT_MS", "1800000")),
   apiBaseUrl,
   // MCP remote endpoint + OAuth authorization server (PLAN-010/011). The

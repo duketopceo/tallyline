@@ -192,6 +192,48 @@ describe("agent sessions (plan L1)", () => {
     expect(res.status).toBe(403);
   });
 
+  it("a stop signal does not let a human post non-prompt content", async () => {
+    const { session } = await newDispatchSession("voice stop");
+    const res = await req(`/v1/workspaces/${SLUG}/agent-sessions/${session.id}/activities`, {
+      method: "POST",
+      body: JSON.stringify({
+        content: { type: "response", body: "x", final: true },
+        signal: "stop",
+      }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("concurrent activities cannot resurrect a stopped session", async () => {
+    const { session } = await newDispatchSession("race");
+    const url = `/v1/workspaces/${SLUG}/agent-sessions/${session.id}/activities`;
+    await req(url, {
+      method: "POST",
+      token: agentToken,
+      body: JSON.stringify({ content: { type: "thought", body: "go" } }),
+    });
+    const [stop, thought] = await Promise.all([
+      req(url, {
+        method: "POST",
+        body: JSON.stringify({ content: { type: "prompt", body: "stop" }, signal: "stop" }),
+      }),
+      req(url, {
+        method: "POST",
+        token: agentToken,
+        body: JSON.stringify({ content: { type: "thought", body: "still going" } }),
+      }),
+    ]);
+    expect(stop.status).toBe(201);
+    // whichever order won, the session must never end up active again
+    expect([201, 409]).toContain(thought.status);
+    const got = await req(`/v1/workspaces/${SLUG}/agent-sessions/${session.id}`, {
+      token: agentToken,
+    });
+    expect(["stopping", "complete"]).toContain(
+      (got.body as { session: { status: string } }).session.status,
+    );
+  });
+
   it("ephemeral activities replace each other; non-ephemeral accumulate", async () => {
     const { session } = await newDispatchSession("progress");
     const post = (body: string, ephemeral: boolean) =>

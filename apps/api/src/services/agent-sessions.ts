@@ -115,49 +115,81 @@ export async function postActivity(
   }
   const now = clock.now();
 
-  // ephemeral rows replace the previous ephemeral row — progress text
-  // should not accumulate
-  if (input.ephemeral) {
-    await db
-      .delete(agentActivities)
+  const { type, ...content } = input.content;
+  const ended = TERMINAL_SESSION_STATUSES.has(next);
+
+  // one transaction, compare-and-set on the status we read: a concurrent
+  // stop, sweep or final response must not be overwritten by a stale read
+  const written = await db.transaction(async (tx) => {
+    const [flipped] = await tx
+      .update(agentSessions)
+      .set({
+        status: next,
+        lastActivityAt: now,
+        updatedAt: now,
+        ...(ended ? { endedAt: now } : {}),
+      })
       .where(
         and(
-          eq(agentActivities.sessionId, session.id),
-          eq(agentActivities.ephemeral, true),
+          eq(agentSessions.id, session.id),
+          eq(agentSessions.status, session.status),
         ),
-      );
-  }
-  const { type, ...content } = input.content;
-  const [activity] = await db
-    .insert(agentActivities)
-    .values({
-      sessionId: session.id,
-      workspaceId: session.workspaceId,
-      type,
-      content,
-      ephemeral: input.ephemeral ?? false,
-      signal: input.signal ?? null,
-      actorType: actor.actorType,
-      actorId: actor.actorId,
-      createdAt: now,
-    })
-    .returning();
+      )
+      .returning();
+    if (!flipped) return null;
 
-  const ended = TERMINAL_SESSION_STATUSES.has(next);
-  const [updated] = await db
-    .update(agentSessions)
-    .set({
-      status: next,
-      lastActivityAt: now,
-      updatedAt: now,
-      ...(ended ? { endedAt: now } : {}),
-    })
-    .where(eq(agentSessions.id, session.id))
-    .returning();
+    // ephemeral rows replace the previous ephemeral row — progress text
+    // should not accumulate
+    if (input.ephemeral) {
+      await tx
+        .delete(agentActivities)
+        .where(
+          and(
+            eq(agentActivities.sessionId, session.id),
+            eq(agentActivities.ephemeral, true),
+          ),
+        );
+    }
+    const [activity] = await tx
+      .insert(agentActivities)
+      .values({
+        sessionId: session.id,
+        workspaceId: session.workspaceId,
+        type,
+        content,
+        ephemeral: input.ephemeral ?? false,
+        signal: input.signal ?? null,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        createdAt: now,
+      })
+      .returning();
+
+    // elicitation is the one activity a human must see on the thread
+    if (type === "elicitation") {
+      await tx.insert(comments).values({
+        workspaceId: session.workspaceId,
+        issueId: session.issueId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        body: `agent needs input: ${(input.content as { body: string }).body}`,
+      });
+    }
+    return { updated: flipped, activity: activity! };
+  });
+  if (!written) {
+    // lost the race: report the status that won
+    const current = await getSession(session.id);
+    throw new SessionTransitionError(
+      current?.status ?? session.status,
+      input.content.type,
+    );
+  }
+  const { updated, activity } = written;
 
   const statusChanged = next !== session.status;
   await feed(
-    updated!,
+    updated,
     statusChanged ? "session_status" : "session_activity",
     actor,
     {
@@ -168,17 +200,7 @@ export async function postActivity(
     },
   );
 
-  // elicitation is the one activity a human must see on the thread
-  if (type === "elicitation") {
-    await db.insert(comments).values({
-      workspaceId: session.workspaceId,
-      issueId: session.issueId,
-      actorType: actor.actorType,
-      actorId: actor.actorId,
-      body: `agent needs input: ${(input.content as { body: string }).body}`,
-    });
-  }
-  return { session: updated!, activity: activity! };
+  return { session: updated, activity };
 }
 
 export async function setSessionPlan(
