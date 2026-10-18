@@ -8,7 +8,7 @@ describe("isPublicPath", () => {
     }
   });
   it("treats static assets and metadata images as public", () => {
-    for (const p of ["/_next/static/a.js", "/api/auth/methods", "/favicon.ico", "/brand/mark.svg", "/opengraph-image.png", "/twitter-image.png"]) {
+    for (const p of ["/_next/static/a.js", "/api/auth/methods", "/favicon.ico", "/brand/mark.svg", "/landing/board-dark.webp", "/opengraph-image.png", "/twitter-image.png"]) {
       expect(isPublicPath(p), p).toBe(true);
     }
   });

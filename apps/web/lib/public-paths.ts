@@ -9,7 +9,7 @@ const PREFIXES = [
   "/_next/",
   "/api/",
   "/brand/",
-  "/marketing/",
+  "/landing/",
   "/opengraph-image",
   "/twitter-image",
 ];
