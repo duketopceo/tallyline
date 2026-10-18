@@ -172,3 +172,45 @@ describe("parsePlan on the roadmap shape and edge cases", () => {
     expect(plan.units.map((u) => u.id)).toEqual(["U1"]);
   });
 });
+
+describe("parsePlan performance on hostile input", () => {
+  const timed = (fn: () => void) => {
+    const t0 = performance.now();
+    fn();
+    return performance.now() - t0;
+  };
+
+  it("handles a heading followed by a 100KB run of spaces", () => {
+    const md = `### U1. Title${" ".repeat(100_000)}x\n\n### U2. Next\n`;
+    let ids: string[] = [];
+    const ms = timed(() => {
+      ids = parsePlan(md).units.map((u) => u.id);
+    });
+    expect(ms).toBeLessThan(200);
+    expect(ids).toContain("U2");
+  });
+
+  it("handles a plain heading with a 100KB run of spaces and hashes", () => {
+    const md = `## Heading${" #".repeat(50_000)} x\n### U1. Fine\n`;
+    expect(timed(() => parsePlan(md))).toBeLessThan(200);
+  });
+
+  it("handles a table with many rows", () => {
+    const rows = Array.from({ length: 20_000 }, (_, i) => `| U${i} | t | U1 |`);
+    const md = ["| U-ID | Title | Depends on |", "|---|---|---|", ...rows, "### U1. One\n"].join("\n");
+    expect(timed(() => parsePlan(md))).toBeLessThan(200);
+  });
+
+  it("handles thousands of repeated table headers", () => {
+    const md = Array.from({ length: 5_000 }, () => "| U-ID | Depends on |").join("\n");
+    expect(timed(() => parsePlan(md))).toBeLessThan(200);
+  });
+
+  it("truncates very long lines and ignores lines past the cap", () => {
+    const md = `### U1. ${"a".repeat(5_000)}\n` + "x\n".repeat(200_000) + "### U2. Late\n";
+    const plan = parsePlan(md);
+    expect(plan.units[0]!.title.length).toBeLessThanOrEqual(2_000);
+    expect(plan.units.map((u) => u.id)).toEqual(["U1"]);
+  });
+});
+

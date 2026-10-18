@@ -66,8 +66,20 @@ const LABELS = new Set([
   "verification",
 ]);
 
-const UNIT_HEADING = /^(#{3,4})\s+U(\d+)\b[.:]?\s*(.*?)\s*#*\s*$/;
-const HEADING = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
+// no trailing `\s*#*\s*$` patterns: they backtrack quadratically on a long
+// run of spaces. Match loosely, then trim in code.
+const UNIT_HEADING = /^(#{3,4})\s+U(\d+)\b[.:]?(.*)$/;
+const HEADING = /^(#{1,6})\s+(.*)$/;
+const MAX_LINE = 2_000;
+const MAX_LINES = 100_000;
+
+function cleanHeading(t: string): string {
+  let out = t.trim();
+  // drop an optional closing run of hashes ("## Title ##")
+  const m = /\s#+$/.exec(out.length < 200 ? out : out.slice(-200));
+  if (m && out.length < 200) out = out.slice(0, out.length - m[0].length).trim();
+  return out;
+}
 const LABEL_LINE = /^\s*(?:[-*+]\s+)?\*\*([^*\n]+?)\*\*:?\s*(.*)$/;
 const PHASE_HEADING = /^Phase\s+(?:[A-Z]|\d+[a-z]?)(?![\w])/;
 
@@ -80,7 +92,8 @@ interface Line {
 function scan(markdown: string): Line[] {
   const out: Line[] = [];
   let fence: string | null = null;
-  markdown.split(/\r?\n/).forEach((text, i) => {
+  markdown.split("\n", MAX_LINES).forEach((raw, i) => {
+    const text = (raw.endsWith("\r") ? raw.slice(0, -1) : raw).slice(0, MAX_LINE);
     const m = /^\s*(```+|~~~+)/.exec(text);
     if (m) {
       if (fence === null) fence = m[1]![0]!;
@@ -207,7 +220,7 @@ export function parsePlan(markdown: string): ParsedPlan {
   lines.forEach((l, idx) => {
     if (l.fenced) return;
     const m = HEADING.exec(l.text);
-    if (m) heads.push({ idx, level: m[1]!.length, text: m[2]! });
+    if (m) heads.push({ idx, level: m[1]!.length, text: cleanHeading(m[2]!) });
   });
   if (title === null) {
     const h1 = heads.find((h) => h.level === 1);
@@ -231,9 +244,11 @@ export function parsePlan(markdown: string): ParsedPlan {
     const isOverview = depCol >= 0 && idCol >= 0;
     const isPhases = phaseCol >= 0 && unitsCol >= 0;
     if (!isOverview && !isPhases) continue;
+    let lastRow = i;
     for (let j = i + 1; j < lines.length; j++) {
       const row = tableCells(lines[j]!.text);
       if (!row) break;
+      lastRow = j;
       if (/^:?-{2,}:?$/.test(row[0] ?? "")) continue;
       if (isOverview) {
         const id = /^U\d+$/.exec(row[idCol] ?? "")?.[0];
@@ -242,7 +257,7 @@ export function parsePlan(markdown: string): ParsedPlan {
         tablePhases.push({ name: row[phaseCol]!, unitIds: expandIds(row[unitsCol] ?? "") });
       }
     }
-    i += 1;
+    i = Math.max(i, lastRow);
   }
 
   const units: PlanUnit[] = [];
@@ -262,7 +277,7 @@ export function parsePlan(markdown: string): ParsedPlan {
     const um = UNIT_HEADING.exec(lines[head.idx]!.text);
     if (!um) continue;
     const id = `U${Number(um[2])}`;
-    const unitTitle = um[3]!.trim();
+    const unitTitle = cleanHeading(um[3]!);
     const line = lines[head.idx]!.n;
     if (!unitTitle) {
       problems.push({ unitId: id, code: "MISSING_TITLE", message: `${id} has no title`, line });
@@ -368,7 +383,6 @@ export interface PlanEvidencePr {
   /** "owner/repo" */
   repo: string;
   number: number;
-  url?: string | undefined;
 }
 
 export interface PlanEvidence {
