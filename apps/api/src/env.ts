@@ -50,6 +50,10 @@ export const config_ = {
     .split(",")
     .map((o) => o.trim().replace(/\/+$/, ""))
     .filter(Boolean),
+  // github_webhook_events retention (services/retention.ts): payloads are
+  // cleared after the TTL; rows (delivery ids) are deleted after the window.
+  webhookEventPayloadTtlHours: Number(env("WEBHOOK_EVENT_PAYLOAD_TTL_HOURS", "24")),
+  webhookEventRetentionDays: Number(env("WEBHOOK_EVENT_RETENTION_DAYS", "7")),
   githubAppSlug: env("GITHUB_APP_SLUG", ""),
   githubWebhookSecret: env("GITHUB_WEBHOOK_SECRET", ""),
 

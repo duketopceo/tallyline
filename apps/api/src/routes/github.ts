@@ -161,6 +161,7 @@ export const githubRoutes = new Hono()
         ),
       );
     for (const d of deliveries) {
+      if (!d.payload) continue; // cleared by retention (never true for unprocessed)
       const p = d.payload as {
         installation?: { id: number };
         repositories?: { id: number; full_name?: string; name: string }[];

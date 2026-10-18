@@ -479,13 +479,15 @@ export const githubWebhookEvents = pgTable(
     id: bigserial("id", { mode: "number" }).primaryKey(),
     deliveryId: text("delivery_id").notNull().unique(),
     eventType: text("event_type").notNull(),
-    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    // null once the retention sweep cleared it (services/retention.ts); the
+    // row stays so delivery_id dedupe keeps working
+    payload: jsonb("payload").$type<Record<string, unknown>>(),
     receivedAt: timestamp("received_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
     processedAt: timestamp("processed_at", { withTimezone: true }),
   },
-  (t) => [index().on(t.eventType)],
+  (t) => [index().on(t.eventType), index().on(t.receivedAt)],
 );
 
 // GitHub issue ↔ tallyline issue map — intake dedupe + bidirectional sync (#60)

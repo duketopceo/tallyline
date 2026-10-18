@@ -12,6 +12,7 @@ import { openApiDoc } from "./openapi.js";
 import { sweepExpiredCycles } from "./services/cycles.js";
 import { sweepDeliveries } from "./services/outbound.js";
 import { sweepStaleDispatches } from "./services/dispatch.js";
+import { sweepWebhookEvents } from "./services/retention.js";
 import { agentRoutes } from "./routes/agents.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { authRoutes, requireSession } from "./routes/auth.js";
@@ -130,6 +131,15 @@ if (process.env.NODE_ENV !== "test") {
   }, 60_000).unref();
   void sweepExpiredCycles().catch((err) =>
     console.error("cycle sweep failed", err),
+  );
+  // webhook event retention: clear old payloads, delete old rows (daily)
+  setInterval(() => {
+    void sweepWebhookEvents().catch((err) =>
+      console.error("webhook retention sweep failed", err),
+    );
+  }, 24 * 60 * 60_000).unref();
+  void sweepWebhookEvents().catch((err) =>
+    console.error("webhook retention sweep failed", err),
   );
   void sweepStaleDispatches().catch((err) =>
     console.error("dispatch sweep failed", err),

@@ -44,6 +44,8 @@ Env vars (`apps/api`):
 | `GITHUB_APP_PRIVATE_KEY` | App PEM; env-encoded `\n` is normalized |
 | `GITHUB_APP_SLUG` | app slug — its bot (`<slug>[bot]`) is recognized as our own sender |
 | `GITHUB_WEBHOOK_SECRET` | X-Hub-Signature-256 verification on `/webhooks/github` |
+| `WEBHOOK_EVENT_PAYLOAD_TTL_HOURS` | hours before a processed delivery's payload is cleared (default 24) |
+| `WEBHOOK_EVENT_RETENTION_DAYS` | days before a processed delivery row is deleted (default 7, minimum 3) |
 
 Outbound calls authenticate as an **installation access token**: the API
 signs a short-lived RS256 JWT with the private key, exchanges it at
@@ -111,6 +113,26 @@ GH PATCH → GH `closed` echo → dropped as bot-sent.
   timeline (op + error) — a sync failure is visible, not swallowed.
 - Both event actions fan out through `queueDeliveries` like any other
   issue event, so webhook subscribers see sync activity too.
+
+## Delivery log retention
+
+`github_webhook_events` is the durable delivery log, and its `payload` is
+nearly all of its bytes. A daily sweep (and one at API start) in
+`services/retention.ts`:
+
+- sets `payload` to `NULL` on **processed** rows older than the payload TTL
+  (24h); the row and its `delivery_id` stay;
+- deletes **processed** rows older than the retention window (7 days), in
+  batches of 1000. The window outlasts GitHub's 3-day redelivery window, so
+  the unique `delivery_id` still drops redeliveries; values under 3 days are
+  refused;
+- never touches **unprocessed** rows (an unbound installation's deliveries
+  wait there for the setup backfill) and logs a warning when any is older
+  than a day.
+
+Nothing reads a processed row's payload (the only reader, the installation
+backfill, selects unprocessed rows), so there is no replay or debug path to
+preserve. Freed pages are reused by autovacuum; no `VACUUM FULL`.
 
 ## Deliberate scope notes
 
