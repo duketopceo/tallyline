@@ -1,0 +1,2 @@
+ALTER TABLE "github_webhook_events" ALTER COLUMN "payload" DROP NOT NULL;--> statement-breakpoint
+CREATE INDEX "github_webhook_events_received_at_index" ON "github_webhook_events" USING btree ("received_at");
