@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { armSecretExpiry, secretTestId } from "@/lib/secret-expiry";
 import { SettingsTabs } from "@/components/settings-tabs";
 
 export const field =
@@ -147,6 +148,10 @@ export function SecretReveal({
   value: string;
   onDismiss: () => void;
 }) {
+  // latest callback without re-arming the timer on every parent render
+  const dismissRef = useRef(onDismiss);
+  dismissRef.current = onDismiss;
+  useEffect(() => armSecretExpiry(document, () => dismissRef.current()), []);
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   async function copy() {
@@ -169,7 +174,7 @@ export function SecretReveal({
         Copy this {label} now. It is shown once and cannot be retrieved later.
       </p>
       <p
-        data-testid="secret-value"
+        data-testid={secretTestId(process.env.NODE_ENV)}
         className="mt-2 select-all break-all rounded-sm border border-lining bg-surface-1 px-3 py-2 font-mono text-xs text-ink"
       >
         {value}

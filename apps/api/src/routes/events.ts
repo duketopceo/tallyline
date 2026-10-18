@@ -11,6 +11,7 @@ import {
   subscribeEvents,
   toFeedEvent,
 } from "../services/event-hub.js";
+import { agentKeyActive, onAgentKeyEnded } from "../services/agents.js";
 import { requireWorkspace } from "./workspaces.js";
 
 // v0.3 realtime: one shared poller per process fans committed events out to
@@ -18,7 +19,11 @@ import { requireWorkspace } from "./workspaces.js";
 // its own backlog drain from `Last-Event-ID`/`?after=` and its own
 // heartbeat — the only per-connection DB work is the initial replay.
 
-const HEARTBEAT_MS = 15_000;
+let heartbeatMs = 15_000;
+/** test hook: shorten the heartbeat (which also re-validates agent keys) */
+export function setStreamHeartbeatMs(ms: number): void {
+  heartbeatMs = ms;
+}
 const BATCH_SIZE = 200;
 
 const listQuerySchema = z.object({
@@ -78,6 +83,8 @@ export const eventRoutes = new Hono()
     }
 
     const reqSignal = c.req.raw.signal;
+    // agent credentials: the stream must not outlive the key
+    const keyId = c.get("agentAuth")?.keyId ?? null;
     return streamSSE(c, async (stream) => {
       // One stop signal covering request abort AND response-body cancel
       // (either fires on client disconnect, depending on runtime).
@@ -87,6 +94,7 @@ export const eventRoutes = new Hono()
       if (reqSignal.aborted) stopper.abort();
       else reqSignal.addEventListener("abort", stop, { once: true });
       const done = stopper.signal;
+      const offKeyEnded = keyId ? onAgentKeyEnded(keyId, stop) : () => undefined;
 
       const write = async (row: Parameters<typeof toFeedEvent>[0]) => {
         if (row.id <= lastSeen) return; // dedup vs the backlog drain
@@ -117,8 +125,16 @@ export const eventRoutes = new Hono()
       // heartbeat — keeps proxies/NATs from reaping an idle connection
       const heartbeat = setInterval(() => {
         if (done.aborted) return;
+        if (keyId) {
+          // revoked or expired (or ended in another process): close
+          void agentKeyActive(keyId)
+            .then((ok) => {
+              if (!ok) stop();
+            })
+            .catch(() => undefined);
+        }
         void stream.write(`: hb\n\n`).catch(() => undefined);
-      }, HEARTBEAT_MS);
+      }, heartbeatMs);
 
       await new Promise<void>((resolve) => {
         if (done.aborted) resolve();
@@ -126,6 +142,7 @@ export const eventRoutes = new Hono()
       });
 
       clearInterval(heartbeat);
+      offKeyEnded();
       unsubscribe();
       reqSignal.removeEventListener("abort", stop);
     });

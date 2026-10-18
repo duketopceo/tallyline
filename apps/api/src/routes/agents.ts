@@ -185,7 +185,6 @@ export const agentRoutes = new Hono()
   })
   .post(
     "/workspaces/:ws/agents/:id/keys/:keyId/rotate",
-    zValidator("json", rotateSchema),
     async (c) => {
       const actor = requireKeyAdmin(c);
       if (actor instanceof Response) return actor;
@@ -195,24 +194,23 @@ export const agentRoutes = new Hono()
       if (!z.uuid().safeParse(id).success || !z.uuid().safeParse(keyId).success) {
         throw new HttpError(404, "NOT_FOUND", "key not found");
       }
-      const { graceSeconds } = c.req.valid("json");
-      const next = await rotateAgentKey(id, ws.id, keyId, graceSeconds);
+      // the body is optional: none means graceSeconds 0
+      const raw = (await c.req.text()).trim();
+      let input: unknown = {};
+      if (raw) {
+        try {
+          input = JSON.parse(raw);
+        } catch {
+          return apiError(c, 400, "BAD_REQUEST", "body must be JSON");
+        }
+      }
+      const parsed = rotateSchema.safeParse(input);
+      if (!parsed.success) {
+        return apiError(c, 400, "BAD_REQUEST", "graceSeconds must be an integer from 0 to 86400");
+      }
+      const { graceSeconds } = parsed.data;
+      const next = await rotateAgentKey(id, ws.id, keyId, graceSeconds, actor.userId);
       if (!next) throw new HttpError(404, "NOT_FOUND", "key not found");
-      await db.insert(events).values({
-        workspaceId: ws.id,
-        entityType: "agent_key",
-        entityId: keyId,
-        action: "agent_key_rotated",
-        actorType: "human",
-        actorId: actor.userId,
-        after: {
-          agentId: id,
-          name: next.name,
-          newKeyId: next.id,
-          graceSeconds,
-          oldExpiresAt: next.oldExpiresAt.toISOString(),
-        },
-      });
       // plaintext shown once — only the hash is stored
       return c.json(
         {

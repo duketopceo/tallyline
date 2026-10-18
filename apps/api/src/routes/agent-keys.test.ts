@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { setStreamHeartbeatMs } from "./events.js";
 import { db } from "../db/client.js";
 import { agentKeys, events } from "../db/schema.js";
 import { app } from "../index.js";
@@ -24,7 +25,10 @@ beforeAll(async () => {
   bAdminCookie = `tly_session=${await newSession(B, "admin")}`;
 });
 
-afterEach(() => resetClock());
+afterEach(() => {
+  resetClock();
+  setStreamHeartbeatMs(15_000);
+});
 
 const call = async (
   path: string,
@@ -236,5 +240,147 @@ describe("agent key expiry", () => {
       .from(agentKeys)
       .where(eq(agentKeys.id, r.body.id as string));
     expect(row!.expiresAt).not.toBeNull();
+  });
+});
+
+// P1: an open SSE stream must not outlive its key.
+const openStream = async (key: string) => {
+  const res = await app.fetch(
+    new Request(`http://api.test/v1/workspaces/${A.ws.slug}/events/stream`, {
+      headers: { authorization: `Bearer ${key}` },
+    }),
+  );
+  expect(res.status).toBe(200);
+  return res.body!.getReader();
+};
+/** true when the stream ends within ms; cancels it otherwise */
+const closesWithin = async (
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  ms: number,
+): Promise<boolean> => {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    const r = await Promise.race([
+      reader.read(),
+      new Promise<null>((res) => setTimeout(() => res(null), 100)),
+    ]);
+    if (r && r.done) return true;
+  }
+  await reader.cancel();
+  return false;
+};
+
+describe("agent key vs open SSE streams", () => {
+  it("revoking a key closes its open stream immediately", async () => {
+    const k = await mint();
+    const reader = await openStream(k.key);
+    await revoke(k.id);
+    expect(await closesWithin(reader, 2000)).toBe(true);
+  });
+
+  it("rotating with no grace closes the old key's stream; the new key's stays open", async () => {
+    const k = await mint();
+    const reader = await openStream(k.key);
+    const r = await rotate(k.id);
+    const fresh = await openStream(r.body.key as string);
+    expect(await closesWithin(reader, 2000)).toBe(true);
+    expect(await closesWithin(fresh, 600)).toBe(false);
+  });
+
+  it("a stream on a key in a grace window stays open", async () => {
+    const k = await mint();
+    const reader = await openStream(k.key);
+    await rotate(k.id, { graceSeconds: 600 });
+    expect(await closesWithin(reader, 600)).toBe(false);
+  });
+
+  it("the heartbeat re-validates and closes a stream whose key expired", async () => {
+    setStreamHeartbeatMs(50);
+    const t0 = Date.now();
+    setClock(() => t0);
+    const k = await mint({ expiresInDays: 1 });
+    const reader = await openStream(k.key);
+    setClock(() => t0 + 86_400_000 + 1000);
+    expect(await closesWithin(reader, 2000)).toBe(true);
+  });
+
+  it("the heartbeat closes a stream whose key row vanished without a signal", async () => {
+    setStreamHeartbeatMs(50);
+    const k = await mint();
+    const reader = await openStream(k.key);
+    await db.delete(agentKeys).where(eq(agentKeys.id, k.id));
+    expect(await closesWithin(reader, 2000)).toBe(true);
+  });
+});
+
+describe("rotate edge cases", () => {
+  it("rotating an already-expired key is 404", async () => {
+    const t0 = Date.now();
+    setClock(() => t0);
+    const k = await mint({ expiresInDays: 1 });
+    setClock(() => t0 + 2 * 86_400_000);
+    expect((await rotate(k.id)).status).toBe(404);
+  });
+
+  it("a key already in a rotation grace window cannot be rotated again", async () => {
+    const k = await mint();
+    expect((await rotate(k.id, { graceSeconds: 600 })).status).toBe(201);
+    const again = await rotate(k.id, { graceSeconds: 600 });
+    expect(again.status).toBe(409);
+    const rows = await db
+      .select()
+      .from(agentKeys)
+      .where(eq(agentKeys.agentId, A.agent.id));
+    expect(rows.filter((x) => x.name === "k").length).toBeGreaterThan(0);
+  });
+
+  it("the replacement carries the old key's original lifespan", async () => {
+    const k = await mint({ expiresInDays: 30 });
+    const r = await rotate(k.id);
+    const left = new Date(r.body.expiresAt as string).getTime() - Date.now();
+    expect(left).toBeGreaterThan(29.9 * 86_400_000);
+    expect(left).toBeLessThan(30.1 * 86_400_000);
+  });
+
+  it("graceSeconds edges: 0 and 86400 ok; negative, fractional, string, over cap are 400", async () => {
+    for (const g of [0, 86_400]) {
+      const k = await mint();
+      expect((await rotate(k.id, { graceSeconds: g })).status).toBe(201);
+    }
+    const k = await mint();
+    for (const g of [-1, 1.5, "60", null, 86_401]) {
+      expect((await rotate(k.id, { graceSeconds: g })).status).toBe(400);
+    }
+    expect((await whoami(k.key)).status).toBe(200);
+  });
+
+  it("an empty body means graceSeconds 0", async () => {
+    const k = await mint();
+    const r = await call(keysPath(A, `/${k.id}/rotate`), {
+      method: "POST",
+      cookie: adminCookie,
+    });
+    expect(r.status).toBe(201);
+    expect((await whoami(k.key)).status).toBe(401);
+  });
+});
+
+describe("/mcp refuses agent keys that are revoked or expired", () => {
+  const mcp = (key: string) =>
+    call("/mcp", {
+      method: "POST",
+      bearer: key,
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+  it("401 for a revoked key and an expired key", async () => {
+    const revoked = await mint();
+    await revoke(revoked.id);
+    expect((await mcp(revoked.key)).status).toBe(401);
+
+    const t0 = Date.now();
+    setClock(() => t0);
+    const exp = await mint({ expiresInDays: 1 });
+    setClock(() => t0 + 2 * 86_400_000);
+    expect((await mcp(exp.key)).status).toBe(401);
   });
 });

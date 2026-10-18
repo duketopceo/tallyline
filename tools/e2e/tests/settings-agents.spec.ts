@@ -1,4 +1,4 @@
-import { expect, request as pwRequest, test } from "@playwright/test";
+import { expect, request as pwRequest, test, type Locator } from "@playwright/test";
 
 // U5: create an agent, issue / rotate / revoke keys, create / revoke a PAT,
 // entirely through the UI. Plaintext is shown once and never retrievable.
@@ -21,9 +21,31 @@ async function whoami(token: string): Promise<number> {
   return status;
 }
 
+// The agents page lists every agent the suite has created and each card loads
+// its keys, so late in a full run the per-session rate limiter can answer 429
+// ("retry in Ns"). Retry the click once the window passes.
+async function issueKey(card: Locator) {
+  await clickUntilRevealed(card, "Issue key", "API key created");
+}
+
+async function clickUntilRevealed(scope: Locator, button: string, status: string) {
+  const reveal = scope.getByRole("status", { name: status });
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await scope.getByRole("button", { name: button }).click();
+    try {
+      await reveal.waitFor({ timeout: 4_000 });
+      return;
+    } catch {
+      await scope.page().waitForTimeout(8_000);
+    }
+  }
+  await reveal.waitFor();
+}
+
 test("agents: issue key, rotate (old dies at once), rotate with grace, revoke", async ({
   page,
 }) => {
+  test.setTimeout(120_000); // rate-limit retries, see issueKey
   await page.goto("/settings/agents");
   await expect(page.getByRole("heading", { name: "Agents and keys" })).toBeVisible();
 
@@ -34,9 +56,9 @@ test("agents: issue key, rotate (old dies at once), rotate with grace, revoke", 
   await expect(card).toBeVisible();
 
   await card.getByLabel("Key name").fill("laptop");
-  await card.getByRole("button", { name: "Issue key" }).click();
+  await issueKey(card);
   const reveal = card.getByRole("status", { name: "API key created" });
-  const key = (await reveal.getByTestId("secret-value").innerText()).trim();
+  const key = (await reveal.locator("p").nth(1).innerText()).trim();
   expect(key).toMatch(/^tly_agt_[\w-]{20,}$/);
   expect(await whoami(key)).toBe(200);
   // expiry is shown: omitting it applies the workspace default
@@ -47,7 +69,7 @@ test("agents: issue key, rotate (old dies at once), rotate with grace, revoke", 
   // rotate, default grace: the old key is dead at once, the new one works
   await card.getByRole("button", { name: "Rotate key laptop" }).click();
   await page.getByRole("dialog", { name: "Rotate key" }).getByRole("button", { name: "Rotate key" }).click();
-  const rotated = (await card.getByTestId("secret-value").innerText()).trim();
+  const rotated = (await card.getByRole("status").locator("p").nth(1).innerText()).trim();
   expect(rotated).toMatch(/^tly_agt_/);
   expect(rotated).not.toBe(key);
   expect(await whoami(key)).toBe(401);
@@ -67,7 +89,7 @@ test("agents: issue key, rotate (old dies at once), rotate with grace, revoke", 
   const dlg = page.getByRole("dialog", { name: "Rotate key" });
   await dlg.getByLabel("Old key stops working").selectOption("3600");
   await dlg.getByRole("button", { name: "Rotate key" }).click();
-  const next = (await c2.getByTestId("secret-value").innerText()).trim();
+  const next = (await c2.getByRole("status").locator("p").nth(1).innerText()).trim();
   expect(await whoami(rotated)).toBe(200);
   expect(await whoami(next)).toBe(200);
 
@@ -88,13 +110,14 @@ test("agents: issue key, rotate (old dies at once), rotate with grace, revoke", 
 });
 
 test("tokens: shown once, revoke", async ({ page }) => {
+  test.setTimeout(120_000);
   await page.goto("/settings/tokens");
   await expect(page.getByRole("heading", { name: "Personal access tokens" })).toBeVisible();
   const name = `e2e-pat-${Date.now().toString(36)}`;
   await page.getByLabel("Name", { exact: true }).fill(name);
-  await page.getByRole("button", { name: "Create token" }).click();
+  await clickUntilRevealed(page.locator("body"), "Create token", "token created");
   const reveal = page.getByRole("status", { name: "token created" });
-  const token = (await reveal.getByTestId("secret-value").innerText()).trim();
+  const token = (await reveal.locator("p").nth(1).innerText()).trim();
   expect(token).toMatch(/^tly_/);
   expect(await whoami(token)).toBe(200);
   await reveal.getByRole("button", { name: "I have saved it" }).click();
