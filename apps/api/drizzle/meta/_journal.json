@@ -162,6 +162,13 @@
       "when": 1792357202927,
       "tag": "0022_pg_trgm",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792358101842,
+      "tag": "0023_plan_import_hardening",
+      "breakpoints": true
     }
   ]
 }

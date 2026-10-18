@@ -66,7 +66,7 @@ interface UnitPlan {
   action: PlanUnitAction;
   matchedBy?: PlanImportUnitResult["matchedBy"];
   existing?: ExistingIssue;
-  /** managed = found through its plan ref, so title and description follow the plan */
+  /** managed = the import wrote this issue's text and nobody has edited it since */
   managed: boolean;
   changes: string[];
   /** state to write: the new issue's state, or a forward move for an existing one */
@@ -115,6 +115,9 @@ function stable(v: unknown): string {
   }
   return JSON.stringify(v) ?? "null";
 }
+
+const contentHash = (title: string, description: string | null) =>
+  createHash("sha256").update(`${title}\n${description ?? ""}`).digest("hex");
 
 const footerPrefix = (req: PlanImportRequest) =>
   `Imported from ${req.plan.source.repo} ${req.plan.source.path} @ `;
@@ -211,6 +214,7 @@ async function compute(
     ? await exec
         .select({
           externalId: issueExternalRefs.externalId,
+          contentHash: issueExternalRefs.contentHash,
           issue: issues,
         })
         .from(issueExternalRefs)
@@ -219,26 +223,17 @@ async function compute(
           and(
             eq(issueExternalRefs.workspaceId, ws),
             eq(issueExternalRefs.system, "plan"),
+            eq(issues.workspaceId, ws),
             inArray(issueExternalRefs.externalId, refIds),
           ),
         )
     : [];
   const byRef = new Map(refRows.map((r) => [r.externalId, r.issue as ExistingIssue]));
+  const hashByRef = new Map(refRows.map((r) => [r.externalId, r.contentHash]));
 
-  // every issue already owned by this plan file, so siblings never look like
-  // fuzzy matches of each other
+  // issues already owned by this plan file are excluded from fuzzy matching in
+  // SQL, so siblings never look like matches of each other
   const prefix = `${source.repo}:${source.path}:`;
-  const ownedRows = await exec
-    .select({ issueId: issueExternalRefs.issueId })
-    .from(issueExternalRefs)
-    .where(
-      and(
-        eq(issueExternalRefs.workspaceId, ws),
-        eq(issueExternalRefs.system, "plan"),
-        sql`starts_with(${issueExternalRefs.externalId}, ${prefix})`,
-      ),
-    );
-  const owned = new Set(ownedRows.map((r) => r.issueId));
 
   // resolutions: existing issue by key
   const resolvedKeys = [...new Set(Object.values(resolutions))];
@@ -276,8 +271,14 @@ async function compute(
           issue: issues,
         })
         .from(githubIssueLinks)
-        .innerJoin(githubRepos, eq(githubRepos.id, githubIssueLinks.repoId))
-        .innerJoin(issues, eq(issues.id, githubIssueLinks.issueId))
+        .innerJoin(
+          githubRepos,
+          and(eq(githubRepos.id, githubIssueLinks.repoId), eq(githubRepos.workspaceId, ws)),
+        )
+        .innerJoin(
+          issues,
+          and(eq(issues.id, githubIssueLinks.issueId), eq(issues.workspaceId, ws)),
+        )
         .where(
           and(
             eq(githubIssueLinks.workspaceId, ws),
@@ -310,10 +311,14 @@ async function compute(
     let matchedBy: PlanImportUnitResult["matchedBy"];
     if (existing) {
       matchedBy = "ref";
-      // Only issues the import itself wrote follow the plan's title and
-      // description. An issue adopted through a resolution or a link keeps its
-      // hand-written text; so does an imported one whose footer was removed.
-      base.managed = (existing.description ?? "").includes(footerPrefix(req));
+      // Only text the import itself wrote follows the plan, and only while it
+      // still matches the hash stored at the last write. An adopted issue (no
+      // hash) keeps its text; an edited one keeps the edit and the diff warns.
+      const stored = hashByRef.get(refId(req, unit.id));
+      if (stored) {
+        if (contentHash(existing.title, existing.description) === stored) base.managed = true;
+        else warnings.push(`${existing.key} (${scopedId}) was edited by hand since the last import; its title and description were left alone`);
+      }
     } else {
       const resolved = resolutions[scopedId];
       if (resolved) {
@@ -367,12 +372,16 @@ async function compute(
           from issues
           where workspace_id = ${ws}
             and similarity(${NORM(sql.raw("title"))}, ${needle}) >= ${SIMILARITY_THRESHOLD}
+            and not exists (
+              select 1 from issue_external_refs r
+              where r.issue_id = issues.id and r.system = 'plan'
+                and starts_with(r.external_id, ${prefix})
+            )
           order by score desc
-          limit 6
+          limit 3
         `);
         const hits = (sim.rows as unknown as { id: string; key: string; title: string; score: number }[])
-          .filter((r) => !owned.has(r.id))
-          .slice(0, 3);
+;
         if (hits.length) {
           base.action = "ambiguous";
           base.reason = `similar to an existing issue title (${hits[0]!.score.toFixed(2)})`;
@@ -429,6 +438,16 @@ async function compute(
       base.prRefsToAdd = prs;
     }
     units.push(base);
+  }
+
+  const claimed = new Map<string, string>();
+  for (const u of units) {
+    if (!u.existing) continue;
+    const other = claimed.get(u.existing.id);
+    if (other) {
+      throw new HttpError(422, "DUPLICATE_MATCH", `${other} and ${u.scopedId} both match ${u.existing.key}; resolve one of them to a different issue`);
+    }
+    claimed.set(u.existing.id, u.scopedId);
   }
 
   // phases become milestones
@@ -550,13 +569,22 @@ export async function importPlan(ctx: ImportContext, req: PlanImportRequest): Pr
   // any read so a refused call has no side effects, whatever `historical` says.
   const wantsHistory =
     req.historical === true ||
-    Object.values(req.evidence ?? {}).some((e) => e.state && HISTORICAL_STATES.includes(e.state));
+    Object.values(req.evidence ?? {}).some(
+      (e) => (e.state && HISTORICAL_STATES.includes(e.state)) || e.prs?.length || e.mergedAt,
+    );
   if (wantsHistory && !ctx.humanStaff) {
     throw new HttpError(
       403,
       "FORBIDDEN_HISTORICAL",
       "importing done or in-progress state requires a human owner or admin credential",
     );
+  }
+
+  const nowMs = clock.ms();
+  for (const [id, e] of Object.entries(req.evidence ?? {})) {
+    if (e.mergedAt && Date.parse(e.mergedAt) > nowMs) {
+      throw new HttpError(422, "INVALID_EVIDENCE", `evidence for ${id} has a mergedAt in the future`);
+    }
   }
 
   const { project, team } = await resolveProjectAndTeam(db, ctx.workspaceId, req);
@@ -571,7 +599,10 @@ export async function importPlan(ctx: ImportContext, req: PlanImportRequest): Pr
   }
 
   const result = await db.transaction(async (tx) => {
-    // one apply per plan file at a time; the diff is recomputed under the lock
+    // Imports in one workspace run one at a time (matching reads what other
+    // imports write), and one apply per plan file; the diff is recomputed
+    // under the locks.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`plan-import:${ctx.workspaceId}`}))`);
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtext(${`plan-import:${ctx.workspaceId}:${req.plan.source.repo}:${req.plan.source.path}`}))`,
     );
@@ -584,10 +615,13 @@ export async function importPlan(ctx: ImportContext, req: PlanImportRequest): Pr
     const now = clock.now();
 
     for (const title of c.milestonesCreate) {
-      await tx.insert(projectMilestones).values({ workspaceId: ctx.workspaceId, projectId: project.id, title });
+      await tx
+        .insert(projectMilestones)
+        .values({ workspaceId: ctx.workspaceId, projectId: project.id, title })
+        .onConflictDoNothing();
     }
 
-    const planRef = async (u: UnitPlan, issueId: string) => {
+    const planRef = async (u: UnitPlan, issueId: string, hash: string | null) => {
       await tx
         .insert(issueExternalRefs)
         .values({
@@ -596,6 +630,7 @@ export async function importPlan(ctx: ImportContext, req: PlanImportRequest): Pr
           system: "plan",
           externalId: refId(req, u.unit.id),
           url: req.plan.source.url ?? null,
+          contentHash: hash,
         })
         .onConflictDoNothing();
     };
@@ -608,7 +643,7 @@ export async function importPlan(ctx: ImportContext, req: PlanImportRequest): Pr
             issueId,
             system: "github_pr",
             externalId: `${p.repo}#${p.number}:${key}`,
-            url: p.url ?? `https://github.com/${p.repo}/pull/${p.number}`,
+            url: `https://github.com/${p.repo}/pull/${p.number}`,
           })
           .onConflictDoNothing();
       }
@@ -643,7 +678,7 @@ export async function importPlan(ctx: ImportContext, req: PlanImportRequest): Pr
             ...(historical && u.mergedAt && state === "done" ? { createdAt: u.mergedAt } : {}),
           },
         });
-        await planRef(u, issue.id);
+        await planRef(u, issue.id, contentHash(issue.title, issue.description));
         await prRefs(u, issue.id, issue.key);
         applied.created.push({ unitId: u.unit.id, key: issue.key });
         createdForHooks.push({ id: issue.id, key: issue.key, title: issue.title, state: issue.state });
@@ -672,7 +707,19 @@ export async function importPlan(ctx: ImportContext, req: PlanImportRequest): Pr
           set.updatedAt = now;
           await tx.update(issues).set(set).where(eq(issues.id, e.id));
         }
-        if (u.changes.includes("ref")) await planRef(u, e.id);
+        if (u.changes.includes("ref")) await planRef(u, e.id, null);
+        if (set.title !== undefined || set.description !== undefined) {
+          await tx
+            .update(issueExternalRefs)
+            .set({ contentHash: contentHash(set.title ?? e.title, set.description ?? e.description) })
+            .where(
+              and(
+                eq(issueExternalRefs.workspaceId, ctx.workspaceId),
+                eq(issueExternalRefs.system, "plan"),
+                eq(issueExternalRefs.externalId, refId(req, u.unit.id)),
+              ),
+            );
+        }
         await prRefs(u, e.id, e.key);
         await tx.insert(events).values({
           workspaceId: ctx.workspaceId,

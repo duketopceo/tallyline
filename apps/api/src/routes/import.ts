@@ -1,10 +1,11 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { db } from "../db/client.js";
 import { teams } from "../db/schema.js";
-import { HttpError } from "../lib/errors.js";
+import { apiError, HttpError } from "../lib/errors.js";
 import { actorFromHeaders } from "../lib/actor.js";
 import { importGithubIssues, importLinearCsv } from "../services/import.js";
 import { hasRole } from "../services/members.js";
@@ -30,6 +31,15 @@ const linearImportSchema = z.object({
   csv: z.string().min(1),
 });
 
+const MAX_KEYS = 200;
+const capped = <T extends z.ZodType<Record<string, unknown>>>(schema: T) =>
+  schema.refine((o) => Object.keys(o).length <= MAX_KEYS, { message: `at most ${MAX_KEYS} entries` });
+// only https: a javascript: or data: url stored on an issue ref would render as a link
+const httpsUrl = z
+  .url()
+  .max(500)
+  .refine((u) => new URL(u).protocol === "https:", { message: "only https urls are accepted" });
+
 const planImportSchema = z.object({
   project: z.string().min(1).max(200),
   teamKey: z.string().regex(/^[A-Z][A-Z0-9]*$/).optional(),
@@ -39,12 +49,12 @@ const planImportSchema = z.object({
       repo: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/, "expected 'owner/repo'"),
       path: z.string().min(1).max(300),
       sha: z.string().regex(/^[0-9a-f]{7,40}$/i),
-      url: z.url().max(500).optional(),
+      url: httpsUrl.optional(),
     }),
     markdown: z.string().min(1).max(1_000_000),
   }),
-  evidence: z
-    .record(
+  evidence: capped(
+    z.record(
       z.string().regex(/^U\d+$/),
       z.object({
         state: z.enum(["backlog", "todo", "in_progress", "done"]).optional(),
@@ -53,19 +63,18 @@ const planImportSchema = z.object({
             z.object({
               repo: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
               number: z.number().int().positive(),
-              url: z.url().max(500).optional(),
             }),
           )
           .max(20)
           .optional(),
         mergedAt: z.iso.datetime().optional(),
       }),
-    )
-    .optional(),
+    ),
+  ).optional(),
   historical: z.boolean().default(false),
-  resolutions: z
-    .record(z.string().regex(/^[A-Z][A-Z0-9]*-U\d+$/), z.string().regex(/^[A-Z][A-Z0-9]*-\d+$/))
-    .optional(),
+  resolutions: capped(
+    z.record(z.string().regex(/^[A-Z][A-Z0-9]*-U\d+$/), z.string().regex(/^[A-Z][A-Z0-9]*-\d+$/)),
+  ).optional(),
   mode: z.enum(["dry_run", "apply"]).default("dry_run"),
   diffHash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
 });
@@ -127,6 +136,10 @@ export const importRoutes = new Hono()
   )
   .post(
     "/workspaces/:ws/import/plan",
+    bodyLimit({
+      maxSize: 2 * 1024 * 1024,
+      onError: (c) => apiError(c, 413, "PAYLOAD_TOO_LARGE", "request body is over 2MB"),
+    }),
     zValidator("json", planImportSchema),
     async (c) => {
       const ws = await requireWorkspace(c);

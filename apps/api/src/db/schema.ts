@@ -165,7 +165,11 @@ export const projectMilestones = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (t) => [index().on(t.workspaceId), index().on(t.projectId)],
+  (t) => [
+    index().on(t.workspaceId),
+    index().on(t.projectId),
+    unique().on(t.projectId, t.title),
+  ],
 );
 
 export const cycles = pgTable(
@@ -692,6 +696,9 @@ export const issueExternalRefs = pgTable(
     system: text("system").notNull(),
     externalId: text("external_id").notNull(),
     url: text("url"),
+    // plan import: hash of the title and description it last wrote, so a
+    // later run only overwrites text nobody has edited
+    contentHash: text("content_hash"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

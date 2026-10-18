@@ -467,3 +467,173 @@ describe("POST /import/plan", () => {
     });
   });
 });
+
+describe("hardening", () => {
+  const post = async (body: string, who: Who = "owner") => {
+    const token = who === "owner" ? t.pats.write : t.agentKeys.write;
+    return app.fetch(
+      new Request(`http://api.test/v1/workspaces/${t.ws.slug}/import/plan`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body,
+      }),
+    );
+  };
+
+  it("accepts only https source urls", async () => {
+    for (const url of ["javascript:alert(1)", "http://example.com/p.md", "data:text/html,x"]) {
+      const r = await call(req(plan(FIVE), { plan: { scope: "KP", source: { ...SOURCE, url }, markdown: plan(FIVE) } }));
+      expect(r.status, url).toBe(400);
+    }
+    const ok = await call(
+      req(plan(FIVE), { plan: { scope: "KP", source: { ...SOURCE, url: "https://github.com/duketopceo/kate/blob/x/p.md" }, markdown: plan(FIVE) } }),
+    );
+    expect(ok.status).toBe(200);
+  });
+
+  it("builds PR urls from repo and number, ignoring any supplied url", async () => {
+    const evidence = { U1: { state: "done", prs: [{ repo: "duketopceo/kate", number: 31, url: "javascript:alert(1)" }] } };
+    const r = await applyPlan(plan(FIVE), { evidence, historical: true });
+    expect(r.status).toBe(200);
+    const [ref] = await db
+      .select()
+      .from(issueExternalRefs)
+      .where(and(eq(issueExternalRefs.workspaceId, t.ws.id), eq(issueExternalRefs.system, "github_pr")));
+    expect(ref!.url).toBe("https://github.com/duketopceo/kate/pull/31");
+  });
+
+  it("keeps a manually edited imported issue, applies the other changes, and warns", async () => {
+    await applyPlan(plan(FIVE));
+    const row = (await issueRows()).find((x) => x.title.startsWith("[KP-U2]"))!;
+    await db.update(issues).set({ description: `${row.description}\n\nMy own notes.` }).where(eq(issues.id, row.id));
+
+    const changed = FIVE.map((u) => (u[0] === "U2" ? (["U2", "Throttles renamed"] as [string, string]) : u));
+    const r = await applyPlan(plan(changed), { evidence: { U2: { state: "todo" } } });
+    expect(r.status).toBe(200);
+    expect(r.body.warnings.join(" ")).toMatch(/KP-U2.*edited/);
+    const after = (await issueRows()).find((x) => x.id === row.id)!;
+    expect(after.title).toBe("[KP-U2] Creation throttles");
+    expect(after.description).toContain("My own notes.");
+    expect(after.state).toBe("todo"); // state still follows evidence
+  });
+
+  it("still updates an imported issue nobody edited", async () => {
+    await applyPlan(plan(FIVE));
+    const changed = FIVE.map((u) => (u[0] === "U2" ? (["U2", "Throttles renamed"] as [string, string]) : u));
+    const r = await applyPlan(plan(changed));
+    expect(r.body.counts.update).toBe(1);
+    expect(r.body.warnings).toEqual([]);
+  });
+
+  it("rejects a request body over 2MB with 413", async () => {
+    const big = JSON.stringify({ project: project.id, pad: "x".repeat(2_200_000) });
+    const res = await post(big);
+    expect(res.status).toBe(413);
+  });
+
+  it("caps evidence and resolutions at 200 keys", async () => {
+    const evidence = Object.fromEntries(Array.from({ length: 201 }, (_, i) => [`U${i + 1}`, { state: "todo" }]));
+    expect((await call(req(plan(FIVE), { evidence }))).status).toBe(400);
+    const resolutions = Object.fromEntries(Array.from({ length: 201 }, (_, i) => [`KP-U${i + 1}`, "IMP-1"]));
+    expect((await call(req(plan(FIVE), { resolutions }))).status).toBe(400);
+  });
+
+  it("rejects two units that resolve to the same issue with 422", async () => {
+    const old = await mkIssue(t, { title: "Shared issue", description: "x" });
+    const r = await call(req(plan(FIVE), { resolutions: { "KP-U1": old.key, "KP-U2": old.key } }));
+    expect(r.status).toBe(422);
+    expect(r.body.error!.code).toBe("DUPLICATE_MATCH");
+  });
+
+  it("creates a shared phase milestone once under concurrent imports of different plans", async () => {
+    const md = (n: string) => ["# P", "## Phase A", `### U1. ${n}`, "**Goal:** g"].join("\n");
+    const run = async (path: string, scope: string, title: string) => {
+      const base = { plan: { scope, source: { ...SOURCE, path }, markdown: md(title) } };
+      const dry = await call(req("", base));
+      return call(req("", { ...base, mode: "apply", diffHash: dry.body.diffHash }));
+    };
+    const results = await Promise.all([run("a.md", "AA", "One"), run("b.md", "BB", "Two")]);
+    // the loser may see a changed diff (the milestone now exists) and get 409; never a 500
+    expect(results.map((r) => r.status).every((c) => c === 200 || c === 409)).toBe(true);
+    expect(results.some((r) => r.status === 200)).toBe(true);
+    const ms = await db.select().from(projectMilestones).where(eq(projectMilestones.projectId, project.id));
+    expect(ms.map((m) => m.title)).toEqual(["Phase A"]);
+  });
+
+  it("forbids PR and merge-date evidence from an agent key, and writes nothing", async () => {
+    for (const evidence of [
+      { U1: { prs: [{ repo: "duketopceo/kate", number: 1 }] } },
+      { U1: { mergedAt: "2026-10-01T00:00:00.000Z" } },
+    ]) {
+      const r = await call(req(plan(FIVE), { evidence }), "agent");
+      expect(r.status).toBe(403);
+    }
+    expect(await issueRows()).toHaveLength(0);
+  });
+
+  it("rejects a future mergedAt", async () => {
+    const r = await call(
+      req(plan(FIVE), { evidence: { U1: { state: "done", mergedAt: "2099-01-01T00:00:00.000Z" } }, historical: true }),
+    );
+    expect(r.status).toBe(422);
+    expect(r.body.error!.code).toBe("INVALID_EVIDENCE");
+  });
+
+  it("does not offer a plan's own issues as fuzzy matches for a new unit", async () => {
+    await applyPlan(plan([["U1", "Add kill switch for signups and uploads"]]));
+    const r = await applyPlan(
+      plan([
+        ["U1", "Add kill switch for signups and uploads"],
+        ["U2", "Add kill switch for signups and uploads page"],
+      ]),
+    );
+    expect(r.body.counts).toMatchObject({ create: 1, ambiguous: 0, unchanged: 1 });
+  });
+
+  it("does not match a github link whose rows point into another workspace", async () => {
+    const other = await seedTenant("imp3", "OT3");
+    const foreignIssue = await mkIssue(other, { title: "Foreign tab audit", description: "x" });
+    const [foreignRepo] = await db
+      .insert(githubRepos)
+      .values({ workspaceId: other.ws.id, fullName: "duketopceo/kate-ios", enabled: true })
+      .returning();
+    // inconsistent row: stamped with our workspace, pointing at B's repo and issue
+    await db.insert(githubIssueLinks).values({
+      workspaceId: t.ws.id,
+      repoId: foreignRepo!.id,
+      ghIssueId: 777,
+      ghIssueNumber: 12,
+      issueId: foreignIssue.id,
+    });
+    const md = plan([["U9", "Every-tab audit"]]).replace(
+      "**Goal:**",
+      "**Goal:** https://github.com/duketopceo/kate-ios/issues/12",
+    );
+    const r = await call(req(md));
+    expect(r.body.units[0]!.action).toBe("create");
+  });
+
+  it("rolls everything back when a write fails mid-apply", async () => {
+    const md = ["# P", "## Phase A", ...FIVE.flatMap(([id, title]) => [`### ${id}. ${title}`, "**Goal:** g"])].join("\n");
+    await db.execute(sql`
+      create function tly_fail_u3() returns trigger language plpgsql as $$
+      begin raise exception 'forced failure'; end $$`);
+    await db.execute(
+      sql`create trigger tly_fail_u3 before insert on issues for each row when (new.title like '[KP-U3]%') execute function tly_fail_u3()`,
+    );
+    try {
+      const dry = await call(req(md));
+      const r = await call(req(md, { mode: "apply", diffHash: dry.body.diffHash }));
+      expect(r.status).toBe(500);
+    } finally {
+      await db.execute(sql`drop trigger tly_fail_u3 on issues`);
+      await db.execute(sql`drop function tly_fail_u3()`);
+    }
+    expect(await issueRows()).toHaveLength(0);
+    expect(await db.select().from(issueExternalRefs).where(eq(issueExternalRefs.workspaceId, t.ws.id))).toHaveLength(0);
+    expect(await db.select().from(projectMilestones).where(eq(projectMilestones.projectId, project.id))).toHaveLength(0);
+    const { teams } = await import("../db/schema.js");
+    const [team] = await db.select().from(teams).where(eq(teams.id, t.team.id));
+    expect(team!.nextIssueNumber).toBe(1);
+  });
+});
