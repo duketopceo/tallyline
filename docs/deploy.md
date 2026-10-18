@@ -45,6 +45,7 @@ Set these in `.env` next to the compose file (it reads `.env` automatically):
 | `API_INTERNAL_URL` | no | `http://api:4000` (in compose) | Where the web service's bridge routes reach the API — service-name URL inside the compose network; set it in `.env` only for exotic topologies |
 | `API_PUBLISH_PORT` / `WEB_PUBLISH_PORT` | no | `4000` / `3100` | Host ports the services bind |
 | `RATE_LIMIT_PER_MIN` | no | `600` | Authenticated requests/minute per token/session (`0` disables — don't, on public instances) |
+| `AGENT_KEY_DEFAULT_EXPIRY_DAYS` | no | `90` | Expiry applied to a newly minted or rotated agent key when the caller gives none (`0` = never expire by default) |
 | `RATE_LIMIT_ANON_PER_MIN` | no | `120` | **New.** Unauthenticated requests (and failed-credential attempts) per client IP, counted before auth. `/health` and signed provider webhooks are exempt. Needs `TRUSTED_PROXY=1` behind a proxy/Cloudflare or every visitor shares one bucket |
 | `RATE_LIMIT_AUTH_PER_MIN` | no | `30` | **New.** Login, bootstrap, invite-accept and OAuth start/callback per client IP |
 | `DISPATCH_ACK_TIMEOUT_MS` | no | `600000` | **New.** A dispatch still `queued` after this window is failed loudly on the issue thread (delivery wedged without writeback). Keep above the ~7.5 min webhook retry budget. `0` disables |

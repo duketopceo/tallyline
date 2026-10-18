@@ -28,9 +28,34 @@ curl -sX POST $API/v1/workspaces/$WS/agents/<agent-uuid>/keys \
 
 Key rules: plaintext is returned only at mint (SHA-256 at rest);
 `read` = GETs, `write` = mutations; keys are workspace-bound; agent keys
-cannot mint agents or other keys. Revoke = delete the key row (a
-`DELETE /agents/:id/keys/:keyId` route is tracked for a later milestone —
-today, delete via SQL or re-register).
+cannot mint agents or other keys.
+
+### Expiry, rotate, revoke
+
+Keys expire. `expiresInDays` (1-365) on the mint call sets the lifetime; when
+omitted the server applies `AGENT_KEY_DEFAULT_EXPIRY_DAYS` (default 90, `0`
+means no default expiry). An expired key is refused with 401 like an unknown
+one. The Agents screen (Settings, Agents) shows each key's expiry.
+
+All of this is admin or owner, human cookie session only. Agent keys get
+`403 FORBIDDEN_AGENT`; PATs and OAuth JWTs get `403 FORBIDDEN`.
+
+```bash
+# revoke: the key is 401 on its very next call
+curl -sX DELETE $API/v1/workspaces/$WS/agents/<agent-uuid>/keys/<key-uuid> \
+  -b tly_session=…
+
+# rotate: returns a replacement (same name and scopes, shown ONCE) and ends
+# the old key now. graceSeconds (0-86400, default 0) keeps the old key alive
+# for a planned overlap, then it expires on its own.
+curl -sX POST $API/v1/workspaces/$WS/agents/<agent-uuid>/keys/<key-uuid>/rotate \
+  -H "content-type: application/json" -b tly_session=… -d '{"graceSeconds":0}'
+# → {"id":"…","key":"tly_agt_…","scopes":[…],"expiresAt":"…","oldKeyValidUntil":"…"}
+```
+
+Revoke and rotate each write an `agent_key_revoked` / `agent_key_rotated`
+event (entity type `agent_key`) with the key id, name and agent id. Key
+plaintext and hashes never appear in events.
 
 Verify a key end-to-end:
 

@@ -322,6 +322,21 @@ export const OPERATIONS: Record<string, Builder> = {
     const a = await mkAgent(t);
     return { method: "GET", path: `${base(t)}/agents/${a.id}/keys` };
   },
+  "DELETE /v1/workspaces/{ws}/agents/{id}/keys/{keyId}": async (t) => {
+    const a = await mkAgent(t);
+    return {
+      method: "DELETE",
+      path: `${base(t)}/agents/${a.id}/keys/00000000-0000-4000-8000-000000000000`,
+    };
+  },
+  "POST /v1/workspaces/{ws}/agents/{id}/keys/{keyId}/rotate": async (t) => {
+    const a = await mkAgent(t);
+    return {
+      method: "POST",
+      path: `${base(t)}/agents/${a.id}/keys/00000000-0000-4000-8000-000000000000/rotate`,
+      body: {},
+    };
+  },
   "POST /v1/workspaces/{ws}/agents/{id}/keys": async (t) => {
     const a = await mkAgent(t);
     return { method: "POST", path: `${base(t)}/agents/${a.id}/keys`, body: { name: "k", scopes: ["read"] } };

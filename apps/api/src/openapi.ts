@@ -389,6 +389,52 @@ const basePaths = {
         responses: { "201": { description: "Agent registered" } },
       },
     },
+    "/v1/workspaces/{ws}/agents/{id}/keys/{keyId}": {
+      delete: {
+        summary:
+          "Revoke an agent key; it is 401 on its next call (admin, human session only; agent credentials get 403 FORBIDDEN_AGENT)",
+        parameters: [
+          wsParam,
+          { name: "id", in: "path", required: true, schema: { type: "string" } },
+          { name: "keyId", in: "path", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          "200": { description: "Revoked" },
+          "403": { description: "Not an admin human session" },
+          "404": { description: "Key not found in this workspace" },
+        },
+      },
+    },
+    "/v1/workspaces/{ws}/agents/{id}/keys/{keyId}/rotate": {
+      post: {
+        summary:
+          "Rotate an agent key: returns a replacement (plaintext shown once) and ends the old key now, or after graceSeconds (max 86400). Admin, human session only.",
+        parameters: [
+          wsParam,
+          { name: "id", in: "path", required: true, schema: { type: "string" } },
+          { name: "keyId", in: "path", required: true, schema: { type: "string" } },
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  graceSeconds: { type: "integer", minimum: 0, maximum: 86400, default: 0 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "New key { id, key, name, scopes, expiresAt, replacesKeyId, oldKeyValidUntil }" },
+          "400": { description: "graceSeconds out of range" },
+          "403": { description: "Not an admin human session" },
+          "404": { description: "Key not found in this workspace" },
+        },
+      },
+    },
     "/v1/workspaces/{ws}/agents/{id}/keys": {
       get: {
         summary: "List an agent's keys, redacted (human session only)",
