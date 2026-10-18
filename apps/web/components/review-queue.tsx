@@ -150,7 +150,7 @@ export function ReviewQueue({ queue }: { queue: QueueRow[] }) {
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
-      <NewPill count={live.count} onShow={() => { live.reset(); router.refresh(); }} />
+      <NewPill count={live.count} down={live.down} onShow={() => { live.reset(); router.refresh(); }} />
       <div className="flex min-h-0 w-full flex-col border-lining-faint max-lg:max-h-[42%] max-lg:shrink-0 max-lg:border-b lg:w-[400px] lg:shrink-0 lg:border-r">
         {selected.size > 0 && (
           <div role="toolbar" aria-label="Bulk review" className="flex shrink-0 flex-wrap items-center gap-2 border-b border-lining-faint bg-surface-1 px-4 py-1.5">

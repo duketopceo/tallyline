@@ -22,8 +22,12 @@ export function useNames() {
     return {
       assignee: (type: string | null | undefined, id: string | null | undefined) =>
         !type || !id ? null : ((type === "agent" ? agents.get(id) : humans.get(id)) ?? null),
-      actor: (type: string, id: string | null | undefined) =>
-        type === "agent" ? (id ? (agents.get(id) ?? "agent") : "agent") : type === "human" ? ((id && humans.get(id)) || "Someone") : "System",
+      actor: (type: string, id: string | null | undefined, knownName?: string | null) => {
+        const found = type === "agent" ? (id ? agents.get(id) : undefined) : (id ? humans.get(id) : undefined);
+        if (found) return found;
+        if (id) return knownName ? `${knownName} (removed)` : type === "agent" ? "Removed agent" : "Former member";
+        return type === "agent" ? "agent" : type === "human" ? "Someone" : "System";
+      },
     };
   }, [m]);
 }
