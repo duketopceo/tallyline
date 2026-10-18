@@ -422,6 +422,23 @@ export const OPERATIONS: Record<string, Builder> = {
     body: { teamKey: t.team.key, csv: "ID,Title,Status\nL-1,Imported,Todo\n" },
   }),
 
+  "POST /v1/workspaces/{ws}/import/plan": async (t) => {
+    const project = await mkProject(t);
+    return {
+      method: "POST",
+      path: `${base(t)}/import/plan`,
+      body: {
+        project: project.id,
+        teamKey: t.team.key,
+        plan: {
+          scope: "MX",
+          source: { repo: "o/r", path: "plan.md", sha: "abc1234" },
+          markdown: "# P\n\n### U1. Imported unit\n\n**Goal:** g\n",
+        },
+      },
+    };
+  },
+
   // ── notifications ──────────────────────────────────────────────────────────
   "GET /v1/workspaces/{ws}/notifications": get((t) => `${base(t)}/notifications`),
   "GET /v1/workspaces/{ws}/notifications/unread-count": get((t) => `${base(t)}/notifications/unread-count`),

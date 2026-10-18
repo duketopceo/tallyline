@@ -37,54 +37,72 @@ export class NotFoundError extends Error {
   }
 }
 
-export async function createIssue(input: CreateIssueInput) {
-  const issue = await db.transaction(async (tx) => {
-    const [team] = await tx
-      .update(teams)
-      .set({ nextIssueNumber: sql`${teams.nextIssueNumber} + 1` })
-      .where(
-        and(
-          eq(teams.id, input.teamId),
-          eq(teams.workspaceId, input.workspaceId),
-        ),
-      )
-      .returning({
-        key: teams.key,
-        nextIssueNumber: teams.nextIssueNumber,
-      });
-    if (!team) throw new NotFoundError("team");
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-    const number = team.nextIssueNumber - 1;
-    const key = `${team.key}-${number}`;
+export interface InsertIssueInput extends CreateIssueInput {
+  projectId?: string | undefined;
+  /** replaces the default `created` event (plan import writes `imported`) */
+  event?: {
+    action: string;
+    after?: (key: string) => Record<string, unknown>;
+    createdAt?: Date;
+  };
+}
 
-    const [issue] = await tx
-      .insert(issues)
-      .values({
-        workspaceId: input.workspaceId,
-        teamId: input.teamId,
-        key,
-        number,
-        title: input.title,
-        description: input.description ?? null,
-        source: input.source ?? "web",
-        state: input.state ?? "backlog",
-        creatorType: input.creator.type,
-        creatorId: input.creator.id,
-      })
-      .returning();
-
-    await tx.insert(events).values({
-      workspaceId: input.workspaceId,
-      entityType: "issue",
-      entityId: issue!.id,
-      action: "created",
-      actorType: input.creator.type,
-      actorId: input.creator.id,
-      after: { key, title: input.title, state: issue!.state },
+// numbers the issue from its team counter and writes the row plus its event
+// inside the caller's transaction, so a batch can be all-or-nothing
+export async function insertIssueTx(tx: Tx, input: InsertIssueInput) {
+  const [team] = await tx
+    .update(teams)
+    .set({ nextIssueNumber: sql`${teams.nextIssueNumber} + 1` })
+    .where(
+      and(
+        eq(teams.id, input.teamId),
+        eq(teams.workspaceId, input.workspaceId),
+      ),
+    )
+    .returning({
+      key: teams.key,
+      nextIssueNumber: teams.nextIssueNumber,
     });
+  if (!team) throw new NotFoundError("team");
 
-    return issue!;
+  const number = team.nextIssueNumber - 1;
+  const key = `${team.key}-${number}`;
+
+  const [issue] = await tx
+    .insert(issues)
+    .values({
+      workspaceId: input.workspaceId,
+      teamId: input.teamId,
+      key,
+      number,
+      title: input.title,
+      description: input.description ?? null,
+      source: input.source ?? "web",
+      state: input.state ?? "backlog",
+      projectId: input.projectId ?? null,
+      creatorType: input.creator.type,
+      creatorId: input.creator.id,
+    })
+    .returning();
+
+  await tx.insert(events).values({
+    workspaceId: input.workspaceId,
+    entityType: "issue",
+    entityId: issue!.id,
+    action: input.event?.action ?? "created",
+    actorType: input.creator.type,
+    actorId: input.creator.id,
+    after: input.event?.after?.(key) ?? { key, title: input.title, state: issue!.state },
+    ...(input.event?.createdAt ? { createdAt: input.event.createdAt } : {}),
   });
+
+  return issue!;
+}
+
+export async function createIssue(input: CreateIssueInput) {
+  const issue = await db.transaction((tx) => insertIssueTx(tx, input));
   await queueDeliveries({
     workspaceId: input.workspaceId,
     entityType: "issue",

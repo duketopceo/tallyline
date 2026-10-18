@@ -73,7 +73,7 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
       "DELETE /v1/workspaces/{ws}/invites/{id}",
     ],
   },
-  issue_external_refs: { ops: ["POST /v1/workspaces/{ws}/import/linear", "GET /v1/workspaces/{ws}/issues/{key}"] },
+  issue_external_refs: { ops: ["POST /v1/workspaces/{ws}/import/linear", "POST /v1/workspaces/{ws}/import/plan", "GET /v1/workspaces/{ws}/issues/{key}"] },
   notifications: {
     ops: [
       "GET /v1/workspaces/{ws}/notifications",
@@ -464,6 +464,9 @@ describe("tenancy: cross-tenant references in A's writes", () => {
     { name: "connect B's team to a repo", table: "github_repos", build: () => ({ method: "POST", path: `${ws()}/github/repos/connect`, body: { fullName: "acme/x", teamKey: B.team.key } }) },
     { name: "disconnect B's repo", table: "github_repos", build: () => ({ method: "POST", path: `${ws()}/github/repos/disconnect`, body: { fullName: EB.github.repo.fullName } }) },
     { name: "linear import into B's team", table: "issue_external_refs", build: () => ({ method: "POST", path: `${ws()}/import/linear`, body: { teamKey: B.team.key, csv: "ID,Title,Status\nL-1,x,Todo\n" } }) },
+    { name: "plan import into B's project", table: "issues", build: () => ({ method: "POST", path: `${ws()}/import/plan`, body: { project: EB.project.id, plan: { scope: "XT", source: { repo: "o/r", path: "p.md", sha: "abc1234" }, markdown: "# P\n\n### U1. Imported unit\n\n**Goal:** g\n" } } }) },
+    { name: "plan import into B's team key", table: "issues", build: () => ({ method: "POST", path: `${ws()}/import/plan`, body: { project: EA.project.id, teamKey: B.team.key, plan: { scope: "XT", source: { repo: "o/r", path: "p.md", sha: "abc1234" }, markdown: "# P\n\n### U1. Imported unit\n\n**Goal:** g\n" } } }) },
+    { name: "plan import resolving to B's issue", table: "issue_external_refs", build: () => ({ method: "POST", path: `${ws()}/import/plan`, body: { project: EA.project.id, plan: { scope: "XT", source: { repo: "o/r", path: "p.md", sha: "abc1234" }, markdown: "# P\n\n### U1. Imported unit\n\n**Goal:** g\n" }, resolutions: { "XT-U1": EB.issue.key } } }) },
     { name: "bind B's github installation", table: "github_installations", build: () => ({ method: "POST", path: `${ws()}/github/setup`, body: { installationId: EB.github.installation.installationId } }) },
   ];
 

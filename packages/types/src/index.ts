@@ -52,3 +52,4 @@ export {
   InvalidTransitionError,
 } from "./state-machine.js";
 export * from "./compat.js";
+export * from "./plan.js";

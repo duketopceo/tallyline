@@ -390,6 +390,74 @@ export const extraPaths: Record<string, PathItem> = {
       responses: { "200": { description: "Import result" }, "404": { description: "Team not found" } },
     },
   },
+  "/v1/workspaces/{ws}/import/plan": {
+    post: {
+      summary:
+        "Import a ce-plan markdown file into a project as issues. Dry run by default; apply needs the diffHash of a reviewed dry run (409 STALE_DIFF with the new diff if anything changed). Units are titled [SCOPE-U<N>]. done/in_progress evidence and `historical` need a human owner or admin credential (403 FORBIDDEN_HISTORICAL).",
+      parameters: [wsParam],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["project", "plan"],
+        properties: {
+          project: { type: "string", description: "project id or exact name" },
+          teamKey: { type: "string", pattern: "^[A-Z][A-Z0-9]*$" },
+          plan: {
+            type: "object",
+            required: ["scope", "source", "markdown"],
+            properties: {
+              scope: { type: "string", pattern: "^[A-Z][A-Z0-9]{0,7}$" },
+              source: {
+                type: "object",
+                required: ["repo", "path", "sha"],
+                properties: {
+                  repo: { type: "string" },
+                  path: { type: "string" },
+                  sha: { type: "string" },
+                  url: { type: "string" },
+                },
+              },
+              markdown: { type: "string" },
+            },
+          },
+          evidence: {
+            type: "object",
+            description: "unit id (U12) to { state, prs, mergedAt }",
+            additionalProperties: {
+              type: "object",
+              properties: {
+                state: { type: "string", enum: ["backlog", "todo", "in_progress", "done"] },
+                prs: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["repo", "number"],
+                    properties: { repo: { type: "string" }, number: { type: "integer" }, url: { type: "string" } },
+                  },
+                },
+                mergedAt: { type: "string", format: "date-time" },
+              },
+            },
+          },
+          historical: { type: "boolean", default: false },
+          resolutions: {
+            type: "object",
+            description: "scoped unit id (KP-U12) to an existing issue key, for ambiguous matches",
+            additionalProperties: { type: "string" },
+          },
+          mode: { type: "string", enum: ["dry_run", "apply"], default: "dry_run" },
+          diffHash: { type: "string", description: "from a reviewed dry run; required for apply" },
+        },
+      }),
+      responses: {
+        "200": { description: "Diff: counts, per-unit action (create, update, unchanged, ambiguous, invalid), milestones, warnings, diffHash" },
+        "400": { description: "Invalid body, or apply without diffHash (DIFF_HASH_REQUIRED)" },
+        "403": { description: "Historical state from a non-owner/admin or agent credential" },
+        "404": { description: "Project or team not found" },
+        "409": { description: "STALE_DIFF: the diff changed since the dry run; body carries the new diff" },
+        "422": { description: "NO_UNITS, PLAN_TOO_LARGE or UNKNOWN_RESOLUTION" },
+      },
+    },
+  },
   "/v1/workspaces/{ws}/webhook-endpoints": {
     get: {
       summary: "List outbound webhook endpoints (owner/admin only; secrets masked to last 4)",
