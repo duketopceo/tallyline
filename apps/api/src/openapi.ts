@@ -108,7 +108,8 @@ const basePaths = {
     },
     "/v1/workspaces/{ws}/teams/{id}": {
       patch: {
-        summary: "Update team (name, rolloverBehavior)",
+        summary:
+          "Update team (name, rolloverBehavior, weekly cycle auto-schedule settings)",
         parameters: [wsParam],
         requestBody: jsonBody({
           type: "object",
@@ -117,6 +118,19 @@ const basePaths = {
             rolloverBehavior: {
               type: "string",
               enum: ["next_cycle", "backlog"],
+            },
+            cycleAutoEnabled: { type: "boolean" },
+            cycleLengthDays: { type: "integer", minimum: 1, maximum: 28 },
+            cycleStartWeekday: {
+              type: "integer",
+              minimum: 0,
+              maximum: 6,
+              description: "0 = Sunday",
+            },
+            cycleUpcomingCount: { type: "integer", minimum: 1, maximum: 6 },
+            timezone: {
+              type: ["string", "null"],
+              description: "IANA zone for cycle boundaries; null = UTC",
             },
           },
         }),

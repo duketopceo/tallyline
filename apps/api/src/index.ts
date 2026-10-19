@@ -10,6 +10,7 @@ import { createAnonymousLimiter, createRateLimiter } from "./lib/rate-limit.js";
 import { securityHeaders } from "./lib/security-headers.js";
 import { openApiDoc } from "./openapi.js";
 import { sweepExpiredCycles } from "./services/cycles.js";
+import { tickCycleSchedule } from "./services/cycle-schedule.js";
 import { sweepDeliveries } from "./services/outbound.js";
 import { sweepStaleDispatches } from "./services/dispatch.js";
 import { sweepWebhookEvents } from "./services/retention.js";
@@ -124,14 +125,14 @@ if (process.env.NODE_ENV !== "test") {
     );
   }, 30_000).unref();
   // cycle boundary sweep: complete expired active cycles unattended
-  setInterval(() => {
-    void sweepExpiredCycles().catch((err) =>
-      console.error("cycle sweep failed", err),
-    );
-  }, 60_000).unref();
-  void sweepExpiredCycles().catch((err) =>
-    console.error("cycle sweep failed", err),
-  );
+  // then the auto-schedule tick refills upcoming cycles and activates the one
+  // now covering the clock; sequenced so a rollover always finds its next cycle
+  const cycleTick = () =>
+    sweepExpiredCycles()
+      .then(() => tickCycleSchedule())
+      .catch((err) => console.error("cycle sweep failed", err));
+  setInterval(() => void cycleTick(), 60_000).unref();
+  void cycleTick();
   // webhook event retention: clear old payloads, delete old rows (daily)
   setInterval(() => {
     void sweepWebhookEvents().catch((err) =>

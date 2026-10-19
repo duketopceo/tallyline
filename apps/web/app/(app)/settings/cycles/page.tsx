@@ -1,12 +1,12 @@
 import { api, type Me } from "@/lib/api";
-import { CyclesSettings, type CycleRow } from "@/components/cycles-settings";
+import { CyclesSettings, type CycleRow, type TeamRow } from "@/components/cycles-settings";
 import { SettingsTabs } from "@/components/settings-tabs";
 
 interface CyclesResponse {
   cycles?: CycleRow[];
 }
 interface TeamsResponse {
-  teams?: { id: string; key: string; name: string }[];
+  teams?: TeamRow[];
 }
 
 export default async function CyclesPage() {

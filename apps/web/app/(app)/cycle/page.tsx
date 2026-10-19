@@ -1,6 +1,7 @@
 import { CycleBar, type CycleOption, type TeamOption } from "@/components/cycle-bar";
 import { IssueListClient, type IssueGroup, type ListIssue } from "@/components/issue-list-client";
 import { EmptyState, ErrorState } from "@/components/primitives";
+import { PlanNextCycle } from "@/components/plan-next-cycle";
 import { PageHeader } from "@/components/app/page-header";
 import { api, type Me } from "@/lib/api";
 import { STATE_LABEL } from "@/lib/format";
@@ -56,6 +57,17 @@ export default async function CyclePage({ searchParams }: { searchParams: Promis
   const next = selectedRaw ? all.filter((c) => c.teamId === selectedRaw.teamId && c.number > selectedRaw.number).sort((a, b) => a.number - b.number)[0] : undefined;
   const rolloverTo = team?.rolloverBehavior === "backlog" || !next ? "the backlog" : `Cycle ${next.number}`;
 
+  const upcoming = selectedRaw ? all.filter((c) => c.teamId === selectedRaw.teamId && new Date(c.startsAt).getTime() > now).sort((a, b) => a.number - b.number)[0] : undefined;
+  const teamKeyOfSelected = selected?.teamKey;
+  const plannable = upcoming && teamKeyOfSelected
+    ? await api<{ issues?: Row[] }>(`/v1/workspaces/${slug}/issues?team=${encodeURIComponent(teamKeyOfSelected)}&state=todo,backlog&limit=200`)
+    : null;
+  const priorityRank: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3, none: 4 };
+  const candidates = (plannable?.data?.issues ?? [])
+    .filter((i) => i.cycleId !== upcoming?.id)
+    .sort((a, b) => (priorityRank[a.priority] ?? 5) - (priorityRank[b.priority] ?? 5));
+  const planner = upcoming ? <PlanNextCycle candidates={candidates} cycleId={upcoming.id} cycleLabel={`${teamKeyOfSelected} Cycle ${upcoming.number}`} /> : null;
+
   const groups: IssueGroup[] = ORDER.map((s) => ({ key: s, label: STATE_LABEL[s]!, issues: rows.filter((i) => i.state === s) })).filter((g) => g.issues.length > 0);
   const active = all.filter((c) => c.isActive);
 
@@ -82,6 +94,7 @@ export default async function CyclePage({ searchParams }: { searchParams: Promis
           ) : (
             <IssueListClient issues={groups.flatMap((g) => g.issues)} groups={groups} />
           )}
+          {planner}
         </>
       )}
     </main>

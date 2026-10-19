@@ -102,7 +102,7 @@ The server is `apps/mcp-server` (`@tallyline/mcp-server`, stdio by default,
 Tool surface: `whoami · list_issues · ready · get_issue · create_issue ·
 update_issue · triage_issue · comment · claim · list_agents · list_members ·
 list_teams · list_labels · list_projects · create_project · update_project ·
-import_plan · list_cycles · list_events`.
+import_plan · list_cycles · create_cycle · assign_cycle · list_events`.
 
 Then point the harness at [`SKILL.md`](../SKILL.md) — it carries the board
 rules (claim etiquette, lifecycle, branch conventions).

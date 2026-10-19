@@ -449,6 +449,37 @@ describe("cycles engine (real postgres)", () => {
     expect(missing.status).toBe(404);
   });
 
+  it("team PATCH stores cycle schedule settings and rejects bad ones", async () => {
+    const path = `/v1/workspaces/${SLUG}/teams/${eng2Id}`;
+    const ok = await req(path, {
+      method: "PATCH",
+      body: JSON.stringify({
+        cycleAutoEnabled: true,
+        cycleLengthDays: 7,
+        cycleStartWeekday: 1,
+        cycleUpcomingCount: 2,
+        timezone: "America/Chicago",
+      }),
+    });
+    expect(ok.status).toBe(200);
+    expect(ok.body.cycleAutoEnabled).toBe(true);
+    expect(ok.body.timezone).toBe("America/Chicago");
+    for (const bad of [
+      { timezone: "Mars/Olympus" },
+      { cycleLengthDays: 0 },
+      { cycleStartWeekday: 7 },
+      { cycleUpcomingCount: 99 },
+    ]) {
+      const res = await req(path, { method: "PATCH", body: JSON.stringify(bad) });
+      expect(res.status).toBe(400);
+    }
+    const cleared = await req(path, {
+      method: "PATCH",
+      body: JSON.stringify({ timezone: null, cycleAutoEnabled: false }),
+    });
+    expect(cleared.body.timezone).toBeNull();
+  });
+
   it("boundary sweep completes expired active cycles — audited + idempotent", async () => {
     // an already-expired active cycle with open + done issues
     const expired = await createCycle("ENG", {

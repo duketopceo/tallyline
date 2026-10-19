@@ -342,6 +342,68 @@ describe("tool surface over the real API", () => {
     expect(mineKeys).toEqual([lowKey]);
   });
 
+  it("create_cycle and assign_cycle schedule work; a foreign-workspace cycle is refused", async () => {
+    const day = 86_400_000;
+    const created = await call("create_cycle", {
+      teamKey,
+      name: "planned",
+      startsAt: new Date(Date.now() + 30 * day).toISOString(),
+      endsAt: new Date(Date.now() + 37 * day).toISOString(),
+    });
+    expect(created.res.isError).toBeFalsy();
+    const cycleId = created.data.id as string;
+    expect(created.data.isActive).toBe(false);
+
+    const a = await call("create_issue", { title: "plan me a" });
+    const b = await call("create_issue", { title: "plan me b" });
+    const keys = [a.data.key as string, b.data.key as string];
+    const assigned = await call("assign_cycle", { keys, cycleId });
+    expect(assigned.res.isError).toBeFalsy();
+    expect(assigned.data.assigned).toEqual(keys);
+    const got = await call("get_issue", { key: keys[0]! });
+    expect(got.data.cycleId).toBe(cycleId);
+
+    const cleared = await call("assign_cycle", { keys: [keys[0]!], cycleId: null });
+    expect(cleared.res.isError).toBeFalsy();
+
+    // another workspace's cycle
+    const [other] = await db
+      .insert(workspaces)
+      .values({ slug: `${SLUG}-other`, name: "Other" })
+      .returning();
+    const [otherTeam] = await db
+      .insert(teams)
+      .values({ workspaceId: other!.id, key: "OTH", name: "Other team" })
+      .returning();
+    const [foreign] = await db
+      .insert(cycles)
+      .values({
+        workspaceId: other!.id,
+        teamId: otherTeam!.id,
+        number: 1,
+        startsAt: new Date(),
+        endsAt: new Date(Date.now() + day),
+      })
+      .returning();
+    const refused = await call("assign_cycle", {
+      keys: [keys[1]!],
+      cycleId: foreign!.id,
+    });
+    expect(refused.res.isError).toBe(true);
+    expect(refused.data.error!.code).toBe("INVALID_CYCLE");
+
+    const denied = await call(
+      "create_cycle",
+      {
+        teamKey,
+        startsAt: new Date().toISOString(),
+        endsAt: new Date(Date.now() + day).toISOString(),
+      },
+      roClient,
+    );
+    expect(denied.data.error!.code).toBe("FORBIDDEN_SCOPE");
+  });
+
   it("lists agents, teams, labels, projects, cycles, and the event feed", async () => {
     await db.insert(labels).values({
       workspaceId: wsId,
@@ -598,6 +660,8 @@ describe("MCP protocol end-to-end (InMemoryTransport)", () => {
       "list_members",
       "list_projects",
       "list_cycles",
+      "create_cycle",
+      "assign_cycle",
       "list_teams",
       "list_labels",
       "list_events",

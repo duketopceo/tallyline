@@ -115,6 +115,14 @@ export const teams = pgTable(
     rolloverBehavior: rolloverEnum("rollover_behavior")
       .notNull()
       .default("next_cycle"),
+    // weekly auto-schedule (services/cycle-schedule.ts); off until a team opts in
+    cycleAutoEnabled: boolean("cycle_auto_enabled").notNull().default(false),
+    cycleLengthDays: integer("cycle_length_days").notNull().default(7),
+    // 0 = Sunday .. 6 = Saturday; default Monday
+    cycleStartWeekday: integer("cycle_start_weekday").notNull().default(1),
+    cycleUpcomingCount: integer("cycle_upcoming_count").notNull().default(2),
+    // IANA zone the cycle boundaries are computed in; null means UTC
+    timezone: text("timezone"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

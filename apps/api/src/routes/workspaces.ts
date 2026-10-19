@@ -6,6 +6,7 @@ import { db } from "../db/client.js";
 import { teams, users, workspaceMembers, workspaces } from "../db/schema.js";
 import { apiError, HttpError } from "../lib/errors.js";
 import { isInstanceAdmin, memberOf, requireRole } from "../services/members.js";
+import { isValidTimezone } from "../services/cycle-schedule.js";
 import { config_ } from "../env.js";
 import { isCookieSession } from "./auth.js";
 
@@ -31,6 +32,16 @@ const createTeamSchema = z.object({
 const patchTeamSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   rolloverBehavior: z.enum(["next_cycle", "backlog"]).optional(),
+  cycleAutoEnabled: z.boolean().optional(),
+  cycleLengthDays: z.number().int().min(1).max(28).optional(),
+  cycleStartWeekday: z.number().int().min(0).max(6).optional(),
+  cycleUpcomingCount: z.number().int().min(1).max(6).optional(),
+  timezone: z
+    .string()
+    .max(64)
+    .refine(isValidTimezone, { message: "unknown IANA timezone" })
+    .nullable()
+    .optional(),
 }).refine((v) => Object.values(v).some((x) => x !== undefined), {
   message: "patch body must set at least one field",
 });
@@ -157,6 +168,19 @@ export const workspaceRoutes = new Hono()
           ...(body.rolloverBehavior !== undefined
             ? { rolloverBehavior: body.rolloverBehavior }
             : {}),
+          ...(body.cycleAutoEnabled !== undefined
+            ? { cycleAutoEnabled: body.cycleAutoEnabled }
+            : {}),
+          ...(body.cycleLengthDays !== undefined
+            ? { cycleLengthDays: body.cycleLengthDays }
+            : {}),
+          ...(body.cycleStartWeekday !== undefined
+            ? { cycleStartWeekday: body.cycleStartWeekday }
+            : {}),
+          ...(body.cycleUpcomingCount !== undefined
+            ? { cycleUpcomingCount: body.cycleUpcomingCount }
+            : {}),
+          ...(body.timezone !== undefined ? { timezone: body.timezone } : {}),
         })
         .where(
           and(

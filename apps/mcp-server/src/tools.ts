@@ -785,6 +785,51 @@ export const toolDefs: ToolDef[] = [
   }),
 
   defineTool({
+    name: "create_cycle",
+    description:
+      "Create a cycle for a team (a dated work window). Teams with the weekly auto-schedule on get cycles created for them; use this for a one-off or custom window. The new cycle is inactive unless isActive is true.",
+    inputSchema: {
+      teamKey: z.string().min(1).max(6),
+      name: z.string().max(120).optional(),
+      startsAt: z.iso.datetime(),
+      endsAt: z.iso.datetime(),
+      isActive: z.boolean().optional(),
+    },
+    handler: async (args, client) => {
+      const c = await client.apiPost<CycleRow>("/cycles", args);
+      return {
+        id: c.id,
+        name: c.name,
+        number: c.number,
+        teamId: c.teamId,
+        startsAt: c.startsAt,
+        endsAt: c.endsAt,
+        isActive: c.isActive,
+      };
+    },
+  }),
+
+  defineTool({
+    name: "assign_cycle",
+    description:
+      "Assign issues (by key) to a cycle, or pass cycleId null to take them out of their cycle. The cycle must belong to the issue's own team and workspace. Stops at the first refusal; keys before it stay assigned.",
+    inputSchema: {
+      keys: z.array(z.string()).min(1).max(50),
+      cycleId: uuid.nullable(),
+    },
+    handler: async (args, client) => {
+      const assigned: string[] = [];
+      for (const key of args.keys) {
+        await client.apiPatch<IssueRow>(`/issues/${encodeURIComponent(key)}`, {
+          cycleId: args.cycleId,
+        });
+        assigned.push(key);
+      }
+      return { assigned, cycleId: args.cycleId };
+    },
+  }),
+
+  defineTool({
     name: "list_events",
     description:
       "Workspace activity feed — newest first, cursor-paginated. Each event carries action, actor name, and the issue key/title it touched.",
