@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { SAME_ORIGIN } from "./helpers";
 
 const TITLE = `e2e board ${Date.now()}`;
 const patchFor = (page: import("@playwright/test").Page) =>
@@ -95,7 +96,7 @@ test("@keyboard board: m grab + arrows + space drop moves a card (dnd keyboard p
 
 test("@keyboard board: s opens the state picker and moves the card; Space peeks; undo moves it back", async ({ page }) => {
   const T = `e2e board s ${Date.now()}`;
-  const r = await page.request.post("/api/issues", { data: { title: T, state: "backlog" } });
+  const r = await page.request.post("/api/issues", { headers: SAME_ORIGIN, data: { title: T, state: "backlog" } });
   const key = ((await r.json()) as { key: string }).key;
   await page.goto("/board");
   const backlog = page.getByRole("region", { name: /backlog column/i });

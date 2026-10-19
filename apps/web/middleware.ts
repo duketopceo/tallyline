@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { checkOrigin } from "@/lib/csrf";
 import { redirectTo } from "@/lib/redirect";
 import { isPublicPath } from "@/lib/public-paths";
 import {
@@ -22,6 +23,14 @@ function withSecurityHeaders(req: NextRequest, res: NextResponse, csp?: string) 
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  // every web write under /api/ — one gate, so a new route cannot skip it
+  if (pathname.startsWith("/api/")) {
+    const refused = checkOrigin(req);
+    if (refused) {
+      refused.headers.set("cache-control", "no-store");
+      return withSecurityHeaders(req, refused);
+    }
+  }
   const nonce = newNonce();
   const csp = buildCsp(nonce, {
     dev: process.env.NODE_ENV === "development",

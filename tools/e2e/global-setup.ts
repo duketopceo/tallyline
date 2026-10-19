@@ -80,6 +80,7 @@ export default async function globalSetup() {
 
   const browser = await request.newContext({ baseURL: WEB });
   const web = await browser.post("/api/login", {
+    headers: { "sec-fetch-site": "same-origin" },
     data: { email: EMAIL, password: PASSWORD },
   });
   if (!web.ok()) {

@@ -42,3 +42,9 @@ export async function failSession(f: AgentFixture) {
   });
   expect(r.ok).toBeTruthy();
 }
+
+// Playwright's APIRequestContext is not a browser: it sends no Origin or
+// Sec-Fetch-Site, which the web app's CSRF gate (apps/web/middleware.ts)
+// refuses on every /api write. Fixture writes through the web bridge declare
+// themselves same-origin, as a page's own fetch would.
+export const SAME_ORIGIN = { "sec-fetch-site": "same-origin" } as const;

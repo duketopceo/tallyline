@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { agentIssue, failSession } from "./helpers";
+import { agentIssue, failSession, SAME_ORIGIN } from "./helpers";
 
 const RUN = Date.now();
 
 async function make(page: import("@playwright/test").Page, title: string, extra: Record<string, unknown> = {}) {
-  const r = await page.request.post("/api/issues", { data: { title, state: "backlog", ...extra } });
+  const r = await page.request.post("/api/issues", { headers: SAME_ORIGIN, data: { title, state: "backlog", ...extra } });
   return ((await r.json()) as { key: string }).key;
 }
 

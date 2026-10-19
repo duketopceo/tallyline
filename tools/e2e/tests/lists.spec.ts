@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { SAME_ORIGIN } from "./helpers";
 
 // Core list interactions: inline edit with optimistic update + undo, multi-select
 // with bulk actions, peek, filter pills, saved views, palette coverage, live
@@ -7,7 +8,7 @@ const API = `http://localhost:${process.env.E2E_API_PORT ?? "4000"}`;
 const RUN = Date.now();
 
 async function make(page: Page, title: string): Promise<string> {
-  const r = await page.request.post("/api/issues", { data: { title, state: "backlog" } });
+  const r = await page.request.post("/api/issues", { headers: SAME_ORIGIN, data: { title, state: "backlog" } });
   expect(r.ok()).toBeTruthy();
   return ((await r.json()) as { key: string }).key;
 }

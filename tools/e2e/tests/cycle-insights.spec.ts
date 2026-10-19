@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { SAME_ORIGIN } from "./helpers";
 
 const API = `http://localhost:${process.env.E2E_API_PORT ?? "4000"}`;
 const RUN = Date.now();
@@ -12,11 +13,11 @@ test("cycle: summary, progress bar, switcher, no native date-time inputs; comple
   const w = await ws(page);
   const teams = ((await (await page.request.get(`${w}/teams`)).json()) as { teams: { id: string; key: string }[] }).teams;
   // issues land in the workspace's first team; the cycle must belong to the same team
-  const probe = (await (await page.request.post("/api/issues", { data: { title: `e2e probe ${RUN}`, state: "backlog" } })).json()) as { teamId: string };
+  const probe = (await (await page.request.post("/api/issues", { headers: SAME_ORIGIN, data: { title: `e2e probe ${RUN}`, state: "backlog" } })).json()) as { teamId: string };
   const teamKey = teams.find((t) => t.id === probe.teamId)!.key;
   const day = 86_400_000;
   const cyc = (await (await page.request.post(`${w}/cycles`, { data: { teamKey, name: `e2e cycle ${RUN}`, startsAt: new Date(Date.now() - day).toISOString(), endsAt: new Date(Date.now() + 6 * day).toISOString(), isActive: true } })).json()) as { id: string; number: number };
-  const a = await page.request.post("/api/issues", { data: { title: `e2e in cycle A ${RUN}`, state: "backlog", cycleId: cyc.id } });
+  const a = await page.request.post("/api/issues", { headers: SAME_ORIGIN, data: { title: `e2e in cycle A ${RUN}`, state: "backlog", cycleId: cyc.id } });
   expect(a.ok()).toBeTruthy();
   await page.goto(`/cycle?cycle=${cyc.id}`);
   await page.waitForSelector("[data-qc-ready]", { timeout: 20_000 });
@@ -40,7 +41,7 @@ test("cycle: summary, progress bar, switcher, no native date-time inputs; comple
 
 test("insights: stat tiles, readable durations, table fallback", async ({ page }) => {
   const w = await ws(page);
-  const r = await page.request.post("/api/issues", { data: { title: `e2e insight ${RUN}`, state: "backlog" } });
+  const r = await page.request.post("/api/issues", { headers: SAME_ORIGIN, data: { title: `e2e insight ${RUN}`, state: "backlog" } });
   const key = ((await r.json()) as { key: string }).key;
   for (const s of ["todo", "in_progress", "in_review", "done"]) await page.request.patch(`${w}/issues/${key}`, { data: { state: s } });
   await page.goto("/insights");

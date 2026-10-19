@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { agentIssue } from "./helpers";
+import { agentIssue, SAME_ORIGIN } from "./helpers";
 
 const API = `http://localhost:${process.env.E2E_API_PORT ?? "4000"}`;
 const RUN = Date.now();
@@ -11,7 +11,7 @@ async function ws(page: Page) {
 
 test("@keyboard triage: 12 items cleared with the keyboard alone in under 60s", async ({ page }) => {
   for (let i = 0; i < 12; i++) {
-    const r = await page.request.post("/api/issues", { data: { title: `e2e triage ${RUN} ${i}`, state: "triage" } });
+    const r = await page.request.post("/api/issues", { headers: SAME_ORIGIN, data: { title: `e2e triage ${RUN} ${i}`, state: "triage" } });
     expect(r.ok()).toBeTruthy();
   }
   const t0 = Date.now();
@@ -32,7 +32,7 @@ test("@keyboard triage: 12 items cleared with the keyboard alone in under 60s", 
 });
 
 test("triage rows show where an item came from", async ({ page }) => {
-  await page.request.post("/api/issues", { data: { title: `e2e source ${RUN}`, state: "triage", source: "api" } });
+  await page.request.post("/api/issues", { headers: SAME_ORIGIN, data: { title: `e2e source ${RUN}`, state: "triage", source: "api" } });
   await page.goto("/triage");
   await expect(page.locator("[data-issue-row]:visible").first().getByText("api", { exact: true })).toBeVisible();
 });
