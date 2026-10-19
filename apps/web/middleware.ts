@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { checkOrigin } from "@/lib/csrf";
-import { redirectTo } from "@/lib/redirect";
+import { middlewareRedirect } from "@/lib/redirect";
 import { isPublicPath } from "@/lib/public-paths";
 import {
   buildCsp,
@@ -51,7 +51,7 @@ export function middleware(req: NextRequest) {
     const returnTo = pathname.startsWith("/oauth/")
       ? `?return_to=${encodeURIComponent(`${pathname}${req.nextUrl.search}`)}`
       : "";
-    return withSecurityHeaders(req, redirectTo(`/login${returnTo}`));
+    return withSecurityHeaders(req, middlewareRedirect(req, `/login${returnTo}`));
   }
   return pass();
 }
