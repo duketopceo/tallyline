@@ -66,6 +66,18 @@ export const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 
+// bulk project/label update (U12): capped so one call stays one short transaction
+export const BULK_MAX = 200;
+export const bulkSchema = z
+  .object({
+    ids: z.array(z.uuid()).min(1).max(BULK_MAX),
+    projectId: z.uuid().nullable().optional(),
+    addLabelIds: z.array(z.uuid()).max(10).optional(),
+  })
+  .refine((b) => b.projectId !== undefined || b.addLabelIds?.length, {
+    message: "projectId or addLabelIds required",
+  });
+
 export const commentSchema = z.object({
   body: z.string().min(1).max(50_000),
 });

@@ -464,6 +464,11 @@ export const githubRepos = pgTable(
     repoId: bigint("repo_id", { mode: "number" }),
     fullName: text("full_name").notNull(),
     teamId: uuid("team_id").references(() => teams.id),
+    // repo-to-project binding (U12): issues synced from this repo land here.
+    // set null if the project is deleted so intake never dangles
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
     enabled: boolean("enabled").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

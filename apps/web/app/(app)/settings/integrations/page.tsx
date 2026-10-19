@@ -31,10 +31,13 @@ export default async function IntegrationsPage() {
     );
   }
 
-  const [reposRes, installRes] = await Promise.all([
+  const [reposRes, installRes, projectsRes] = await Promise.all([
     api<ReposResponse>(`/v1/workspaces/${me.data.workspaceSlug}/github/repos`),
     api<InstallUrlResponse>(
       `/v1/workspaces/${me.data.workspaceSlug}/github/install-url`,
+    ),
+    api<{ projects?: { id: string; name: string }[] }>(
+      `/v1/workspaces/${me.data.workspaceSlug}/projects`,
     ),
   ]);
   const repos = reposRes.data?.repos ?? [];
@@ -61,6 +64,7 @@ export default async function IntegrationsPage() {
         repos={repos}
         installed={installed}
         installUrl={installRes.data?.installUrl ?? null}
+        projects={projectsRes.data?.projects ?? []}
       />
     </main>
   );

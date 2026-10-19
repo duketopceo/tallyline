@@ -23,6 +23,10 @@ import {
   verifyManifestState,
 } from "../services/github-manifest.js";
 import { requireRole } from "../services/members.js";
+import {
+  backfillRepoProjects,
+  getWorkspaceProject,
+} from "../services/repo-projects.js";
 import { requireWorkspace } from "./workspaces.js";
 
 const repoBodySchema = z.object({
@@ -224,6 +228,53 @@ export const githubRoutes = new Hono()
         })
         .returning();
       return c.json(row);
+    },
+  )
+  .post(
+    "/workspaces/:ws/github/repos/project",
+    zValidator(
+      "json",
+      z.object({
+        fullName: repoBodySchema.shape.fullName,
+        projectId: z.uuid().nullable(),
+      }),
+    ),
+    async (c) => {
+      const ws = await requireWorkspace(c);
+      requireRole(c, "admin");
+      const { fullName, projectId } = c.req.valid("json");
+      if (projectId) await getWorkspaceProject(ws.id, projectId);
+      const [row] = await db
+        .update(githubRepos)
+        .set({ projectId })
+        .where(
+          and(
+            eq(githubRepos.workspaceId, ws.id),
+            eq(githubRepos.fullName, fullName),
+          ),
+        )
+        .returning();
+      if (!row) {
+        throw new HttpError(404, "NOT_FOUND", `repo '${fullName}' not linked`);
+      }
+      return c.json(row);
+    },
+  )
+  // dry run unless `apply: true`; `map` is repo full name -> project id
+  .post(
+    "/workspaces/:ws/github/repos/backfill",
+    zValidator(
+      "json",
+      z.object({
+        map: z.record(repoBodySchema.shape.fullName, z.uuid()).default({}),
+        apply: z.boolean().default(false),
+      }),
+    ),
+    async (c) => {
+      const ws = await requireWorkspace(c);
+      requireRole(c, "admin");
+      const { map, apply } = c.req.valid("json");
+      return c.json(await backfillRepoProjects(ws.id, map, apply));
     },
   )
   .post(

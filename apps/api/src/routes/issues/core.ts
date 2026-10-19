@@ -4,7 +4,7 @@ import { and, desc, eq, ilike, inArray, lt, or, type SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import type { IssueState } from "@tallyline/types";
 import { db } from "../../db/client.js";
-import { issueLabels, issues, labels, teams } from "../../db/schema.js";
+import { issueLabels, issues, labels, projects, teams } from "../../db/schema.js";
 import { actorFromHeaders } from "../../lib/actor.js";
 import { apiError, HttpError } from "../../lib/errors.js";
 import { llmEnabled } from "../../services/llm.js";
@@ -12,12 +12,68 @@ import { decodeCursor, encodeCursor } from "../../lib/pagination.js";
 import { createDispatch } from "../../services/dispatch.js";
 import { createIssue, transitionIssue } from "../../services/issues.js";
 import { notifyUsers } from "../../services/notifications.js";
-import { requireHumanReviewer } from "../../services/members.js";
+import { requireHumanReviewer, requireRole } from "../../services/members.js";
 import { requireWorkspace } from "../workspaces.js";
 import { clock } from "../../services/clock.js";
-import { assist, createSchema, findIssue, listQuerySchema, patchSchema, replaceIssueLabels, setIssueLabels, slack, validateAgentActor, validateAssignee, validateCycle, validateParent, validateProject } from "./shared.js";
+import { assist, BULK_MAX, bulkSchema, createSchema, findIssue, listQuerySchema, patchSchema, replaceIssueLabels, setIssueLabels, slack, validateAgentActor, validateAssignee, validateCycle, validateParent, validateProject } from "./shared.js";
 
 export const coreIssueRoutes = new Hono()
+  .post(
+    "/workspaces/:ws/issues/bulk",
+    zValidator("json", bulkSchema),
+    async (c) => {
+      const ws = await requireWorkspace(c);
+      requireRole(c, "admin");
+      const body = c.req.valid("json");
+      const ids = [...new Set(body.ids)];
+      if (ids.length > BULK_MAX) {
+        throw new HttpError(422, "TOO_MANY", `at most ${BULK_MAX} issues per call`);
+      }
+      // every id must be in this workspace, or nothing changes
+      const rows = await db
+        .select({ id: issues.id, teamId: issues.teamId })
+        .from(issues)
+        .where(and(eq(issues.workspaceId, ws.id), inArray(issues.id, ids)));
+      if (rows.length !== ids.length) {
+        throw new HttpError(404, "NOT_FOUND", "issue not found");
+      }
+      if (body.projectId) {
+        const [p] = await db
+          .select({ teamId: projects.teamId })
+          .from(projects)
+          .where(and(eq(projects.id, body.projectId), eq(projects.workspaceId, ws.id)));
+        if (!p) throw new HttpError(422, "INVALID_PROJECT", "project not in workspace");
+        if (p.teamId !== null && rows.some((r) => r.teamId !== p.teamId)) {
+          throw new HttpError(422, "INVALID_PROJECT", "project belongs to a different team");
+        }
+      }
+      const labelIds = [...new Set(body.addLabelIds ?? [])];
+      if (labelIds.length) {
+        const found = await db
+          .select({ id: labels.id })
+          .from(labels)
+          .where(and(eq(labels.workspaceId, ws.id), inArray(labels.id, labelIds)));
+        if (found.length !== labelIds.length) {
+          throw new HttpError(422, "INVALID_LABELS", "label id not in workspace");
+        }
+      }
+      await db.transaction(async (tx) => {
+        if (body.projectId !== undefined) {
+          await tx
+            .update(issues)
+            .set({ projectId: body.projectId, updatedAt: clock.now() })
+            .where(and(eq(issues.workspaceId, ws.id), inArray(issues.id, ids)));
+        }
+        if (labelIds.length) {
+          await tx
+            .insert(issueLabels)
+            .values(ids.flatMap((issueId) => labelIds.map((labelId) => ({ issueId, labelId }))))
+            .onConflictDoNothing();
+        }
+      });
+      return c.json({ updated: ids.length });
+    },
+  )
   .post(
     "/workspaces/:ws/issues",
     zValidator("json", createSchema),

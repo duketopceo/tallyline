@@ -426,6 +426,21 @@ export const OPERATIONS: Record<string, Builder> = {
     path: `${base(t)}/github/repos/disconnect`,
     body: { fullName: `matrix/repo-${u()}` },
   }),
+  "POST /v1/workspaces/{ws}/github/repos/project": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/github/repos/project`,
+    body: { fullName: `matrix/repo-${u()}`, projectId: null },
+  }),
+  "POST /v1/workspaces/{ws}/github/repos/backfill": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/github/repos/backfill`,
+    body: { map: {} },
+  }),
+  "POST /v1/workspaces/{ws}/issues/bulk": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/issues/bulk`,
+    body: { ids: [crypto.randomUUID()], projectId: null },
+  }),
   "POST /v1/workspaces/{ws}/import/github": async (t) => ({
     method: "POST",
     path: `${base(t)}/import/github`,

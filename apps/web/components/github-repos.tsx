@@ -8,16 +8,24 @@ export interface GithubRepoRow {
   fullName: string;
   installationId: number | null;
   enabled: boolean;
+  projectId?: string | null;
+}
+
+export interface ProjectOption {
+  id: string;
+  name: string;
 }
 
 export function GithubRepoPanel({
   repos,
   installed,
   installUrl,
+  projects = [],
 }: {
   repos: GithubRepoRow[];
   installed: boolean;
   installUrl: string | null;
+  projects?: ProjectOption[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -55,6 +63,26 @@ export function GithubRepoPanel({
         error?: { message?: string };
       } | null;
       setError(d?.error?.message ?? `could not ${next ? "connect" : "disconnect"} ${repo.fullName}`);
+    }
+  }
+
+  async function setProject(repo: GithubRepoRow, projectId: string) {
+    setBusy(repo.id);
+    setError(null);
+    const res = await fetch("/api/settings/github/repos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        fullName: repo.fullName,
+        action: "project",
+        projectId: projectId || null,
+      }),
+    });
+    setBusy(null);
+    if (res.ok) {
+      router.refresh();
+    } else {
+      setError(`could not set the project for ${repo.fullName}`);
     }
   }
 
@@ -102,6 +130,7 @@ export function GithubRepoPanel({
           <tr className="border-b border-lining-faint text-left font-mono text-[11px] uppercase tracking-wider text-ink-tertiary">
             <th className="pb-2 font-normal">Repository</th>
             <th className="pb-2 font-normal">Sync</th>
+            <th className="pb-2 font-normal">Project</th>
             <th className="pb-2 font-normal" />
           </tr>
         </thead>
@@ -120,6 +149,22 @@ export function GithubRepoPanel({
                   {r.enabled ? "on" : "off"}
                 </span>
               </td>
+              <td className="py-2.5 pr-4">
+                <select
+                  aria-label={`Project for ${r.fullName}`}
+                  value={r.projectId ?? ""}
+                  disabled={busy === r.id}
+                  onChange={(e) => setProject(r, e.target.value)}
+                  className="h-7 rounded-sm border border-lining bg-surface-2 px-1.5 text-[13px] text-ink outline-none focus:border-lining-strong disabled:opacity-50"
+                >
+                  <option value="">No project</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </td>
               <td className="py-2.5 text-right">
                 <button
                   onClick={() => setEnabled(r, !r.enabled)}
@@ -133,7 +178,7 @@ export function GithubRepoPanel({
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={3} className="py-6 text-center text-ink-tertiary">
+              <td colSpan={4} className="py-6 text-center text-ink-tertiary">
                 no repositories match
               </td>
             </tr>

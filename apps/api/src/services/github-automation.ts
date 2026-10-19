@@ -13,6 +13,7 @@ import {
   issueLabels,
   issues,
   labels,
+  projects,
   teams,
 } from "../db/schema.js";
 import {
@@ -249,7 +250,12 @@ function stripGhFooter(desc: string | null): string {
 }
 
 async function onIssueOpened(
-  repo: { id: string; workspaceId: string; teamId: string | null },
+  repo: {
+    id: string;
+    workspaceId: string;
+    teamId: string | null;
+    projectId: string | null;
+  },
   payload: Payload,
 ) {
   const gh = payload.issue as GhIssue | undefined;
@@ -281,9 +287,22 @@ async function onIssueOpened(
   }
   if (!teamId) return;
 
+  // repo-bound project (U12); a team-scoped project only takes its own team
+  let projectId: string | undefined;
+  if (repo.projectId) {
+    const [project] = await db
+      .select({ teamId: projects.teamId })
+      .from(projects)
+      .where(eq(projects.id, repo.projectId));
+    if (project && (project.teamId === null || project.teamId === teamId)) {
+      projectId = repo.projectId;
+    }
+  }
+
   const issue = await createIssue({
     workspaceId: repo.workspaceId,
     teamId,
+    ...(projectId ? { projectId } : {}),
     title: gh.title,
     description: ghIssueDescription(gh.body, gh.html_url),
     source: "github",

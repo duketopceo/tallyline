@@ -6,14 +6,18 @@ export async function POST(req: Request) {
     fullName?: string;
     action?: string;
     teamKey?: string;
+    projectId?: string | null;
   } | null;
   const action = body?.action ?? "connect";
-  if (!body?.fullName || (action !== "connect" && action !== "disconnect")) {
+  if (
+    !body?.fullName ||
+    (action !== "connect" && action !== "disconnect" && action !== "project")
+  ) {
     return NextResponse.json(
       {
         error: {
           code: "BAD_REQUEST",
-          message: "expected {fullName, action: 'connect'|'disconnect'}",
+          message: "expected {fullName, action: 'connect'|'disconnect'|'project'}",
         },
       },
       { status: 400 },
@@ -27,7 +31,9 @@ export async function POST(req: Request) {
     body: JSON.stringify(
       action === "connect"
         ? { fullName: body.fullName, teamKey: body.teamKey }
-        : { fullName: body.fullName },
+        : action === "project"
+          ? { fullName: body.fullName, projectId: body.projectId ?? null }
+          : { fullName: body.fullName },
     ),
   });
   return proxy(upstream, `/github/repos/${action}`);

@@ -345,12 +345,69 @@ export const extraPaths: Record<string, PathItem> = {
       responses: { "200": { description: "Repo link" }, "404": { description: "Team not found" } },
     },
   },
+  "/v1/workspaces/{ws}/github/repos/project": {
+    post: {
+      summary: "Bind a repo to a project (or null to unbind); synced issues land in the project. Owner/admin",
+      parameters: [wsParam],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["fullName", "projectId"],
+        properties: {
+          fullName: { type: "string", pattern: "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+          projectId: { type: ["string", "null"], format: "uuid" },
+        },
+      }),
+      responses: {
+        "200": { description: "Repo link" },
+        "404": { description: "Repo not linked" },
+        "422": { description: "Project not in workspace" },
+      },
+    },
+  },
+  "/v1/workspaces/{ws}/github/repos/backfill": {
+    post: {
+      summary: "Dry-run (default) or apply a repo-to-project map over synced issues with no project. Never moves an issue already in a project. Owner/admin",
+      parameters: [wsParam],
+      requestBody: jsonBody({
+        type: "object",
+        properties: {
+          map: { type: "object", additionalProperties: { type: "string", format: "uuid" } },
+          apply: { type: "boolean", default: false },
+        },
+      }),
+      responses: {
+        "200": { description: "Per-repo plan, unmapped repos and totals" },
+        "404": { description: "Repo not linked" },
+        "422": { description: "Project not in workspace" },
+      },
+    },
+  },
   "/v1/workspaces/{ws}/github/repos/disconnect": {
     post: {
       summary: "Disable sync for a repo",
       parameters: [wsParam],
       requestBody: repoBody,
       responses: { "200": { description: "Repo link" }, "404": { description: "Repo not linked" } },
+    },
+  },
+  "/v1/workspaces/{ws}/issues/bulk": {
+    post: {
+      summary: "Set the project and/or add labels on up to 200 issues. All-or-nothing. Owner/admin",
+      parameters: [wsParam],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["ids"],
+        properties: {
+          ids: { type: "array", items: { type: "string", format: "uuid" }, minItems: 1, maxItems: 200 },
+          projectId: { type: ["string", "null"], format: "uuid" },
+          addLabelIds: { type: "array", items: { type: "string", format: "uuid" }, maxItems: 10 },
+        },
+      }),
+      responses: {
+        "200": { description: "Number updated" },
+        "404": { description: "An issue is not in the workspace" },
+        "422": { description: "Invalid project or labels" },
+      },
     },
   },
   "/v1/workspaces/{ws}/import/github": {
