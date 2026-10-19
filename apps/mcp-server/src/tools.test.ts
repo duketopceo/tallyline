@@ -36,7 +36,7 @@ import { hashToken } from "../../api/src/services/tokens.js";
 import { TallylineClient } from "./client.js";
 import { MissingEnvError, loadConfig } from "./env.js";
 import { createMcpServer } from "./server.js";
-import { runTool } from "./tools.js";
+import { runTool, toolsByName } from "./tools.js";
 
 vi.hoisted(() => {
   // keep the api app from binding a port / running migrations on import
@@ -444,6 +444,136 @@ describe("tool surface over the real API", () => {
   });
 });
 
+describe("projects and plan import", () => {
+  const plan = (titles: string[]) =>
+    [
+      "# MCP plan",
+      "",
+      "## Implementation Units",
+      "",
+      ...titles.flatMap((t, i) => [
+        `### U${i + 1}. ${t}`,
+        "",
+        `**Goal:** Goal of U${i + 1}.`,
+        "",
+        "**Dependencies:** none.",
+        "",
+        `**Verification:** check U${i + 1}.`,
+        "",
+      ]),
+    ].join("\n");
+  const SOURCE = { repo: "duketopceo/kate", path: "docs/plans/mcp.md", sha: "abc1234" };
+  const markdown = plan(["Mint session tokens", "Drain the retry queue", "Index the audit log"]);
+  const args = (project: string, extra: Record<string, unknown> = {}) => ({
+    project,
+    scope: "MP",
+    ...SOURCE,
+    markdown,
+    ...extra,
+  });
+  type Diff = {
+    mode: string;
+    diffHash: string;
+    counts: Record<string, number>;
+    units: { scopedId: string; action: string }[];
+    diff?: { diffHash: string };
+  };
+  let projectName = "";
+
+  it("create_project rejects a duplicate name, case-insensitively", async () => {
+    projectName = `Plan target ${Date.now()}`;
+    const made = await call("create_project", { name: projectName, teamKey });
+    expect(made.res.isError).toBeFalsy();
+    expect(made.data.name).toBe(projectName);
+    expect(made.data.status).toBe("planned");
+
+    const dup = await call("create_project", { name: projectName.toUpperCase() });
+    expect(dup.res.isError).toBe(true);
+    expect(dup.data.error!.code).toBe("DUPLICATE_NAME");
+    const listed = await call("list_projects", {});
+    const same = (listed.data.projects as { name: string }[]).filter(
+      (p) => p.name.toLowerCase() === projectName.toLowerCase(),
+    );
+    expect(same).toHaveLength(1);
+  });
+
+  it("update_project patches fields and refuses a rename onto another project", async () => {
+    const a = await call("create_project", { name: `Rename A ${Date.now()}` });
+    const b = await call("create_project", { name: `Rename B ${Date.now()}` });
+    const upd = await call("update_project", {
+      id: a.data.id,
+      status: "started",
+      description: "now running",
+    });
+    expect(upd.res.isError).toBeFalsy();
+    expect(upd.data.status).toBe("started");
+    expect(upd.data.description).toBe("now running");
+
+    const clash = await call("update_project", { id: a.data.id, name: b.data.name });
+    expect(clash.data.error!.code).toBe("DUPLICATE_NAME");
+    // renaming a project to its own name is not a clash
+    const same = await call("update_project", { id: a.data.id, name: a.data.name });
+    expect(same.res.isError).toBeFalsy();
+  });
+
+  it("a read-only key cannot create or update a project or import", async () => {
+    const c = await call("create_project", { name: "nope" }, roClient);
+    expect(c.data.error!.code).toBe("FORBIDDEN_SCOPE");
+    const i = await call("import_plan", args(projectName), roClient);
+    expect(i.res.isError).toBe(true);
+    expect(i.data.error!.code).toBe("FORBIDDEN_SCOPE");
+  });
+
+  it("import_plan defaults to a dry run with the API's diff shape and writes nothing", async () => {
+    const r = await call("import_plan", args(projectName));
+    expect(r.res.isError).toBeFalsy();
+    const d = r.data as unknown as Diff;
+    expect(d.mode).toBe("dry_run");
+    expect(d.counts.create).toBe(3);
+    expect(d.diffHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(d.units.map((u) => u.scopedId)).toEqual(["MP-U1", "MP-U2", "MP-U3"]);
+    const listed = await call("list_issues", { search: "[MP-U" });
+    expect(listed.data.issues).toEqual([]);
+  });
+
+  it("apply needs the reviewed hash: none is refused, a stale one returns the new diff", async () => {
+    const none = await call("import_plan", args(projectName, { mode: "apply" }));
+    expect(none.data.error!.code).toBe("DIFF_HASH_REQUIRED");
+
+    const stale = await call(
+      "import_plan",
+      args(projectName, { mode: "apply", diffHash: "0".repeat(64) }),
+    );
+    expect(stale.res.isError).toBe(true);
+    expect(stale.data.error!.code).toBe("STALE_DIFF");
+    expect((stale.data as unknown as Diff).diff!.diffHash).toMatch(/^[0-9a-f]{64}$/);
+    const listed = await call("list_issues", { search: "[MP-U" });
+    expect(listed.data.issues).toEqual([]);
+  });
+
+  it("applies with the reviewed hash as an agent, then re-runs as unchanged", async () => {
+    const dry = (await call("import_plan", args(projectName))).data as unknown as Diff;
+    const applied = await call(
+      "import_plan",
+      args(projectName, { mode: "apply", diffHash: dry.diffHash }),
+    );
+    expect(applied.res.isError).toBeFalsy();
+    expect((applied.data as unknown as Diff).mode).toBe("apply");
+    const listed = await call("list_issues", { search: "[MP-U" });
+    expect((listed.data.issues as unknown[]).length).toBe(3);
+
+    const again = (await call("import_plan", args(projectName))).data as unknown as Diff;
+    expect(again.counts.unchanged).toBe(3);
+    expect(again.counts.create).toBe(0);
+  });
+
+  it("exposes no way to write historical state: evidence and historical are not tool inputs", () => {
+    const def = toolsByName.get("import_plan")!;
+    expect(Object.keys(def.inputSchema)).not.toContain("evidence");
+    expect(Object.keys(def.inputSchema)).not.toContain("historical");
+  });
+});
+
 describe("MCP protocol end-to-end (InMemoryTransport)", () => {
   it("lists tools and calls list_issues through a real MCP client", async () => {
     const server = createMcpServer(rwClient);
@@ -472,6 +602,9 @@ describe("MCP protocol end-to-end (InMemoryTransport)", () => {
       "list_labels",
       "list_events",
       "whoami",
+      "create_project",
+      "update_project",
+      "import_plan",
     ]) {
       expect(names).toContain(t);
     }

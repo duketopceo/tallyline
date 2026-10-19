@@ -27,6 +27,7 @@ import {
   issueRow,
   slimIssue,
 } from "./format.js";
+import { importPlanCmd } from "./import-plan.js";
 import { transitionTo } from "./transition.js";
 import { branchName, buildWorkPrompt, harnessBin } from "./work.js";
 
@@ -1008,5 +1009,6 @@ export const commands: Record<string, Command> = {
   events: eventsCmd,
   session: sessionCmd,
   work: workCmd,
+  "import-plan": importPlanCmd,
   init: initCmd,
 };

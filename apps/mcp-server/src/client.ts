@@ -19,6 +19,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** parsed error body, e.g. the fresh `diff` on a 409 STALE_DIFF */
+    readonly details?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -131,6 +133,7 @@ export class TallylineClient {
         res.status,
         apiErr?.code ?? "HTTP_ERROR",
         apiErr?.message ?? `HTTP ${res.status} from tallyline API`,
+        data,
       );
     }
     return data as T;

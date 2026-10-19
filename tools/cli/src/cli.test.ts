@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -83,6 +84,7 @@ async function cli(
     env?: EnvLike;
     cwd?: string;
     stdin?: string;
+    fetch?: (req: Request) => Response | Promise<Response>;
   } = {},
 ): Promise<CliResult> {
   const out: string[] = [];
@@ -99,7 +101,7 @@ async function cli(
       ...overrides.env,
     },
     cwd: overrides.cwd ?? tmpCwd,
-    fetch: appFetch,
+    fetch: overrides.fetch ?? appFetch,
     ...(overrides.stdin !== undefined
       ? { stdin: async () => overrides.stdin! }
       : {}),
@@ -605,4 +607,196 @@ describe("tallyline cli (in-process api)", () => {
     expect(version.code).toBe(0);
     expect(version.out[0]).toContain("tallyline");
   });
+});
+
+describe("tallyline import-plan", () => {
+  // distinct titles per plan: equal titles under another scope are ambiguous
+  const planOf = (titles: string[]) => [
+    "# Import test plan",
+    "",
+    "## Implementation Units",
+    "",
+    ...titles.flatMap(
+      (title, i) => [
+        `### U${i + 1}. ${title}`,
+        "",
+        `**Goal:** Goal of U${i + 1}.`,
+        "",
+        "**Dependencies:** none.",
+        "",
+        `**Verification:** check U${i + 1}.`,
+        "",
+      ],
+    ),
+  ].join("\n");
+  const PLAN = planOf(["Kill switch", "Creation throttles", "Usage guard cron"]);
+  const GIT_PLAN = planOf(["Rotate signing keys", "Archive old exports", "Prune stale sessions"]);
+  const URL_PLAN = planOf(["Add dark launch flag", "Backfill audit rows", "Trim webhook payloads"]);
+  const SRC = [
+    "--repo",
+    "duketopceo/kate",
+    "--source-path",
+    "docs/plans/kp.md",
+    "--sha",
+    "abc1234",
+  ];
+  let planFile = "";
+  let projectName = "";
+
+  const scoped = async (scope: string) => {
+    const r = await cli(["list", "--search", `[${scope}-U`, "--json"]);
+    return (r.json() as { issues: { title: string }[] }).issues;
+  };
+  const hashOf = (r: CliResult) =>
+    /diffHash: ([0-9a-f]{64})/.exec(r.out.join("\n"))?.[1] ?? "";
+
+  beforeAll(async () => {
+    planFile = join(tmpCwd, "kp.md");
+    await writeFile(planFile, PLAN);
+    projectName = `Import project ${Date.now()}`;
+    const res = await api(`/v1/workspaces/${SLUG}/projects`, {
+      method: "POST",
+      body: JSON.stringify({ name: projectName }),
+    });
+    expect(res.status).toBe(201);
+  });
+
+  it("defaults to a dry run: prints counts and a diffHash, writes nothing", async () => {
+    const r = await cli(["import-plan", planFile, "--project", projectName, "--scope", "KP", ...SRC]);
+    expect(r.code).toBe(0);
+    const text = r.out.join("\n");
+    expect(text).toContain("dry_run");
+    expect(text).toContain("3 create");
+    expect(text).toContain("KP-U1");
+    expect(hashOf(r)).toMatch(/^[0-9a-f]{64}$/);
+    expect(await scoped("KP")).toHaveLength(0);
+  });
+
+  it("--apply without a reviewed hash runs the dry run first and writes nothing", async () => {
+    const r = await cli(["import-plan", planFile, "--project", projectName, "--scope", "KP", ...SRC, "--apply"]);
+    expect(r.code).toBe(2);
+    expect(r.out.join("\n")).toContain("3 create");
+    expect(r.err.join("\n")).toContain("--diff-hash");
+    expect(await scoped("KP")).toHaveLength(0);
+  });
+
+  it("a stale hash writes nothing and shows the new diff (exit 5)", async () => {
+    const r = await cli([
+      "import-plan", planFile, "--project", projectName, "--scope", "KP", ...SRC,
+      "--apply", "--diff-hash", "0".repeat(64),
+    ]);
+    expect(r.code).toBe(5);
+    expect(r.err.join("\n")).toContain("STALE_DIFF");
+    expect(hashOf(r)).toMatch(/^[0-9a-f]{64}$/);
+    expect(await scoped("KP")).toHaveLength(0);
+  });
+
+  it("applies with the reviewed hash, then re-runs as all unchanged", async () => {
+    const dry = await cli(["import-plan", planFile, "--project", projectName, "--scope", "KP", ...SRC]);
+    const applied = await cli([
+      "import-plan", planFile, "--project", projectName, "--scope", "KP", ...SRC,
+      "--apply", "--diff-hash", hashOf(dry),
+    ]);
+    expect(applied.code).toBe(0);
+    expect(applied.out.join("\n")).toContain("applied");
+    expect(await scoped("KP")).toHaveLength(3);
+
+    const again = await cli(["import-plan", planFile, "--project", projectName, "--scope", "KP", ...SRC, "--json"]);
+    const diff = again.json() as { counts: Record<string, number> };
+    expect(diff.counts.unchanged).toBe(3);
+    expect(diff.counts.create).toBe(0);
+  });
+
+  it("an agent key cannot write historical state from evidence", async () => {
+    const evPath = join(tmpCwd, "ev.json");
+    await writeFile(evPath, JSON.stringify({ U1: { state: "done" } }));
+    const r = await cli(["import-plan", planFile, "--project", projectName, "--scope", "KE", ...SRC, "--evidence", evPath]);
+    expect(r.code).toBe(3);
+    expect(r.err.join("\n")).toContain("FORBIDDEN_HISTORICAL");
+    expect(await scoped("KE")).toHaveLength(0);
+  });
+
+  it("an owner token with --historical and --evidence imports done units", async () => {
+    const evPath = join(tmpCwd, "ev2.json");
+    await writeFile(
+      evPath,
+      JSON.stringify({ U1: { state: "done", mergedAt: "2026-10-01T00:00:00Z", prs: [{ repo: "duketopceo/kate", number: 7 }] } }),
+    );
+    const base = ["import-plan", planFile, "--project", projectName, "--scope", "KH", ...SRC, "--evidence", evPath, "--historical"];
+    const env = { TALLYLINE_TOKEN: patToken };
+    const dry = await cli(base, { env });
+    expect(dry.code).toBe(0);
+    const applied = await cli([...base, "--apply", "--diff-hash", hashOf(dry)], { env });
+    expect(applied.code).toBe(0);
+    const issue = (await scoped("KH")).find((i) => i.title.startsWith("[KH-U1]"));
+    expect(issue).toBeDefined();
+  });
+
+  it("derives repo, path and sha from the git checkout when no source flags are given", async () => {
+    const repo = await mkdtemp(join(tmpdir(), "tly-cli-git-"));
+    try {
+      const git = (...a: string[]) =>
+        execFileSync("git", ["-C", repo, "-c", "user.name=t", "-c", "user.email=t@t.co", ...a], { stdio: "pipe" });
+      git("init", "-q");
+      git("remote", "add", "origin", "git@github.com:duketopceo/kate.git");
+      await mkdtempPlan(repo);
+      git("add", ".");
+      git("commit", "-q", "-m", "plan");
+      const sha = git("rev-parse", "HEAD").toString().trim();
+      const r = await cli(["import-plan", join(repo, "docs", "plans", "g.md"), "--project", projectName, "--scope", "KG", "--json"]);
+      expect(r.code).toBe(0);
+      const diff = r.json() as { counts: Record<string, number>; diffHash: string };
+      expect(diff.counts.create).toBe(3);
+      const applied = await cli([
+        "import-plan", join(repo, "docs", "plans", "g.md"), "--project", projectName, "--scope", "KG",
+        "--apply", "--diff-hash", diff.diffHash, "--json",
+      ]);
+      expect(applied.code).toBe(0);
+      const shown = await cli(["show", (await scopedKeys("KG"))[0]!, "--json"]);
+      expect(JSON.stringify(shown.json())).toContain(sha.slice(0, 7));
+    } finally {
+      await rm(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("fetches an https github url client-side and takes repo, path and sha from it", async () => {
+    const seen: string[] = [];
+    const fetcher = (req: Request) => {
+      if (req.url.startsWith("https://raw.githubusercontent.com/")) {
+        seen.push(req.url);
+        return new Response(URL_PLAN);
+      }
+      return app.fetch(req);
+    };
+    const r = await cli(
+      [
+        "import-plan",
+        "https://github.com/duketopceo/kate/blob/abc1234def/docs/plans/url.md",
+        "--project", projectName, "--scope", "KU", "--json",
+      ],
+      { fetch: fetcher },
+    );
+    expect(r.code).toBe(0);
+    expect(seen).toEqual(["https://raw.githubusercontent.com/duketopceo/kate/abc1234def/docs/plans/url.md"]);
+    expect((r.json() as { counts: Record<string, number> }).counts.create).toBe(3);
+  });
+
+  it("rejects a non-https url and a missing scope as usage errors", async () => {
+    const http = await cli(["import-plan", "http://example.com/p.md", "--project", projectName, "--scope", "KP", ...SRC]);
+    expect(http.code).toBe(2);
+    const noScope = await cli(["import-plan", planFile, "--project", projectName, ...SRC]);
+    expect(noScope.code).toBe(2);
+    expect(noScope.err.join("\n")).toContain("--scope");
+  });
+
+  async function scopedKeys(scope: string): Promise<string[]> {
+    const r = await cli(["list", "--search", `[${scope}-U`, "--json"]);
+    return (r.json() as { issues: { key: string }[] }).issues.map((i) => i.key);
+  }
+
+  async function mkdtempPlan(repo: string): Promise<void> {
+    const { mkdir } = await import("node:fs/promises");
+    await mkdir(join(repo, "docs", "plans"), { recursive: true });
+    await writeFile(join(repo, "docs", "plans", "g.md"), GIT_PLAN);
+  }
 });

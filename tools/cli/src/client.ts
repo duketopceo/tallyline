@@ -1,4 +1,9 @@
-import type { IssueState, Priority } from "@tallyline/types";
+import type {
+  IssueState,
+  PlanImportDiff,
+  PlanImportRequest,
+  Priority,
+} from "@tallyline/types";
 
 // Minimal fetch contract — satisfied by globalThis.fetch and by Hono's
 // app.fetch in tests (both accept a constructed Request; Hono may return
@@ -10,6 +15,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** parsed error body, e.g. the fresh `diff` on a 409 STALE_DIFF */
+    readonly details?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -244,7 +251,7 @@ export class ApiClient {
       const message = retryAfter
         ? `${base} (retry after ${retryAfter}s)`
         : base;
-      throw new ApiError(res.status, code, message);
+      throw new ApiError(res.status, code, message, data);
     }
     return data as T;
   }
@@ -340,6 +347,10 @@ export class ApiClient {
 
   listSessions(key: string): Promise<{ sessions: Session[] }> {
     return this.req("GET", `/issues/${encodeURIComponent(key)}/sessions`);
+  }
+
+  importPlan(body: PlanImportRequest): Promise<PlanImportDiff> {
+    return this.req("POST", "/import/plan", { body });
   }
 
   getWorkspace(): Promise<Workspace> {

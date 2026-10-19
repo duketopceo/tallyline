@@ -79,6 +79,11 @@ interface ProjectRow {
   teamId: string | null;
 }
 
+interface ProjectFull extends ProjectRow {
+  startDate: string | null;
+  targetDate: string | null;
+}
+
 interface CycleRow {
   id: string;
   name: string | null;
@@ -147,6 +152,49 @@ function slimComment(c: CommentRow) {
   };
 }
 
+const PROJECT_STATUSES = [
+  "backlog",
+  "planned",
+  "started",
+  "paused",
+  "completed",
+  "canceled",
+] as const;
+
+function slimProject(p: ProjectFull) {
+  return {
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    status: p.status,
+    teamId: p.teamId,
+    startDate: p.startDate,
+    targetDate: p.targetDate,
+  };
+}
+
+// Import resolves its project by exact name, so two projects with one name
+// make an import ambiguous. The API doesn't enforce it; the tools do.
+async function assertProjectNameFree(
+  client: TallylineClient,
+  name: string,
+  exceptId?: string,
+): Promise<void> {
+  const { projects } = await client.apiGet<{ projects: ProjectRow[] }>(
+    "/projects",
+  );
+  const want = name.trim().toLowerCase();
+  const clash = projects.find(
+    (p) => p.id !== exceptId && p.name.trim().toLowerCase() === want,
+  );
+  if (clash) {
+    throw new ToolError(
+      "DUPLICATE_NAME",
+      `a project named '${clash.name}' already exists (id ${clash.id})`,
+    );
+  }
+}
+
 // ── Errors ───────────────────────────────────────────────────────────
 
 /** A client-side tool failure that maps onto the API's error envelope. */
@@ -160,11 +208,18 @@ export class ToolError extends Error {
   }
 }
 
-function errorResult(code: string, message: string): CallToolResult {
+function errorResult(
+  code: string,
+  message: string,
+  extra?: Record<string, unknown>,
+): CallToolResult {
   return {
     isError: true,
     content: [
-      { type: "text", text: JSON.stringify({ error: { code, message } }) },
+      {
+        type: "text",
+        text: JSON.stringify({ error: { code, message }, ...extra }),
+      },
     ],
   };
 }
@@ -224,7 +279,16 @@ export async function executeTool(
     return okResult(await def.call(args, client));
   } catch (err) {
     if (err instanceof ApiError) {
-      return errorResult(err.code, err.message);
+      // a stale import carries the fresh diff to review before applying again
+      const diff =
+        err.code === "STALE_DIFF"
+          ? (err.details as { diff?: unknown } | undefined)?.diff
+          : undefined;
+      return errorResult(
+        err.code,
+        err.message,
+        diff === undefined ? undefined : { diff },
+      );
     }
     if (err instanceof ToolError) {
       return errorResult(err.code, err.message);
@@ -606,6 +670,90 @@ export const toolDefs: ToolDef[] = [
         })),
       };
     },
+  }),
+
+  defineTool({
+    name: "create_project",
+    description:
+      "Create a project. Names are unique (case-insensitive) because plan import finds its project by name; a duplicate is refused with DUPLICATE_NAME. teamKey ties it to a team.",
+    inputSchema: {
+      name: z.string().min(1).max(200),
+      description: z.string().max(10_000).optional(),
+      status: z.enum(PROJECT_STATUSES).optional(),
+      teamKey: z.string().min(1).max(6).optional(),
+      startDate: z.iso.datetime().optional(),
+      targetDate: z.iso.datetime().optional(),
+    },
+    handler: async (args, client) => {
+      await assertProjectNameFree(client, args.name);
+      return slimProject(await client.apiPost<ProjectFull>("/projects", args));
+    },
+  }),
+
+  defineTool({
+    name: "update_project",
+    description:
+      "Patch a project by id: name (must stay unique), description, status, startDate, targetDate. Pass null to clear description or dates.",
+    inputSchema: {
+      id: uuid,
+      name: z.string().min(1).max(200).optional(),
+      description: z.string().max(10_000).nullable().optional(),
+      status: z.enum(PROJECT_STATUSES).optional(),
+      startDate: z.iso.datetime().nullable().optional(),
+      targetDate: z.iso.datetime().nullable().optional(),
+    },
+    handler: async (args, client) => {
+      const { id, ...fields } = args;
+      if (fields.name !== undefined) {
+        await assertProjectNameFree(client, fields.name, id);
+      }
+      return slimProject(
+        await client.apiPatch<ProjectFull>(
+          `/projects/${encodeURIComponent(id)}`,
+          fields,
+        ),
+      );
+    },
+  }),
+
+  defineTool({
+    name: "import_plan",
+    description:
+      "Import a ce-plan markdown file as issues in a project. mode defaults to 'dry_run': nothing is written and the result is a diff (counts, per-unit create/update/unchanged/ambiguous/invalid, warnings) plus a diffHash. Show the diff to the human. To write, call again with the same inputs, mode 'apply' and that diffHash; a diff that changed since returns STALE_DIFF with the new diff (review it, then apply with its hash). Fix 'ambiguous' units by passing resolutions {\"KP-U12\": \"TLY-34\"}. Needs write scope. Agents cannot write historical done/in-progress state, so there is no evidence input here.",
+    inputSchema: {
+      project: z.string().min(1).max(200),
+      scope: z.string().regex(/^[A-Z][A-Z0-9]{0,7}$/),
+      repo: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
+      path: z.string().min(1).max(300),
+      sha: z.string().regex(/^[0-9a-f]{7,40}$/i),
+      url: z.url().max(500).optional(),
+      markdown: z.string().min(1).max(1_000_000),
+      teamKey: z.string().min(1).max(8).optional(),
+      resolutions: z.record(z.string(), z.string()).optional(),
+      mode: z.enum(["dry_run", "apply"]).default("dry_run"),
+      diffHash: z
+        .string()
+        .regex(/^[0-9a-f]{64}$/)
+        .optional(),
+    },
+    handler: (args, client) =>
+      client.apiPost<Record<string, unknown>>("/import/plan", {
+        project: args.project,
+        teamKey: args.teamKey,
+        plan: {
+          scope: args.scope,
+          source: {
+            repo: args.repo,
+            path: args.path,
+            sha: args.sha,
+            url: args.url,
+          },
+          markdown: args.markdown,
+        },
+        resolutions: args.resolutions,
+        mode: args.mode,
+        diffHash: args.diffHash,
+      }),
   }),
 
   defineTool({

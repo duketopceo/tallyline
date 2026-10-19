@@ -35,6 +35,13 @@ issues:
   comment     comment <KEY> [body] [--body b]  (or stdin)
   triage      triage <KEY> accept|decline
 
+plans:
+  import-plan import-plan <path|https-url> --project P --scope KP
+              dry run by default: prints the diff + a diffHash, writes nothing
+              then: --apply --diff-hash <hash>  (needs write scope)
+              [--team K] [--repo o/r --source-path p --sha s] [--resolutions f]
+              [--evidence f --historical]  (human owner/admin token only)
+
 feed:
   events      events [--limit N] [--after id] [--follow]
 

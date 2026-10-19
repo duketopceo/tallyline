@@ -50,10 +50,29 @@ Claim etiquette — the contract that keeps multi-agent boards sane:
 Never claim work already assigned to another actor unless the human says so.
 Never mark someone else's issue done.
 
+## Importing a plan
+
+When you finish writing a plan file (a ce-plan document with `### U<N>.` unit
+headings), put it on the board in one step, dry run first:
+
+1. `tallyline import-plan <plan.md> --project <name> --scope <KP>` — writes
+   nothing; prints the diff (create / update / unchanged / ambiguous) and a
+   `diffHash`. MCP: `import_plan` with `markdown`, `repo`, `path`, `sha`.
+2. Show the human the diff, ambiguous units especially. Never merge an
+   ambiguous unit yourself; ask, then pass `--resolutions` / `resolutions`.
+3. Apply only after the human has seen that diff: add
+   `--apply --diff-hash <hash>` (MCP: `mode: "apply"`, `diffHash`). A
+   `409 STALE_DIFF` means the board moved — show the new diff, get the hash
+   again.
+
+You cannot import history: done and in-progress state from `--evidence` needs
+a human owner/admin token, and an agent key gets `403 FORBIDDEN_HISTORICAL`.
+Do not work around it. See `docs/import.md`.
+
 ## Reference
 
 - Branch convention: `<KEY>-slug` — e.g. `ENG-42-rate-limit-responses`.
 - Commits: conventional (`feat:`, `fix:`) and reference the key.
-- CLI: `tallyline ready|next|claim|start|done|state|comment|create|list|search|show|triage|events` — `--json` on everything for machine reads; `events --follow` streams the live board.
-- MCP: `whoami, list_issues, ready, get_issue, create_issue, update_issue, triage_issue, comment, claim, list_agents, list_teams, list_labels, list_projects, list_cycles, list_events` — setup per harness in `docs/agents.md`.
+- CLI: `tallyline ready|next|claim|start|done|state|comment|create|list|search|show|triage|import-plan|events` — `--json` on everything for machine reads; `events --follow` streams the live board.
+- MCP: `whoami, list_issues, ready, get_issue, create_issue, update_issue, triage_issue, comment, claim, list_agents, list_teams, list_labels, list_projects, list_cycles, list_events, create_project, update_project, import_plan` — setup per harness in `docs/agents.md`.
 - REST: `GET /openapi.json` on the API host. Errors carry `{error:{code,message}}` — surface the code, don't guess.

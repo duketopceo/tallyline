@@ -1,6 +1,6 @@
 # Plan import
 
-`POST /v1/workspaces/:ws/import/plan` turns a ce-plan markdown file into issues in one project. It is safe to re-run: a second run reports everything unchanged. The CLI and MCP tools that wrap it are a separate unit; this page covers the API.
+`POST /v1/workspaces/:ws/import/plan` turns a ce-plan markdown file into issues in one project. It is safe to re-run: a second run reports everything unchanged. The CLI and MCP tool wrap it; see [CLI and MCP](#cli-and-mcp) below.
 
 ## Flow
 
@@ -9,6 +9,28 @@
 3. Send the same body with `mode: "apply"` and the `diffHash`. The service recomputes the diff inside a transaction. If it differs from the one you reviewed (the plan, the evidence, the resolutions, or the workspace changed, for example through GitHub sync), it writes nothing and returns `409 STALE_DIFF` with the new diff. Review it and apply again with the new hash.
 
 Apply is one transaction per plan, takes a workspace advisory lock and one per plan file (imports in a workspace run one at a time), and writes one event per issue.
+
+## CLI and MCP
+
+CLI, dry run first (the default; nothing is written):
+
+```sh
+tallyline import-plan docs/plans/2026-10-15-kate-production-launch-plan.md --project Kate --scope KP
+```
+
+It prints the counts, every unit that is not unchanged (ambiguous ones with their candidates), and a `diffHash`. Read it, then apply that exact diff:
+
+```sh
+tallyline import-plan <same path and flags> --apply --diff-hash <hash>
+```
+
+`--apply` without `--diff-hash` runs the dry run, prints it, writes nothing and exits 2. A `STALE_DIFF` prints the new diff and exits 5. `--resolutions f.json` maps `KP-U12` to an issue key. `--json` prints the raw diff.
+
+The CLI reads the plan itself, so the API never needs repo credentials. For a local file it takes the repo from `origin`, the path from the git root and the sha from `HEAD`; for an https github `blob` or `raw` url it fetches the raw file and takes all three from the url (the ref must be a commit sha). Override with `--repo`, `--source-path` and `--sha`. `--scope` is always required.
+
+`--evidence f.json --historical` writes done and in-progress state for merged units. It works only with a human owner or admin token; an agent key gets `403 FORBIDDEN_HISTORICAL`.
+
+MCP: the `import_plan` tool takes the same fields (`markdown` instead of a path, plus `repo`, `path`, `sha`), `mode` defaulting to `dry_run`, and `diffHash` for apply. It has no `evidence` or `historical` input. `create_project` and `update_project` make the target project; names are unique case-insensitively. A key with only `read` scope is refused (`FORBIDDEN_SCOPE`), dry run included, because the route is a POST.
 
 ## Request
 
