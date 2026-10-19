@@ -9,6 +9,7 @@ export interface LabelRef { id: string; name: string; color: string }
 export interface TeamRef { id: string; key: string; name: string }
 export interface CycleRef { id: string; number: number; name: string | null; teamId: string; isActive: boolean }
 export interface ProjectRef { id: string; name: string; teamId: string | null }
+export interface MilestoneRef { id: string; projectId: string; title: string; done: boolean }
 export interface ViewRef { id: string; name: string; filters: Record<string, unknown>; shared: boolean; ownerId: string }
 
 export interface Meta {
@@ -22,6 +23,7 @@ export interface Meta {
   teams: TeamRef[];
   cycles: CycleRef[];
   projects: ProjectRef[];
+  milestones: MilestoneRef[];
   views: ViewRef[];
   counts: { triage: number; review: number; unread: number };
 }
@@ -61,7 +63,7 @@ async function fetchMeta(
   me: { userId: string; name: string; role: string | undefined },
 ): Promise<Meta> {
   const base = `/v1/workspaces/${workspace}`;
-  const [members, agents, labels, teams, cycles, projects, views, triage, review, unread] =
+  const [members, agents, labels, teams, cycles, projects, milestones, views, triage, review, unread] =
     await Promise.all([
       api<{ members: Member[] }>(`${base}/members`),
       api<{ agents: AgentRef[] }>(`${base}/agents`),
@@ -69,6 +71,7 @@ async function fetchMeta(
       api<{ teams: TeamRef[] }>(`${base}/teams`),
       api<{ cycles: CycleRef[] }>(`${base}/cycles`),
       api<{ projects: ProjectRef[] }>(`${base}/projects`),
+      api<{ milestones: MilestoneRef[] }>(`${base}/milestones`),
       api<{ views: ViewRef[] }>(`${base}/views`),
       api<{ issues: unknown[] }>(`${base}/issues?state=triage&limit=100`),
       api<{ count: number }>(`${base}/review-queue/count`),
@@ -85,6 +88,7 @@ async function fetchMeta(
     teams: teams.data?.teams ?? [],
     cycles: cycles.data?.cycles ?? [],
     projects: projects.data?.projects ?? [],
+    milestones: milestones.data?.milestones ?? [],
     views: views.data?.views ?? [],
     counts: {
       triage: triage.data?.issues?.length ?? 0,

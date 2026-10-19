@@ -411,6 +411,37 @@ describe("POST /import/plan", () => {
     expect(again.body.milestones).toEqual({ create: [], existing: ["Phase A", "Phase B"] });
   });
 
+  it("links each unit's issue to its phase milestone, and a re-import changes nothing (U16)", async () => {
+    const md = ["# P", "## Phase A", "### U1. One", "**Goal:** g", "## Phase B", "### U2. Two", "**Goal:** g"].join("\n");
+    const first = await applyPlan(md);
+    expect(first.status).toBe(200);
+    const ms = await db.select().from(projectMilestones).where(eq(projectMilestones.projectId, project.id));
+    const idOf = (title: string) => ms.find((m) => m.title === title)!.id;
+    const rows = await issueRows();
+    expect(rows.find((r) => r.title.startsWith("[KP-U1]"))!.milestoneId).toBe(idOf("Phase A"));
+    expect(rows.find((r) => r.title.startsWith("[KP-U2]"))!.milestoneId).toBe(idOf("Phase B"));
+    const again = await applyPlan(md);
+    expect(again.body.counts).toMatchObject({ create: 0, update: 0, unchanged: 2 });
+  });
+
+  it("adopts an existing unmilestoned issue into the phase, but keeps a hand-set milestone (U16)", async () => {
+    const md = ["# P", "## Phase A", "### U1. One", "**Goal:** g", "### U2. Two", "**Goal:** g"].join("\n");
+    await applyPlan(md);
+    const [a] = await db.select().from(projectMilestones).where(and(eq(projectMilestones.projectId, project.id), eq(projectMilestones.title, "Phase A")));
+    const [other] = await db.insert(projectMilestones).values({ workspaceId: t.ws.id, projectId: project.id, title: "Hand" }).returning();
+    const rows = await issueRows();
+    const u1 = rows.find((r) => r.title.startsWith("[KP-U1]"))!;
+    const u2 = rows.find((r) => r.title.startsWith("[KP-U2]"))!;
+    // U1 loses its milestone, U2 is moved by hand; edit U2's text so the import no longer owns it
+    await db.update(issues).set({ milestoneId: null }).where(eq(issues.id, u1.id));
+    await db.update(issues).set({ milestoneId: other!.id, title: "[KP-U2] Two (edited)" }).where(eq(issues.id, u2.id));
+    const r = await applyPlan(md);
+    expect(r.status).toBe(200);
+    const after = await issueRows();
+    expect(after.find((x) => x.id === u1.id)!.milestoneId).toBe(a!.id);
+    expect(after.find((x) => x.id === u2.id)!.milestoneId).toBe(other!.id);
+  });
+
   it("resolves the project by name, 404s on an unknown or foreign project, and 404s on an unknown team", async () => {
     const [p] = [await mkProject(t)];
     const { name } = (await db.query.projects.findFirst({ where: (x, { eq: e }) => e(x.id, p.id) }))!;

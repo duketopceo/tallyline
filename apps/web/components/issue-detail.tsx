@@ -285,6 +285,8 @@ export function IssueDetailView({
   const prop = "flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-[13px] text-ink hover:bg-surface-2";
   const cycle = meta.cycles.find((c) => c.id === issue.cycleId);
   const project = meta.projects.find((p) => p.id === issue.projectId);
+  // a stale milestone from before a project move is not shown (the API clears it)
+  const milestone = meta.milestones.find((m) => m.id === issue.milestoneId && m.projectId === issue.projectId);
   const creator = names.actor(issue.creatorType, issue.creatorId);
 
   return (
@@ -457,6 +459,12 @@ export function IssueDetailView({
                 <dt className="text-[12px] text-ink-subtle">Project</dt>
                 <dd><button type="button" className="-ml-2 mt-0.5 h-7 w-full rounded-sm px-2 text-left text-ink hover:bg-surface-2" aria-label={`Project: ${project?.name ?? "none"}. Change`} onClick={(e) => editors.pickProject(e.currentTarget, [like])}>{project?.name ?? <span className="text-ink-subtle">No project</span>}</button></dd>
               </div>
+              {project && (
+              <div>
+                <dt className="text-[12px] text-ink-subtle">Milestone</dt>
+                <dd><button type="button" className="-ml-2 mt-0.5 h-7 w-full rounded-sm px-2 text-left text-ink hover:bg-surface-2" aria-label={`Milestone: ${milestone?.title ?? "none"}. Change`} onClick={(e) => editors.pickMilestone(e.currentTarget, [like])}>{milestone?.title ?? <span className="text-ink-subtle">No milestone</span>}</button></dd>
+              </div>
+              )}
               <div>
                   <dt><label htmlFor="estimate" className="text-[12px] text-ink-subtle">Estimate</label></dt>
                   <dd><input id="estimate" type="number" min={0} inputMode="numeric" defaultValue={issue.estimate ?? ""} key={`est-${issue.estimate}`} placeholder="none" onBlur={(e) => { const v = e.currentTarget.value === "" ? null : Math.max(0, Math.round(Number(e.currentTarget.value))); if (v !== (issue.estimate ?? null)) void apply([{ key: issue.key, patch: { estimate: v }, prior: { estimate: issue.estimate ?? null } }], `${issue.key} estimate updated`); }} className="mt-0.5 h-8 w-full rounded-sm border border-control bg-transparent px-2 text-[13px] tabular-nums" /></dd>

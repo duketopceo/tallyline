@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, asc, desc, eq, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, notInArray, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../db/client.js";
@@ -112,6 +112,34 @@ async function findProject(workspaceId: string, id: string) {
     .where(and(eq(projects.id, id), eq(projects.workspaceId, workspaceId)));
   if (!row) throw new HttpError(404, "NOT_FOUND", "project not found");
   return row;
+}
+
+// Milestone progress counts the issues linked to the milestone (U16), not the
+// project's issues. Canceled and duplicate issues are out of the denominator.
+async function withProgress<T extends { id: string }>(
+  rows: T[],
+): Promise<(T & { progress: { total: number; done: number } })[]> {
+  const counts = rows.length
+    ? await db
+        .select({
+          id: issues.milestoneId,
+          total: sql<number>`count(*)::int`,
+          done: sql<number>`count(*) filter (where ${issues.state} = 'done')::int`,
+        })
+        .from(issues)
+        .where(
+          and(
+            inArray(issues.milestoneId, rows.map((r) => r.id)),
+            notInArray(issues.state, ["canceled", "duplicate"]),
+          ),
+        )
+        .groupBy(issues.milestoneId)
+    : [];
+  const byId = new Map(counts.map((c) => [c.id, c]));
+  return rows.map((r) => ({
+    ...r,
+    progress: { total: byId.get(r.id)?.total ?? 0, done: byId.get(r.id)?.done ?? 0 },
+  }));
 }
 
 async function findMilestone(
@@ -304,7 +332,7 @@ export const resourceRoutes = new Hono()
       .from(projectMilestones)
       .where(eq(projectMilestones.workspaceId, ws.id))
       .orderBy(asc(projectMilestones.sortOrder), asc(projectMilestones.createdAt));
-    return c.json({ milestones: rows });
+    return c.json({ milestones: await withProgress(rows) });
   })
   .get("/workspaces/:ws/projects/:id/milestones", async (c) => {
     const ws = await requireWorkspace(c);
@@ -314,7 +342,7 @@ export const resourceRoutes = new Hono()
       .from(projectMilestones)
       .where(eq(projectMilestones.projectId, project.id))
       .orderBy(asc(projectMilestones.sortOrder), asc(projectMilestones.createdAt));
-    return c.json({ milestones: rows });
+    return c.json({ milestones: await withProgress(rows) });
   })
   .post(
     "/workspaces/:ws/projects/:id/milestones",

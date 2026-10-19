@@ -232,6 +232,38 @@ describe("tool surface over the real API", () => {
     expect(got.data.comments).toEqual([]);
   });
 
+  it("links issues to a milestone and filters list_issues by milestone and label (U16)", async () => {
+    const [project] = await db
+      .insert(projects)
+      .values({ workspaceId: wsId, name: "ms project" })
+      .returning();
+    const [ms] = await db
+      .insert(projectMilestones)
+      .values({ workspaceId: wsId, projectId: project!.id, title: "Launch" })
+      .returning();
+    const [hitl] = await db
+      .insert(labels)
+      .values({ workspaceId: wsId, name: "hitl-mcp", color: "#f59e0b" })
+      .returning();
+    const linked = await call("create_issue", {
+      title: "in milestone",
+      projectId: project!.id,
+      milestoneId: ms!.id,
+      labelIds: [hitl!.id],
+    });
+    expect(linked.res.isError).toBeFalsy();
+    expect(linked.data.milestoneId ?? null).toBe(ms!.id);
+    const plain = await call("create_issue", { title: "outside", projectId: project!.id });
+    const byMilestone = await call("list_issues", { milestone: ms!.id });
+    expect((byMilestone.data.issues as { key: string }[]).map((i) => i.key)).toEqual([linked.data.key]);
+    const byLabel = await call("list_issues", { label: hitl!.id });
+    expect((byLabel.data.issues as { key: string }[]).map((i) => i.key)).toEqual([linked.data.key]);
+    const moved = await call("update_issue", { key: plain.data.key as string, milestoneId: ms!.id });
+    expect(moved.res.isError).toBeFalsy();
+    const both = await call("list_issues", { milestone: ms!.id });
+    expect(both.data.issues as unknown[]).toHaveLength(2);
+  });
+
   it("update_issue mutates fields and enforces the state machine", async () => {
     const ok = await call("update_issue", {
       key: `${teamKey}-1`,

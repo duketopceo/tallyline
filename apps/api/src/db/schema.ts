@@ -153,8 +153,8 @@ export const projects = pgTable(
 );
 
 // Date markers on a project's roadmap span — undated milestones are
-// checklist items that never render on the axis. Cascade on project delete;
-// issues don't link to milestones (progress derives from project issues).
+// checklist items that never render on the axis. Cascade on project delete.
+// Issues link through issues.milestone_id (U16); progress counts linked issues.
 export const projectMilestones = pgTable(
   "project_milestones",
   {
@@ -279,6 +279,10 @@ export const issues = pgTable(
     creatorType: actorTypeEnum("creator_type").notNull().default("human"),
     creatorId: uuid("creator_id"),
     projectId: uuid("project_id").references(() => projects.id),
+    // deleting a milestone keeps its issues (U16)
+    milestoneId: uuid("milestone_id").references(() => projectMilestones.id, {
+      onDelete: "set null",
+    }),
     cycleId: uuid("cycle_id").references(() => cycles.id),
     parentId: uuid("parent_id"),
     source: issueSourceEnum("source").notNull().default("web"),
@@ -297,6 +301,7 @@ export const issues = pgTable(
     index().on(t.workspaceId, t.teamId),
     index().on(t.workspaceId, t.cycleId),
     index().on(t.workspaceId, t.assigneeId),
+    index().on(t.milestoneId),
   ],
 );
 

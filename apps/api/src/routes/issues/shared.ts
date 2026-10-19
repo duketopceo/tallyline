@@ -3,7 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { ISSUE_SOURCES, ISSUE_STATES, PRIORITIES } from "@tallyline/types";
 import { db } from "../../db/client.js";
-import { agents, cycles, issueLabels, issues, labels, projects, workspaceMembers } from "../../db/schema.js";
+import { agents, cycles, issueLabels, issues, labels, projectMilestones, projects, workspaceMembers } from "../../db/schema.js";
 import { HttpError } from "../../lib/errors.js";
 import { createAssist } from "../../services/assist.js";
 import { mirrorIssueLabels } from "../../services/github-sync.js";
@@ -25,6 +25,7 @@ export const createSchema = z.object({
   assigneeId: z.uuid().optional(),
   cycleId: z.uuid().optional(),
   projectId: z.uuid().optional(),
+  milestoneId: z.uuid().optional(),
   parentId: z.uuid().optional(),
   labelIds: z.array(z.uuid()).max(10).optional(),
 });
@@ -40,6 +41,7 @@ export const patchSchema = z.object({
   assigneeId: z.uuid().nullable().optional(),
   cycleId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
+  milestoneId: z.uuid().nullable().optional(),
   parentId: z.uuid().nullable().optional(),
   labelIds: z.array(z.uuid()).max(10).optional(),
 });
@@ -59,6 +61,7 @@ export const listQuerySchema = z.object({
   assignee: z.uuid().optional(),
   cycle: z.uuid().optional(),
   project: z.uuid().optional(),
+  milestone: z.uuid().optional(),
   label: z.uuid().optional(),
   source: z.enum(ISSUE_SOURCES).optional(),
   search: z.string().max(200).optional(),
@@ -170,6 +173,34 @@ export async function validateProject(
       422,
       "INVALID_PROJECT",
       "project belongs to a different team",
+    );
+  }
+}
+
+// A milestone must belong to the issue's project (U16): the project the issue
+// ends up in after this write, so the milestone and project can move together.
+export async function validateMilestone(
+  workspaceId: string,
+  projectId: string | null,
+  milestoneId: string,
+): Promise<void> {
+  const [m] = await db
+    .select({ projectId: projectMilestones.projectId })
+    .from(projectMilestones)
+    .where(
+      and(
+        eq(projectMilestones.id, milestoneId),
+        eq(projectMilestones.workspaceId, workspaceId),
+      ),
+    );
+  if (!m) {
+    throw new HttpError(422, "INVALID_MILESTONE", "milestone not in workspace");
+  }
+  if (m.projectId !== projectId) {
+    throw new HttpError(
+      422,
+      "INVALID_MILESTONE",
+      "milestone belongs to a different project than the issue",
     );
   }
 }

@@ -71,6 +71,8 @@ interface UnitPlan {
   changes: string[];
   /** state to write: the new issue's state, or a forward move for an existing one */
   writeState?: IssueState;
+  /** title of the phase milestone this unit's issue belongs to (U16) */
+  milestone?: string;
   prs: PlanEvidencePr[];
   prRefsToAdd: PlanEvidencePr[];
   mergedAt?: Date;
@@ -466,6 +468,44 @@ async function compute(
     : [];
   const haveSet = new Set(have.map((h) => h.title));
 
+  // milestone membership (U16): a unit's issue joins its phase's milestone.
+  // An existing issue is moved only when the import owns it (unedited text) or
+  // it has no milestone yet, so a hand-set milestone survives a re-import.
+  const phaseSet = new Set(phaseNames);
+  const haveId = new Map(
+    (phaseNames.length
+      ? await exec
+          .select({ id: projectMilestones.id, title: projectMilestones.title })
+          .from(projectMilestones)
+          .where(and(eq(projectMilestones.projectId, projectId), inArray(projectMilestones.title, phaseNames)))
+      : []
+    ).map((m) => [m.title, m.id]),
+  );
+  const existingIds = units.flatMap((u) => (u.existing ? [u.existing.id] : []));
+  const current = new Map(
+    (existingIds.length
+      ? await exec
+          .select({ id: issues.id, milestoneId: issues.milestoneId })
+          .from(issues)
+          .where(inArray(issues.id, existingIds))
+      : []
+    ).map((r) => [r.id, r.milestoneId]),
+  );
+  for (const u of units) {
+    const phase = u.unit.phase;
+    if (!phase || !phaseSet.has(phase)) continue;
+    u.milestone = phase;
+    const e = u.existing;
+    if (!e || (u.action !== "update" && u.action !== "unchanged")) continue;
+    if (e.projectId !== null && e.projectId !== projectId) continue;
+    const cur = current.get(e.id) ?? null;
+    const target = haveId.get(phase);
+    if ((target === undefined || cur !== target) && (cur === null || u.managed)) {
+      u.changes.push("milestone");
+      u.action = "update";
+    }
+  }
+
   const invalid: PlanImportUnitResult[] = parsed.problems.map((p) => ({
     unitId: p.unitId,
     scopedId: `${scope}-${p.unitId}`,
@@ -541,6 +581,7 @@ function hashOf(
             key: u.existing?.key ?? null,
             changes: u.changes,
             state: u.writeState ?? null,
+            milestone: u.milestone ?? null,
             candidates: u.candidates?.map((x) => x.key) ?? [],
           })),
           ...c.invalid.map((u) => ({ id: u.unitId, action: u.action })),
@@ -621,6 +662,16 @@ export async function importPlan(ctx: ImportContext, req: PlanImportRequest): Pr
         .onConflictDoNothing();
     }
 
+    const milestoneIds = new Map(
+      (
+        await tx
+          .select({ id: projectMilestones.id, title: projectMilestones.title })
+          .from(projectMilestones)
+          .where(eq(projectMilestones.projectId, project.id))
+      ).map((m) => [m.title, m.id]),
+    );
+    const milestoneOf = (u: UnitPlan) => (u.milestone ? (milestoneIds.get(u.milestone) ?? null) : null);
+
     const planRef = async (u: UnitPlan, issueId: string, hash: string | null) => {
       await tx
         .insert(issueExternalRefs)
@@ -666,6 +717,7 @@ export async function importPlan(ctx: ImportContext, req: PlanImportRequest): Pr
           creator: ctx.actor,
           state,
           projectId: project.id,
+          milestoneId: milestoneOf(u),
           event: {
             action: historical ? "imported" : "created",
             after: (key) => ({
@@ -697,6 +749,10 @@ export async function importPlan(ctx: ImportContext, req: PlanImportRequest): Pr
           set.projectId = project.id;
           before.projectId = e.projectId;
           after.projectId = project.id;
+        }
+        if (u.changes.includes("milestone")) {
+          set.milestoneId = milestoneOf(u);
+          after.milestone = u.milestone;
         }
         if (u.changes.includes("state") && u.writeState) {
           set.state = u.writeState;

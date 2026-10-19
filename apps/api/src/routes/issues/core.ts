@@ -15,7 +15,7 @@ import { notifyUsers } from "../../services/notifications.js";
 import { requireHumanReviewer, requireRole } from "../../services/members.js";
 import { requireWorkspace } from "../workspaces.js";
 import { clock } from "../../services/clock.js";
-import { assist, BULK_MAX, bulkSchema, createSchema, findIssue, listQuerySchema, patchSchema, replaceIssueLabels, setIssueLabels, slack, validateAgentActor, validateAssignee, validateCycle, validateParent, validateProject } from "./shared.js";
+import { assist, BULK_MAX, bulkSchema, createSchema, findIssue, listQuerySchema, patchSchema, replaceIssueLabels, setIssueLabels, slack, validateAgentActor, validateAssignee, validateCycle, validateMilestone, validateParent, validateProject } from "./shared.js";
 
 export const coreIssueRoutes = new Hono()
   .post(
@@ -100,6 +100,8 @@ export const coreIssueRoutes = new Hono()
       if (body.cycleId) await validateCycle(ws.id, team.id, body.cycleId);
       if (body.projectId)
         await validateProject(ws.id, team.id, body.projectId);
+      if (body.milestoneId)
+        await validateMilestone(ws.id, body.projectId ?? null, body.milestoneId);
       if (body.parentId) await validateParent(ws.id, body.parentId);
       // validate before creating: a 422 must not leave an orphan issue behind
       if (body.assigneeId && body.assigneeType) {
@@ -127,6 +129,7 @@ export const coreIssueRoutes = new Hono()
         body.assigneeId !== undefined ||
         body.cycleId !== undefined ||
         body.projectId !== undefined ||
+        body.milestoneId !== undefined ||
         body.parentId !== undefined
       ) {
         const [updated] = await db
@@ -144,6 +147,9 @@ export const coreIssueRoutes = new Hono()
             ...(body.cycleId !== undefined ? { cycleId: body.cycleId } : {}),
             ...(body.projectId !== undefined
               ? { projectId: body.projectId }
+              : {}),
+            ...(body.milestoneId !== undefined
+              ? { milestoneId: body.milestoneId }
               : {}),
             ...(body.parentId !== undefined
               ? { parentId: body.parentId }
@@ -195,6 +201,7 @@ export const coreIssueRoutes = new Hono()
       if (q.assignee) filters.push(eq(issues.assigneeId, q.assignee));
       if (q.cycle) filters.push(eq(issues.cycleId, q.cycle));
       if (q.project) filters.push(eq(issues.projectId, q.project));
+      if (q.milestone) filters.push(eq(issues.milestoneId, q.milestone));
       if (q.source) filters.push(eq(issues.source, q.source));
       if (q.search) filters.push(ilike(issues.title, `%${q.search}%`));
       if (q.team) {
@@ -339,12 +346,26 @@ export const coreIssueRoutes = new Hono()
           );
         }
       }
-      if (body.cycleId || body.projectId) {
+      // an explicit milestone change; a project move without one drops a
+      // milestone that no longer matches the project (below)
+      let clearMilestone = false;
+      if (body.cycleId || body.projectId !== undefined || body.milestoneId) {
         const issue = await findIssue(ws.id, key);
         if (body.cycleId)
           await validateCycle(ws.id, issue.teamId, body.cycleId);
         if (body.projectId)
           await validateProject(ws.id, issue.teamId, body.projectId);
+        const project =
+          body.projectId !== undefined ? body.projectId : issue.projectId;
+        if (body.milestoneId) {
+          await validateMilestone(ws.id, project, body.milestoneId);
+        } else if (
+          body.milestoneId === undefined &&
+          body.projectId !== undefined &&
+          body.projectId !== issue.projectId
+        ) {
+          clearMilestone = true;
+        }
       }
       if (body.state !== undefined) {
         // approving (-> done) or sending back (-> in_progress) a review item
@@ -379,6 +400,8 @@ export const coreIssueRoutes = new Hono()
       if (body.assigneeId !== undefined) fields.assigneeId = body.assigneeId;
       if (body.cycleId !== undefined) fields.cycleId = body.cycleId;
       if (body.projectId !== undefined) fields.projectId = body.projectId;
+      if (body.milestoneId !== undefined) fields.milestoneId = body.milestoneId;
+      else if (clearMilestone) fields.milestoneId = null;
       if (body.parentId !== undefined) fields.parentId = body.parentId;
 
       // prior assignee for the change-detection below — one extra read only

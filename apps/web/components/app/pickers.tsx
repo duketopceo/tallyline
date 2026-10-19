@@ -16,6 +16,7 @@ export interface IssueLike {
   assigneeId?: string | null | undefined;
   cycleId?: string | null | undefined;
   projectId?: string | null | undefined;
+  milestoneId?: string | null | undefined;
   teamId?: string | undefined;
   title?: string;
   labels?: { id: string; name: string; color: string }[] | undefined;
@@ -125,6 +126,21 @@ export function useIssueEditors() {
     [meta, picker, run],
   );
 
+  // milestones belong to a project: offer the issue's project's milestones
+  const pickMilestone = useCallback(
+    (anchor: HTMLElement, issues: IssueLike[]) => {
+      const project = issues[0]?.projectId;
+      const milestones = meta.milestones.filter((m) => m.projectId === project);
+      picker.open({
+        anchor,
+        title: "Set milestone",
+        options: [{ id: "none", label: "No milestone" }, ...milestones.map((m) => ({ id: m.id, label: m.title, checked: issues.length === 1 && issues[0]!.milestoneId === m.id }))],
+        onSelect: (id) => run(issues, { milestoneId: id === "none" ? null : id }, `${who(issues)} milestone updated`),
+      });
+    },
+    [meta, picker, run],
+  );
+
   const pickCycle = useCallback(
     (anchor: HTMLElement, issues: IssueLike[]) => {
       const team = issues[0]?.teamId;
@@ -176,5 +192,5 @@ export function useIssueEditors() {
 
   const setTitle = useCallback((issue: IssueLike, title: string) => run([issue], { title }, `${issue.key} renamed`), [run]);
 
-  return { pickState, pickPriority, pickAssignee, pickProject, pickCycle, pickLabels, setTitle, run };
+  return { pickState, pickPriority, pickAssignee, pickProject, pickMilestone, pickCycle, pickLabels, setTitle, run };
 }

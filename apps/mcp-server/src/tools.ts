@@ -26,6 +26,7 @@ interface IssueRow {
   creatorType: string;
   creatorId: string | null;
   projectId: string | null;
+  milestoneId?: string | null;
   cycleId: string | null;
   parentId: string | null;
   source: string;
@@ -117,6 +118,7 @@ function slimIssue(i: IssueRow) {
     assigneeType: i.assigneeType,
     assigneeId: i.assigneeId,
     dueDate: i.dueDate,
+    milestoneId: i.milestoneId ?? null,
     updatedAt: i.updatedAt,
   };
 }
@@ -328,13 +330,14 @@ export const toolDefs: ToolDef[] = [
   defineTool({
     name: "list_issues",
     description:
-      "List issues in the workspace. Filters: state/priority (arrays), team key, assignee id, cycle id, label id, source, title search. Cursor-paginated.",
+      "List issues in the workspace. Filters: state/priority (arrays), team key, assignee id, cycle id, milestone id, label id (the `hitl` label marks work only Luke can do; find its id with list_labels), source, title search. Cursor-paginated.",
     inputSchema: {
       state: z.array(z.enum(ISSUE_STATES)).optional(),
       priority: z.array(z.enum(PRIORITIES)).optional(),
       team: z.string().optional(),
       assignee: uuid.optional(),
       cycle: uuid.optional(),
+      milestone: uuid.optional(),
       label: uuid.optional(),
       source: z.enum(ISSUE_SOURCES).optional(),
       search: z.string().max(200).optional(),
@@ -352,6 +355,7 @@ export const toolDefs: ToolDef[] = [
         team: args.team,
         assignee: args.assignee,
         cycle: args.cycle,
+        milestone: args.milestone,
         label: args.label,
         source: args.source,
         search: args.search,
@@ -436,6 +440,7 @@ export const toolDefs: ToolDef[] = [
       assigneeId: uuid.optional(),
       labelIds: z.array(uuid).max(10).optional(),
       projectId: uuid.optional(),
+      milestoneId: uuid.optional(),
       cycleId: uuid.optional(),
       parentId: uuid.optional(),
     },
@@ -456,6 +461,7 @@ export const toolDefs: ToolDef[] = [
         assigneeId: args.assigneeId,
         labelIds: args.labelIds,
         projectId: args.projectId,
+        milestoneId: args.milestoneId,
         cycleId: args.cycleId,
         parentId: args.parentId,
         // agent-authored issues are marked with provenance source 'api'
@@ -468,7 +474,7 @@ export const toolDefs: ToolDef[] = [
   defineTool({
     name: "update_issue",
     description:
-      "Patch an issue by key — title, description, state (state machine enforced), priority, estimate, dueDate, assignee, cycle, project, parent. Pass null to clear nullable fields.",
+      "Patch an issue by key — title, description, state (state machine enforced), priority, estimate, dueDate, assignee, cycle, project, milestone (must belong to the issue's project), parent. Pass null to clear nullable fields.",
     inputSchema: {
       key: z.string(),
       title: z.string().min(1).max(500).optional(),
@@ -481,6 +487,7 @@ export const toolDefs: ToolDef[] = [
       assigneeId: uuid.nullable().optional(),
       cycleId: uuid.nullable().optional(),
       projectId: uuid.nullable().optional(),
+      milestoneId: uuid.nullable().optional(),
       parentId: uuid.nullable().optional(),
     },
     handler: async (args, client) => {

@@ -16,6 +16,7 @@ export type IssuePatch = Partial<{
   title: string;
   cycleId: string | null;
   projectId: string | null;
+  milestoneId: string | null;
   estimate: number | null;
   labels: { id: string; name: string; color: string }[];
   dueDate: string | null;

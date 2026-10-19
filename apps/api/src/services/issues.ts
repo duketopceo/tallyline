@@ -41,6 +41,7 @@ export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export interface InsertIssueInput extends CreateIssueInput {
   projectId?: string | undefined;
+  milestoneId?: string | null | undefined;
   /** replaces the default `created` event (plan import writes `imported`) */
   event?: {
     action: string;
@@ -82,6 +83,7 @@ export async function insertIssueTx(tx: Tx, input: InsertIssueInput) {
       source: input.source ?? "web",
       state: input.state ?? "backlog",
       projectId: input.projectId ?? null,
+      milestoneId: input.milestoneId ?? null,
       creatorType: input.creator.type,
       creatorId: input.creator.id,
     })
