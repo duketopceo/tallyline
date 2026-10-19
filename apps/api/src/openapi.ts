@@ -382,6 +382,34 @@ const basePaths = {
         },
       },
     },
+    "/v1/workspaces/{ws}/intake": {
+      post: {
+        summary:
+          "Automated intake — normalized error/bug/help/issue events (GlitchTip, GitHub, external reports). Dedupes by provider externalId, groups repeated fingerprints into occurrence bumps, lands issues in triage, and pre-ranks with the triage model when LLM is enabled. Never auto-transitions.",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["kind", "title"],
+          properties: {
+            kind: { type: "string", enum: ["error", "bug", "help", "issue"] },
+            title: { type: "string" },
+            body: { type: "string" },
+            provider: { type: "string" },
+            fingerprint: { type: "string" },
+            externalId: { type: "string" },
+            url: { type: "string" },
+            severity: { type: "string", enum: ["fatal", "error", "warning", "info"] },
+            occurredAt: { type: "string" },
+            payload: { type: "object" },
+          },
+        }),
+        responses: {
+          "200": { description: "Deduped onto an existing issue or dropped as a duplicate delivery" },
+          "201": { description: "Triage issue created" },
+          "422": { description: "Workspace has no team to receive intake" },
+        },
+      },
+    },
     "/v1/workspaces/{ws}/agents": {
       get: {
         summary: "List registered agents",

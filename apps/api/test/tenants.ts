@@ -15,6 +15,7 @@ import {
   invites,
   issueExternalRefs,
   issueLabels,
+  intakeEvents,
   issues,
   labels,
   notifications,
@@ -496,6 +497,9 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
   const reviewIssue = await mkIssue(t, { state: "in_review" });
   await mkIssueLabel(issue.id, label.id);
   const endpoint = await mkEndpoint(t);
+  await db
+    .insert(intakeEvents)
+    .values({ workspaceId: t.ws.id, provider: "matrix", issueId: issue.id });
   const dispatch = await mkDispatch(t, issue.id);
   await newSession(t, "owner"); // sessions row
   return {

@@ -45,6 +45,7 @@ export const issueSourceEnum = pgEnum("issue_source", [
   "slack",
   "api",
   "voice",
+  "intake",
 ]);
 
 export const rolloverEnum = pgEnum("rollover_behavior", [
@@ -287,6 +288,16 @@ export const issues = pgTable(
     parentId: uuid("parent_id"),
     source: issueSourceEnum("source").notNull().default("web"),
     externalRef: jsonb("external_ref").$type<Record<string, unknown>>(),
+    // automated intake (§ plan 2026-10-16): provider fingerprint groups repeated
+    // reports into one issue; occurrenceCount bumps instead of new issues.
+    intakeFingerprint: text("intake_fingerprint"),
+    triageSuggestion: jsonb("triage_suggestion").$type<{
+      action: "accept" | "decline";
+      reason: string;
+      model?: string;
+      at: string;
+    }>(),
+    occurrenceCount: integer("occurrence_count").notNull().default(1),
     sortOrder: real("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -302,6 +313,44 @@ export const issues = pgTable(
     index().on(t.workspaceId, t.cycleId),
     index().on(t.workspaceId, t.assigneeId),
     index().on(t.milestoneId),
+    index("issues_intake_fingerprint_index")
+      .on(t.workspaceId, t.intakeFingerprint)
+      .where(sql`${t.intakeFingerprint} is not null`),
+  ],
+);
+
+// One row per automated-intake delivery (GlitchTip, GitHub, help/bug reports).
+// externalId gives provider delivery idempotency; fingerprint groups repeated
+// errors onto the same issue. status records what the pipe did with it.
+export const intakeEvents = pgTable(
+  "intake_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    endpointId: uuid("endpoint_id"),
+    provider: text("provider").notNull(),
+    externalId: text("external_id"),
+    fingerprint: text("fingerprint"),
+    issueId: uuid("issue_id").references(() => issues.id, {
+      onDelete: "set null",
+    }),
+    status: text("status", {
+      enum: ["accepted", "deduped", "duplicate_delivery", "failed"],
+    })
+      .notNull()
+      .default("accepted"),
+    receivedAt: timestamp("received_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>(),
+  },
+  (t) => [
+    index().on(t.workspaceId, t.issueId),
+    uniqueIndex("intake_events_delivery_unique")
+      .on(t.workspaceId, t.provider, t.externalId)
+      .where(sql`${t.externalId} is not null`),
   ],
 );
 

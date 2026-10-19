@@ -41,6 +41,7 @@ export const ISSUE_SOURCES = [
   "slack",
   "api",
   "voice",
+  "intake",
 ] as const;
 
 export type IssueSource = (typeof ISSUE_SOURCES)[number];

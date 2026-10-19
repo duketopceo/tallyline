@@ -286,6 +286,11 @@ export const OPERATIONS: Record<string, Builder> = {
   // ── issues ─────────────────────────────────────────────────────────────────
   "GET /v1/workspaces/{ws}/issues": get((t) => `${base(t)}/issues`),
   "POST /v1/workspaces/{ws}/issues": simple("POST", (t) => `${base(t)}/issues`, { title: "Matrix issue" }),
+  "POST /v1/workspaces/{ws}/intake": simple("POST", (t) => `${base(t)}/intake`, {
+    kind: "error",
+    title: "Matrix intake probe",
+    externalId: `matrix-${Math.random().toString(36).slice(2)}`,
+  }),
   "GET /v1/workspaces/{ws}/issues/{key}": issueOp("GET", ""),
   "PATCH /v1/workspaces/{ws}/issues/{key}": issueOp("PATCH", "", { title: "Edited" }),
   "GET /v1/workspaces/{ws}/issues/{key}/comments": issueOp("GET", "/comments"),

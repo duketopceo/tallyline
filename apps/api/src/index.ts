@@ -22,6 +22,7 @@ import { dispatchRoutes } from "./routes/dispatches.js";
 import { eventRoutes } from "./routes/events.js";
 import { githubPublicRoutes, githubRoutes } from "./routes/github.js";
 import { importRoutes } from "./routes/import.js";
+import { intakeRoutes } from "./routes/intake.js";
 import { inviteAcceptRoutes, inviteRoutes } from "./routes/invites.js";
 import { issueRoutes } from "./routes/issues.js";
 import { memberRoutes } from "./routes/members.js";
@@ -81,6 +82,7 @@ export const app = new Hono()
   .route("/v1", whoamiRoutes)
   .route("/v1", eventRoutes)
   .route("/v1", issueRoutes)
+  .route("/v1", intakeRoutes)
   .route("/v1", agentRoutes)
   .route("/v1", resourceRoutes)
   .route("/v1", tokenRoutes)

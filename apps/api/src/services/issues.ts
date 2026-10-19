@@ -23,10 +23,12 @@ export interface CreateIssueInput {
   workspaceId: string;
   teamId: string;
   title: string;
-  description?: string;
-  source?: IssueSource;
+  description?: string | undefined;
+  source?: IssueSource | undefined;
   creator: Actor;
-  state?: IssueState;
+  state?: IssueState | undefined;
+  /** provider fingerprint for automated intake dedupe */
+  intakeFingerprint?: string | undefined;
 }
 
 export class NotFoundError extends Error {
@@ -84,6 +86,7 @@ export async function insertIssueTx(tx: Tx, input: InsertIssueInput) {
       state: input.state ?? "backlog",
       projectId: input.projectId ?? null,
       milestoneId: input.milestoneId ?? null,
+      intakeFingerprint: input.intakeFingerprint ?? null,
       creatorType: input.creator.type,
       creatorId: input.creator.id,
     })
