@@ -36,6 +36,8 @@ export interface ListIssue {
   cycleId?: string | null;
   projectId?: string | null;
   source?: string;
+  occurrenceCount?: number;
+  triageSuggestion?: { action: "accept" | "decline"; reason: string } | null;
   createdAt?: string;
   updatedAt?: string;
   dueDate?: string | null;
@@ -453,6 +455,17 @@ function Row({
         </Link>
       )}
       {mode === "triage" && issue.source && <span className="hidden shrink-0 rounded-full border border-lining px-2 text-[11px] text-ink-muted sm:inline">{issue.source}</span>}
+      {mode === "triage" && (issue.occurrenceCount ?? 1) > 1 && (
+        <span title={`${issue.occurrenceCount} occurrences grouped by fingerprint`} className="hidden shrink-0 font-mono text-[11px] text-ink-subtle sm:inline">×{issue.occurrenceCount}</span>
+      )}
+      {mode === "triage" && issue.triageSuggestion && (
+        <span
+          title={`Model triage suggests ${issue.triageSuggestion.action} — ${issue.triageSuggestion.reason}`}
+          className={`hidden shrink-0 rounded-full border border-lining px-1.5 text-[11px] sm:inline ${issue.triageSuggestion.action === "accept" ? "text-accent" : "text-ink-subtle"}`}
+        >
+          {issue.triageSuggestion.action}
+        </span>
+      )}
       {agentFiled && <span title={`Filed by ${names.actor("agent", issue.creatorId)}`}><Glint size={12} label={`Filed by agent ${names.actor("agent", issue.creatorId)}`} /></span>}
       <button type="button" tabIndex={tab} onClick={onPeek} aria-label={`Peek ${issue.key}`} aria-pressed={peekOpen} className={`${ctl} text-ink-subtle opacity-0 focus-visible:opacity-100 group-hover:opacity-100 max-sm:hidden`}>
         <IconPeek size={14} aria-hidden />
