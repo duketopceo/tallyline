@@ -9,7 +9,9 @@ test.describe("logged out", () => {
   test("landing explains humans and agents on one board with real product screenshots", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: /One board for humans and agents/ })).toBeVisible();
-    for (const alt of [/The Tallyline board/, /issue list with the peek panel/, /review queue/, /activity log showing who changed the state/]) {
+    // hero is a DOM-rendered board loop, not a bitmap
+    await expect(page.getByRole("img", { name: /Demo board/ })).toBeVisible();
+    for (const alt of [/issue list with the peek panel/, /review queue/, /activity log showing who changed the state/]) {
       const img = page.getByRole("img", { name: alt });
       await expect(img).toHaveCount(1);
       expect(await img.getAttribute("width")).toBe("1280");
@@ -17,7 +19,7 @@ test.describe("logged out", () => {
       expect(await img.getAttribute("src")).toMatch(/^\/landing\/.*-dark\.webp$/);
     }
     // light variants are served to light-scheme browsers
-    expect(await page.locator('picture source[media="(prefers-color-scheme: light)"]').count()).toBeGreaterThanOrEqual(4);
+    expect(await page.locator('picture source[media="(prefers-color-scheme: light)"]').count()).toBeGreaterThanOrEqual(3);
     await expect(page.getByRole("link", { name: "Sign in" }).first()).toHaveAttribute("href", "/login");
     await expect(page.getByRole("link", { name: "AGPL-3.0 license" })).toBeVisible();
     await expect(page.locator("canvas")).toHaveCount(0); // no WebGL hero
