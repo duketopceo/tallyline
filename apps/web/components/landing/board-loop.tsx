@@ -57,20 +57,20 @@ function Card({ k, t, who, hero, step }: { k: string; t: string; who?: string | 
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[10px] text-ink-subtle">{k}</span>
+        <span className="font-mono text-[11px] text-ink-subtle">{k}</span>
         {who === "glint" && <GlintMark />}
         {who && who !== "glint" && (
-          <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-surface-3 text-[8px] font-medium text-ink-muted">{who}</span>
+          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-surface-3 text-[11px] font-normal text-ink-muted">{who}</span>
         )}
       </div>
-      <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-ink">{t}</p>
+      <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-ink">{t}</p>
       {hero && step === 0 && (
-        <span className="bl-flash mt-1 inline-flex items-center gap-1 rounded-full border border-lining-strong bg-surface-2 px-1.5 py-px text-[9px] text-ink-muted">
+        <span className="bl-flash mt-1 inline-flex items-center gap-1 rounded-full border border-lining-strong bg-surface-2 px-1.5 py-px text-[11px] text-ink-muted">
           <GlintMark /> accept
         </span>
       )}
       {hero && step >= 2 && (
-        <span className="bl-flash mt-1 inline-flex items-center gap-1 rounded-full border border-lining-strong bg-surface-2 px-1.5 py-px text-[9px] text-ink-muted">
+        <span className="bl-flash mt-1 inline-flex items-center gap-1 rounded-full border border-lining-strong bg-surface-2 px-1.5 py-px text-[11px] text-ink-muted">
           <GlintMark /> agent working
         </span>
       )}
@@ -103,7 +103,7 @@ export function BoardLoop() {
         <span className="h-2 w-2 rounded-full bg-lining-strong" />
         <span className="h-2 w-2 rounded-full bg-lining-strong" />
         <span className="h-2 w-2 rounded-full bg-lining-strong" />
-        <span className="ml-3 font-mono text-[10px] text-ink-subtle">tallyline · board</span>
+        <span className="ml-3 font-mono text-[11px] text-ink-subtle">tallyline · board</span>
       </div>
       <style>{`
         .bl-deal { animation: bl-deal 550ms cubic-bezier(.2,.9,.25,1); }
@@ -118,8 +118,8 @@ export function BoardLoop() {
           return (
             <div key={col.key} className="rounded-sm bg-surface-2/60 p-1.5">
               <div className="mb-1.5 flex items-center justify-between px-0.5">
-                <span className="text-[10px] font-medium text-ink-muted">{col.label}</span>
-                <span key={count} className="bl-flash font-mono text-[10px] text-ink-subtle">{count}</span>
+                <span className="text-[11px] font-medium text-ink-muted">{col.label}</span>
+                <span key={count} className="bl-flash font-mono text-[11px] text-ink-subtle">{count}</span>
               </div>
               <div className="space-y-1.5">
                 {here === col.key && (
