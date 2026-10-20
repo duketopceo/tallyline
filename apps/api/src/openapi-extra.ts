@@ -498,7 +498,7 @@ export const extraPaths: Record<string, PathItem> = {
           historical: { type: "boolean", default: false },
           resolutions: {
             type: "object",
-            description: "scoped unit id (KP-U12) to an existing issue key, for ambiguous matches",
+            description: "scoped unit id (KP-U12) to an existing issue key, or \"new\" to create the unit, for ambiguous matches",
             additionalProperties: { type: "string" },
           },
           mode: { type: "string", enum: ["dry_run", "apply"], default: "dry_run" },

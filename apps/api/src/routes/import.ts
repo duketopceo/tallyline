@@ -73,7 +73,7 @@ const planImportSchema = z.object({
   ).optional(),
   historical: z.boolean().default(false),
   resolutions: capped(
-    z.record(z.string().regex(/^[A-Z][A-Z0-9]*-U\d+$/), z.string().regex(/^[A-Z][A-Z0-9]*-\d+$/)),
+    z.record(z.string().regex(/^[A-Z][A-Z0-9]*-U\d+$/), z.union([z.literal("new"), z.string().regex(/^[A-Z][A-Z0-9]*-\d+$/)])),
   ).optional(),
   mode: z.enum(["dry_run", "apply"]).default("dry_run"),
   diffHash: z.string().regex(/^[0-9a-f]{64}$/).optional(),

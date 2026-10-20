@@ -209,6 +209,23 @@ describe("POST /import/plan", () => {
     expect(again.body.counts).toMatchObject({ create: 0, update: 0, unchanged: 5 });
   });
 
+  it("creates a unit resolved to `new` despite an unrelated bare-id match, and the next dry run is unchanged", async () => {
+    const other = await mkIssue(t, { title: "U3 — something from another plan" });
+    const res = { resolutions: { "KP-U3": "new" } };
+    const dry = await call(req(plan(FIVE), res));
+    expect(dry.body.units.find((u) => u.unitId === "U3")).toMatchObject({ action: "create" });
+    expect(dry.body.counts).toMatchObject({ create: 5, ambiguous: 0 });
+    const applied = await call(req(plan(FIVE), { ...res, mode: "apply", diffHash: dry.body.diffHash }));
+    expect(applied.status).toBe(200);
+    expect(await issueRows()).toHaveLength(6);
+    const [untouched] = await db.select().from(issues).where(eq(issues.id, other.id));
+    expect(untouched!.title).toBe("U3 — something from another plan");
+
+    const again = await call(req(plan(FIVE))); // the plan ref wins from now on
+    expect(again.body.units.find((u) => u.unitId === "U3")).toMatchObject({ action: "unchanged", matchedBy: "ref" });
+    expect(again.body.counts).toMatchObject({ create: 0, unchanged: 5, ambiguous: 0 });
+  });
+
   it("rejects a resolution that names an issue that does not exist", async () => {
     const r = await call(req(plan(FIVE), { resolutions: { "KP-U3": "IMP-99999" } }));
     expect(r.status).toBe(422);

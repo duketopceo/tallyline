@@ -24,7 +24,7 @@ It prints the counts, every unit that is not unchanged (ambiguous ones with thei
 tallyline import-plan <same path and flags> --apply --diff-hash <hash>
 ```
 
-`--apply` without `--diff-hash` runs the dry run, prints it, writes nothing and exits 2. A `STALE_DIFF` prints the new diff and exits 5. `--resolutions f.json` maps `KP-U12` to an issue key. `--json` prints the raw diff.
+`--apply` without `--diff-hash` runs the dry run, prints it, writes nothing and exits 2. A `STALE_DIFF` prints the new diff and exits 5. `--resolutions f.json` maps `KP-U12` to an issue key, or to `"new"`. `--json` prints the raw diff.
 
 The CLI reads the plan itself, so the API never needs repo credentials. For a local file it takes the repo from `origin`, the path from the git root and the sha from `HEAD`; for an https github `blob` or `raw` url it fetches the raw file and takes all three from the url (the ref must be a commit sha). Override with `--repo`, `--source-path` and `--sha`. `--scope` is always required.
 
@@ -43,7 +43,7 @@ MCP: the `import_plan` tool takes the same fields (`markdown` instead of a path,
 | `plan.markdown` | The plan text. The client fetches remote plans; the API never needs repo credentials. |
 | `evidence` | Map of unit id (`U12`) to `{ state?, prs?, mergedAt? }`, up to 200 entries. PR urls are built from `repo` and `number`. |
 | `historical` | Allow `evidence` states `in_progress` and `done`. |
-| `resolutions` | Map of scoped unit id (`KP-U12`) to an existing issue key, up to 200 entries. Two units may not resolve to the same issue (`422 DUPLICATE_MATCH`). |
+| `resolutions` | Map of scoped unit id (`KP-U12`) to an existing issue key, or to `"new"` to create the unit when every candidate is unrelated, up to 200 entries. Two units may not resolve to the same issue (`422 DUPLICATE_MATCH`). |
 | `mode`, `diffHash` | `dry_run` or `apply`, and the reviewed hash. |
 
 A plan may hold up to 200 units; more is `422 PLAN_TOO_LARGE`. The request body is limited to 2MB (`413`). The parser reads at most 100,000 lines of 2,000 characters.
@@ -61,7 +61,7 @@ Each unit becomes `[SCOPE-U<N>] title`. The scope keeps two plans that both numb
 ## Matching, in order
 
 1. **Plan ref.** A `plan` external ref with id `<repo>:<path>:<unit id>`, written by an earlier apply. This is how a re-run finds its issues.
-2. **Resolution.** A `resolutions` entry for the unit.
+2. **Resolution.** A `resolutions` entry for the unit. `"new"` skips layers 3 to 5 and creates the issue.
 3. **Scoped id in a title.** `[KP-U12]` anywhere in an existing title. A bare `U12` in a title is ambiguous unless the issue's description names the plan path, in which case it is a match.
 4. **GitHub link.** A GitHub issue the unit names, already linked through GitHub sync. The issue is matched and assigned to the project, not duplicated.
 5. **Title similarity.** `pg_trgm` similarity of 0.85 or more on normalized titles (bracket prefixes removed, punctuation folded). Reported as `ambiguous`, never merged.

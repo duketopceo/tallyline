@@ -35,6 +35,8 @@ import { queueDeliveries } from "./outbound.js";
 
 export const MAX_PLAN_UNITS = 200;
 export const SIMILARITY_THRESHOLD = 0.85;
+/** A resolution value that creates the unit instead of adopting an issue. */
+export const NEW_ISSUE = "new";
 
 type Exec = typeof db | Tx;
 
@@ -237,8 +239,9 @@ async function compute(
   // SQL, so siblings never look like matches of each other
   const prefix = `${source.repo}:${source.path}:`;
 
-  // resolutions: existing issue by key
-  const resolvedKeys = [...new Set(Object.values(resolutions))];
+  // resolutions: existing issue by key, or NEW_ISSUE to create the unit even
+  // when an unrelated issue elsewhere in the workspace looks like a match
+  const resolvedKeys = [...new Set(Object.values(resolutions).filter((k) => k !== NEW_ISSUE))];
   const resolvedRows = resolvedKeys.length
     ? await exec
         .select()
@@ -247,7 +250,7 @@ async function compute(
     : [];
   const byKey = new Map(resolvedRows.map((r) => [r.key, r as ExistingIssue]));
   for (const [scoped, key] of Object.entries(resolutions)) {
-    if (!byKey.has(key)) {
+    if (key !== NEW_ISSUE && !byKey.has(key)) {
       throw new HttpError(422, "UNKNOWN_RESOLUTION", `resolution ${scoped} names ${key}, which is not an issue in this workspace`);
     }
   }
@@ -311,6 +314,7 @@ async function compute(
 
     let existing: ExistingIssue | undefined = byRef.get(refId(req, unit.id));
     let matchedBy: PlanImportUnitResult["matchedBy"];
+    const forceNew = !existing && resolutions[scopedId] === NEW_ISSUE;
     if (existing) {
       matchedBy = "ref";
       // Only text the import itself wrote follows the plan, and only while it
@@ -323,13 +327,13 @@ async function compute(
       }
     } else {
       const resolved = resolutions[scopedId];
-      if (resolved) {
+      if (resolved && resolved !== NEW_ISSUE) {
         existing = byKey.get(resolved);
         matchedBy = "resolution";
       }
     }
 
-    if (!existing) {
+    if (!existing && !forceNew) {
       const scopedRe = new RegExp(`(?<![A-Za-z0-9])${scopedId}(?![0-9])`);
       const bareRe = new RegExp(`(?<![A-Za-z0-9-])${unit.id}(?![0-9])`);
       const scoped = titledRows.filter((r) => scopedRe.test(r.title));
@@ -356,7 +360,7 @@ async function compute(
       }
     }
 
-    if (!existing && base.action !== "ambiguous") {
+    if (!existing && !forceNew && base.action !== "ambiguous") {
       const link = unit.githubIssues
         .map((g) => linkRows.find((l) => l.repo === g.repo && l.number === g.number))
         .find((l) => l !== undefined);
@@ -366,7 +370,7 @@ async function compute(
       }
     }
 
-    if (!existing && base.action !== "ambiguous") {
+    if (!existing && !forceNew && base.action !== "ambiguous") {
       const needle = normTitle(unit.title);
       if (needle) {
         const sim = await exec.execute(sql`
