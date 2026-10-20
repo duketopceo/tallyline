@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { TallyMark } from "@/components/tally-mark";
+import { BoardLoop } from "@/components/landing/board-loop";
 
 const REPO = "https://github.com/duketopceo/tallyline";
 
@@ -112,8 +113,8 @@ export function LandingPage() {
             <Link href="/login" className="flex h-10 items-center rounded-sm border border-control px-5 text-[14px] text-ink-muted hover:bg-surface-2 hover:text-ink">Sign in</Link>
           </div>
           <div className="mx-auto mt-12 max-w-5xl text-left">
-            <Shot name="board" alt="The Tallyline board: columns for triage, backlog, todo, in progress and in review, with people shown as initials and agents shown with the glint" priority />
-            <p className="mt-3 text-center text-[12px] text-ink-subtle">The board on a seeded demo workspace. People show as initials; the <Glint label="agent glint" /> glint marks anything an agent filed or holds.</p>
+            <BoardLoop />
+            <p className="mt-3 text-center text-[12px] text-ink-subtle">A card travels triage to review on a demo board. People show as initials; the <Glint label="agent glint" /> glint marks anything an agent filed or holds.</p>
           </div>
         </section>
 

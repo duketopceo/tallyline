@@ -14,7 +14,6 @@ const state = await c0.storageState();
 await c0.close();
 
 const shots = [
-  ["board", "/board", async () => {}],
   ["issue", `/issues/${process.env.SHOOT_ISSUE ?? "TLY-37"}`, async (p) => { await p.waitForSelector("#sessions"); }],
   ["review", "/review", async (p) => { await p.waitForSelector('[aria-label="Evidence"]'); await p.waitForTimeout(800); }],
   ["list", "/issues?group=state", async (p) => { await p.locator("[data-issue-row]:visible").nth(2).hover(); await p.keyboard.press("Space"); await p.waitForSelector('[aria-label^="Peek"]'); await p.waitForTimeout(800); }],
