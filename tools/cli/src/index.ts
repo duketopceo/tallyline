@@ -23,5 +23,6 @@ const code = await run(process.argv.slice(2), {
   cwd: process.cwd(),
   fetch: (request) => fetch(request),
   stdin: readStdin,
+  isTTY: process.stdout.isTTY === true,
 });
 process.exitCode = code;

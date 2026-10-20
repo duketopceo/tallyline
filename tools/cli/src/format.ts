@@ -1,4 +1,17 @@
 import type { Priority } from "@tallyline/types";
+import {
+  accent,
+  bad,
+  bold,
+  colorOn,
+  dim,
+  GLINT,
+  mut,
+  ok,
+  priorityGlyph,
+  stateGlyph,
+  stateText,
+} from "./pretty.js";
 import type {
   Comment,
   FeedEvent,
@@ -35,8 +48,16 @@ export function slimIssue(i: Issue) {
 }
 
 export function issueRow(i: Issue): string {
-  const assignee = i.assigneeId ? ` @${i.assigneeType ?? "?"}` : "";
-  return `${i.key.padEnd(10)} ${i.state.padEnd(11)} ${i.priority.padEnd(7)} ${i.title}${assignee}`;
+  if (!colorOn()) {
+    const assignee = i.assigneeId ? ` @${i.assigneeType ?? "?"}` : "";
+    return `${i.key.padEnd(10)} ${i.state.padEnd(11)} ${i.priority.padEnd(7)} ${i.title}${assignee}`;
+  }
+  const who = i.assigneeId
+    ? i.assigneeType === "agent"
+      ? ` ${accent(GLINT)}${accent(i.assigneeType)}`
+      : ` ${mut(`@${i.assigneeType ?? "?"}`)}`
+    : ` ${dim("·")}`;
+  return `${stateGlyph(i.state)} ${accent(i.key.padEnd(9))} ${priorityGlyph(i.priority)} ${stateText(i.state.padEnd(14))}${i.title}${who}`;
 }
 
 function stamp(iso: string): string {
@@ -47,34 +68,53 @@ export function issueDetail(
   i: IssueDetail,
   comments: Comment[],
 ): string[] {
-  const lines: string[] = [
-    `${i.key}  ${i.title}`,
-    `state:     ${i.state}`,
-    `priority:  ${i.priority}`,
-    `assignee:  ${
-      i.assigneeId ? `${i.assigneeType} ${i.assigneeId}` : "unassigned"
-    }`,
-    `creator:   ${i.creatorType}${i.creatorId ? ` ${i.creatorId}` : ""}`,
-    `created:   ${stamp(i.createdAt)}`,
-    `updated:   ${stamp(i.updatedAt)}`,
-  ];
+  const field = (k: string, v: string) =>
+    colorOn() ? `${mut(k.padEnd(9))} ${v}` : `${k.padEnd(9)} ${v}`;
+  const lines: string[] = colorOn()
+    ? [
+        `${stateGlyph(i.state)} ${accent(i.key)}  ${bold(i.title)}`,
+        "",
+        field("state", stateText(i.state)),
+        field("priority", `${priorityGlyph(i.priority)} ${i.priority}`),
+        field("assignee", i.assigneeId ? `${i.assigneeType} ${i.assigneeId}` : dim("unassigned")),
+        field("creator", `${i.creatorType}${i.creatorId ? ` ${i.creatorId}` : ""}`),
+        field("created", stamp(i.createdAt)),
+        field("updated", stamp(i.updatedAt)),
+      ]
+    : [
+        `${i.key}  ${i.title}`,
+        `state:     ${i.state}`,
+        `priority:  ${i.priority}`,
+        `assignee:  ${
+          i.assigneeId ? `${i.assigneeType} ${i.assigneeId}` : "unassigned"
+        }`,
+        `creator:   ${i.creatorType}${i.creatorId ? ` ${i.creatorId}` : ""}`,
+        `created:   ${stamp(i.createdAt)}`,
+        `updated:   ${stamp(i.updatedAt)}`,
+      ];
   if (i.labels?.length) {
     lines.push(
-      `labels:    ${i.labels.map((l) => l.name).join(", ")}`,
+      field("labels", i.labels.map((l) => l.name).join(", ")),
     );
   }
   if (i.children?.length) {
     lines.push(
-      `children:  ${i.children.map((c) => `${c.key} ${c.title}`).join(", ")}`,
+      field("children", i.children.map((c) => `${c.key} ${c.title}`).join(", ")),
     );
   }
   if (i.description) {
     lines.push("", i.description.trimEnd());
   }
   if (comments.length > 0) {
-    lines.push("", "comments:");
+    lines.push("", colorOn() ? mut("comments") : "comments:");
     for (const c of comments) {
-      lines.push(`  [${c.actorType} · ${stamp(c.createdAt)}] ${c.body}`);
+      const who = colorOn()
+        ? c.actorType === "agent"
+          ? accent(`${GLINT}${c.actorType}`)
+          : bold(c.actorType)
+        : c.actorType;
+      const when = colorOn() ? dim(stamp(c.createdAt)) : stamp(c.createdAt);
+      lines.push(`  ${colorOn() ? "·" : "["}${who} ${when}${colorOn() ? "" : "]"} ${c.body}`);
     }
   }
   return lines;
@@ -85,5 +125,13 @@ export function eventLine(e: FeedEvent): string {
     ? `${e.actorType}:${e.actorName}`
     : e.actorType;
   const what = e.issueKey ?? `${e.entityType}:${e.entityId.slice(0, 8)}`;
-  return `${e.id.padStart(6)}  ${stamp(e.createdAt)}  ${actor.padEnd(18)} ${e.action.padEnd(14)} ${what}`;
+  if (!colorOn())
+    return `${e.id.padStart(6)}  ${stamp(e.createdAt)}  ${actor.padEnd(18)} ${e.action.padEnd(14)} ${what}`;
+  const action =
+    e.action.includes("creat") || e.action.includes("done")
+      ? ok(e.action.padEnd(14))
+      : e.action.includes("delet") || e.action.includes("cancel")
+        ? bad(e.action.padEnd(14))
+        : accent(e.action.padEnd(14));
+  return `${dim(e.id.padStart(6))}  ${mut(stamp(e.createdAt))}  ${actor.padEnd(18)} ${action} ${what}`;
 }

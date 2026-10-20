@@ -2,6 +2,7 @@ import { parseArgs, type ParseArgsOptionsConfig } from "node:util";
 import { ApiClient, ApiError } from "./client.js";
 import { commands, CliError, type CliIo, type CmdCtx } from "./commands.js";
 import { resolveConfig } from "./config.js";
+import { banner, mut, setColor, versionTag } from "./pretty.js";
 
 export const VERSION = "0.1.0";
 
@@ -12,6 +13,7 @@ const GLOBAL_OPTIONS: ParseArgsOptionsConfig = {
   "api-url": { type: "string" },
   token: { type: "string" },
   help: { type: "boolean", short: "h" },
+  "no-color": { type: "boolean" },
 };
 
 export const HELP = `tallyline — work the board from a shell (alias: tly)
@@ -86,24 +88,32 @@ function apiExitCode(status: number): number {
   return 1;
 }
 
+function wantsColor(argv: string[], io: CliIo): boolean {
+  if (argv.includes("--no-color")) return false;
+  if (io.env.FORCE_COLOR) return true;
+  if (io.env.NO_COLOR !== undefined) return false;
+  return io.isTTY === true;
+}
+
 export async function run(argv: string[], io: CliIo): Promise<number> {
+  setColor(wantsColor(argv, io));
   const name = argv[0];
   try {
     if (name === undefined) {
-      io.err(HELP);
+      io.err(`${banner(VERSION)}\n\n${HELP}`);
       return 2;
     }
     if (name === "help" || name === "--help" || name === "-h") {
-      io.out(argv[1] ? commandHelp(argv[1]) : HELP);
+      io.out(argv[1] ? commandHelp(argv[1]) : `${banner(VERSION)}\n\n${HELP}`);
       return 0;
     }
     if (name === "--version") {
-      io.out(`tallyline ${VERSION}`);
+      io.out(versionTag(VERSION));
       return 0;
     }
     const cmd = commands[name];
     if (!cmd) {
-      io.err(`unknown command '${name}' — run 'tallyline help'`);
+      io.err(`unknown command '${name}' — ${mut("run 'tallyline help'")}`);
       return 2;
     }
 

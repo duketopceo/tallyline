@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ParseArgsOptionsConfig } from "node:util";
+import { colorOn, mut } from "./pretty.js";
 import {
   ISSUE_KEY_PATTERN,
   ISSUE_STATES,
@@ -45,6 +46,7 @@ export interface CliIo {
   cwd: string;
   fetch: FetchLike;
   stdin?: () => Promise<string>;
+  isTTY?: boolean | undefined;
 }
 
 // CLI-side failure carrying an exit code. API-side failures stay ApiError.
@@ -154,7 +156,7 @@ function emitIssueList(ctx: CmdCtx, res: IssueList): void {
     return;
   }
   if (res.issues.length === 0) {
-    ctx.io.out("no issues");
+    ctx.io.out(colorOn() ? mut("· no issues") : "no issues");
     return;
   }
   for (const i of res.issues) ctx.io.out(issueRow(i));
