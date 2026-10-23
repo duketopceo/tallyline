@@ -34,13 +34,8 @@ export interface Insights {
   throughput: { week: string; human: number; agent: number; system: number }[];
 }
 
-<<<<<<< HEAD
-const AXIS = { fontSize: 11, fill: "var(--sl-ink-subtle)" };
-const TIP = {
-=======
 export const AXIS = { fontSize: 11, fontFamily: "monospace", fill: "var(--sl-ink-subtle)" };
 export const TIP = {
->>>>>>> db7ef51 (feat(web): Settings > Usage, plan-limit copy, public legal and trust pages)
   contentStyle: {
     background: "var(--sl-surface-3)",
     border: "1px solid var(--sl-lining-strong)",
@@ -53,21 +48,7 @@ export const TIP = {
   cursor: { fill: "var(--sl-surface-2)" },
 } as const;
 
-<<<<<<< HEAD
-// durations read as minutes, hours or days, never as raw floats
-export function fmtDays(d: number): string {
-  if (!Number.isFinite(d) || d <= 0) return "0m";
-  if (d < 1 / 86400) return "<1s";
-  if (d < 1 / 1440) return `${Math.round(d * 86400)}s`;
-  if (d < 1 / 24) return `${Math.round(d * 1440)}m`;
-  if (d < 1) return `${(d * 24).toFixed(1)}h`;
-  return `${d.toFixed(1)}d`;
-}
-
-function Panel({
-=======
 export function Panel({
->>>>>>> db7ef51 (feat(web): Settings > Usage, plan-limit copy, public legal and trust pages)
   title,
   hint,
   rows,

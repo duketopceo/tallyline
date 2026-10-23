@@ -211,6 +211,13 @@
       "when": 1792741737613,
       "tag": "0029_account_lifecycle",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792798141992,
+      "tag": "0030_usage_entitlements",
+      "breakpoints": true
     }
   ]
 }

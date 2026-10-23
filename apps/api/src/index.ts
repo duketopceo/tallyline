@@ -198,7 +198,6 @@ if (process.env.NODE_ENV !== "test") {
       "MAIL_TRANSPORT=log in production: reset and verification links go to this log only",
     );
   }
-  serve({ fetch: app.fetch, port: config_.port }, (info) => {
   // usage metering: API-call counters every minute, daily rollup hourly
   setInterval(() => {
     void flushApiCalls().catch((err) => console.error("usage flush failed", err));
