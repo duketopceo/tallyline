@@ -6,12 +6,15 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../../db/client.js";
 import {
+  agents,
   events,
   issueLabels,
   issueSuggestionKinds,
   issueSuggestions,
+  issues,
   labels,
   projects,
+  teams,
   workspaceMembers,
   type IssueSuggestionKind,
 } from "../../db/schema.js";
@@ -422,5 +425,4 @@ export const suggestionRoutes = new Hono()
 
       return c.json({ ...updated!, suggestion: updated! });
     },
-  )
   );
