@@ -303,8 +303,7 @@ describe("tenancy: static coverage", () => {
     const stale = Object.keys(TABLE_ENDPOINTS).filter((t) => !tenantTables.includes(t));
     expect(missing, "tenant-scoped tables with no entry in TABLE_ENDPOINTS").toEqual([]);
     expect(stale, "TABLE_ENDPOINTS entries for tables that no longer have workspace_id").toEqual([]);
-    expect(tenantTables.length).toBe(31);
-<<<<<<< HEAD
+    expect(tenantTables.length).toBe(33);
   });
 
   it("the export/purge table list (src/services/tenant-tables.ts) is exactly the tenant tables", () => {
@@ -313,8 +312,6 @@ describe("tenancy: static coverage", () => {
       if (!p.export) expect(p.reason, `${table} is excluded from export without a reason`).toBeTruthy();
     }
     for (const table of Object.keys(TENANT_JOIN_TABLES)) expect(UNSCOPED_TABLES[table]).toBeTruthy();
-=======
->>>>>>> f2b8d25 (feat(api): typed agent sessions with ack and idle sweeps (plan L1))
   });
 
   it("every table either lists swept endpoints or justifies having none", () => {
