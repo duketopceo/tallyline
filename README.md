@@ -27,9 +27,9 @@
 - **Web:** Next.js App Router + Tailwind CSS + shadcn/ui + cmdk (`apps/web`)
 - **API:** Node + Hono + Postgres via Drizzle (`apps/api`)
 - **MCP server:** Model Context Protocol server for AI agents (`apps/mcp-server`)
-- **Dispatch:** agent-routing worker, Postgres-backed (`services/dispatch`)
+- **Dispatch:** agent routing inside the API (`apps/api/src/services/dispatch.ts`)
 - **CLI:** `tallyline` command-line tool (`tools/cli`)
-- **Shared packages:** `packages/ui`, `packages/types`, `packages/config`
+- **Shared packages:** `packages/types`, `packages/silver-lining`
 - **Infra:** Docker Compose (Postgres only) for dev and self-host
 
 ## What it is
@@ -127,9 +127,11 @@ client. Details of the repository layout are in [AGENTS.md](./AGENTS.md).
 
 ## Status
 
-v1.0.0 shipped 2026-10-10 ([CHANGELOG](./CHANGELOG.md)). Known gaps include push-based realtime
-(the event stream polls once a second), an agent key revoke route, and a CI workflow. The plan
-with difficulty ratings is in [ROADMAP.md](./ROADMAP.md); research on the competing tools is in
+v1.0.0 shipped 2026-10-10 ([CHANGELOG](./CHANGELOG.md)). The stack is Postgres-only; agent key
+revoke/rotate and GitHub Actions CI are live. Upcoming work is sequenced in
+[ROADMAP.md](./ROADMAP.md) (full ledger:
+[docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md](./docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md)).
+Research on competing tools:
 [docs/research/2026-10-10-landscape.md](./docs/research/2026-10-10-landscape.md).
 
 ## Docs

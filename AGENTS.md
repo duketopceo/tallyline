@@ -5,21 +5,20 @@
 
 ## What This Repo Does
 
-tallyline is an open-source (AGPL-3.0, with MIT client packages; see LICENSING.md), self-hostable, agent-native issue tracker — a Linear-class product where humans and AI agents are first-class citizens on the same board. It is a TypeScript monorepo: a Next.js web app, a Hono + Postgres (Drizzle) API, an MCP server that exposes the tracker to AI agents, a BullMQ dispatch worker for agent routing, a CLI, and shared packages for UI, types, and config. pnpm workspaces + Turborepo orchestrate the monorepo; Docker Compose provides Postgres and Redis for development and self-hosting.
+tallyline is an open-source (AGPL-3.0, with MIT client packages; see LICENSING.md), self-hostable, agent-native issue tracker — a Linear-class product where humans and AI agents are first-class citizens on the same board. It is a TypeScript monorepo: a Next.js web app, a Hono + Postgres (Drizzle) API, an MCP server that exposes the tracker to AI agents, a CLI, and shared packages for types and the silver-lining design system. Agent dispatch lives in the API (`apps/api/src/services/dispatch.ts`), not a separate worker. pnpm workspaces + Turborepo orchestrate the monorepo; Docker Compose provides Postgres for development and self-hosting.
 
 ## Key Files
 
 - `apps/web` — Next.js App Router web app (Tailwind + shadcn/ui + cmdk)
-- `apps/api` — Node + Hono API server, Postgres via Drizzle
+- `apps/api` — Node + Hono API server, Postgres via Drizzle (includes agent dispatch)
 - `apps/mcp-server` — MCP server exposing tallyline to AI agents
-- `services/dispatch` — BullMQ worker for agent routing/dispatch
 - `tools/cli` — `tallyline` CLI
-- `packages/ui` — shared UI components
 - `packages/types` — shared TypeScript types
-- `packages/config` — shared config (tsconfig, lint, etc.)
-- `docker-compose.yml` — Postgres + Redis for dev and self-host
+- `packages/silver-lining` — design tokens and UI primitives
+- `docker-compose.yml` — Postgres for dev and self-host
 - `plans/` — implementation plans
 - `docs/` — documentation
+- `ROADMAP.md` — pointer to the full status ledger
 
 ## Current Status
 
