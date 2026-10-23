@@ -204,6 +204,13 @@
       "when": 1792445142473,
       "tag": "0028_intake",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792741737613,
+      "tag": "0029_account_lifecycle",
+      "breakpoints": true
     }
   ]
 }
