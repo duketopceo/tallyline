@@ -279,8 +279,6 @@ export const agentRoutes = new Hono()
     },
   );
 
-  });
-
 async function patchAgent(
   c: Context,
   id: string,

@@ -115,6 +115,7 @@ export const agents = pgTable(
     endpointUrl: text("endpoint_url"),
     endpointSecret: text("endpoint_secret"),
     capabilities: jsonb("capabilities").$type<string[]>().default([]).notNull(),
+    skills: jsonb("skills").$type<string[]>().notNull().default([]),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

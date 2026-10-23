@@ -23,6 +23,18 @@ const keyParam = {
   required: true,
   schema: { type: "string", pattern: "^[A-Z][A-Z0-9]*-\\d+$" },
 } as const;
+const sidParam = {
+  name: "sid",
+  in: "path",
+  required: true,
+  schema: { type: "string", format: "uuid" },
+} as const;
+const ridParam = {
+  name: "rid",
+  in: "path",
+  required: true,
+  schema: { type: "string", format: "uuid" },
+} as const;
 
 const jsonBody = (schema: Record<string, unknown>) => ({
   required: true,

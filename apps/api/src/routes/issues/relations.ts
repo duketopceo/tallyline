@@ -9,6 +9,7 @@ import {
   events,
   issueRelations,
   issueRelationTypes,
+  issues,
 } from "../../db/schema.js";
 import { actorFromHeaders } from "../../lib/actor.js";
 import { HttpError } from "../../lib/errors.js";

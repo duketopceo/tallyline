@@ -33,6 +33,8 @@ CREATE TABLE "workflow_definitions" (
 );
 --> statement-breakpoint
 ALTER TABLE "agents" ADD COLUMN "skills" jsonb DEFAULT '[]'::jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "issues" ADD COLUMN "delegate_type" "actor_type";--> statement-breakpoint
+ALTER TABLE "issues" ADD COLUMN "delegate_id" uuid;--> statement-breakpoint
 ALTER TABLE "issue_relations" ADD CONSTRAINT "issue_relations_workspace_id_workspaces_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "issue_relations" ADD CONSTRAINT "issue_relations_source_issue_id_issues_id_fk" FOREIGN KEY ("source_issue_id") REFERENCES "public"."issues"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "issue_relations" ADD CONSTRAINT "issue_relations_target_issue_id_issues_id_fk" FOREIGN KEY ("target_issue_id") REFERENCES "public"."issues"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -42,4 +44,5 @@ ALTER TABLE "workflow_definitions" ADD CONSTRAINT "workflow_definitions_workspac
 CREATE INDEX "issue_relations_workspace_id_source_issue_id_index" ON "issue_relations" USING btree ("workspace_id","source_issue_id");--> statement-breakpoint
 CREATE INDEX "issue_relations_workspace_id_target_issue_id_index" ON "issue_relations" USING btree ("workspace_id","target_issue_id");--> statement-breakpoint
 CREATE INDEX "issue_suggestions_workspace_id_issue_id_index" ON "issue_suggestions" USING btree ("workspace_id","issue_id");--> statement-breakpoint
-CREATE INDEX "workflow_definitions_workspace_id_trigger_index" ON "workflow_definitions" USING btree ("workspace_id","trigger");
+CREATE INDEX "workflow_definitions_workspace_id_trigger_index" ON "workflow_definitions" USING btree ("workspace_id","trigger");--> statement-breakpoint
+CREATE INDEX "issues_workspace_id_delegate_id_index" ON "issues" USING btree ("workspace_id","delegate_id");
