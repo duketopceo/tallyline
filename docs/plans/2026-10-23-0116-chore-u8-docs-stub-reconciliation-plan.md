@@ -49,9 +49,9 @@ After Redis removal and the PM-slice merges, contributor-facing docs still adver
 
 ### Success Criteria
 
-- `rg -i 'bullmq|redis' AGENTS.md README.md CONTRIBUTING.md` is empty (CHANGELOG may still mention Redis removal).
-- `services/dispatch`, `packages/ui`, `packages/config` directories absent.
-- Install + check green.
+- Repo-wide `rg -i 'bullmq|redis'` finds no live claims outside `CHANGELOG.md`, archived `docs/plans/` / `plans/`, and `docs/research/` (historical notes only).
+- `services/dispatch`, `packages/ui`, `packages/config` directories absent; none appear as importers or package names in `pnpm-lock.yaml`.
+- Install + check green; required CI checks on the PR pass (or a named exception is recorded and the plan stays incomplete).
 
 ### Open Questions
 
@@ -85,7 +85,7 @@ None blocking. Deferred: comment/close #88 and update #1 once a public prod URL 
 - **Goal:** Remove empty/stub packages from the monorepo.
 - **Files:** `services/dispatch/` (entire), `packages/ui/` (entire), `packages/config/` (entire), `pnpm-lock.yaml` (via install).
 - **Approach:** `git rm -r` the three trees; run `pnpm install` at repo root.
-- **Test scenarios:** no package.json name `@tallyline/dispatch` remains; lockfile has no `services/dispatch:` workspace key; `pnpm -r list --depth -1` does not list the deleted names.
+- **Test scenarios:** no package.json name `@tallyline/dispatch`, `@tallyline/ui`, or `@tallyline/config` remains; lockfile has no `services/dispatch:`, `packages/ui`, or `packages/config` importer keys; `pnpm -r list --depth -1` does not list the deleted names.
 - **Verification:** `pnpm install` exit 0; `test ! -d services/dispatch && test ! -d packages/ui && test ! -d packages/config`.
 
 ### U2. Reconcile contributor docs
@@ -93,7 +93,7 @@ None blocking. Deferred: comment/close #88 and update #1 once a public prod URL 
 - **Goal:** AGENTS/README/LICENSING describe the real layout and status.
 - **Files:** `AGENTS.md`, `README.md`, `LICENSING.md`; touch `CONTRIBUTING.md` only if needed.
 - **Approach:** Rewrite product blurb and Key Files / Stack; Status gaps → point at ROADMAP full plan and drop revoke/CI claims; LICENSING table drops `services/dispatch`.
-- **Test scenarios:** `rg -i 'bullmq|redis' AGENTS.md README.md CONTRIBUTING.md` empty; README Stack does not list `packages/ui` or `packages/config`; AGENTS Key Files does not list stub paths; Status does not claim missing revoke or CI.
+- **Test scenarios:** repo-wide `rg -i 'bullmq|redis'` (excluding CHANGELOG + archived plans/research) empty; README Stack does not list `packages/ui` or `packages/config`; AGENTS Key Files does not list stub paths; Status does not claim missing revoke or CI; landing/marketing copy does not claim Redis.
 - **Verification:** ripgrep checks above; human skim of README Status.
 
 ## Verification Contract
@@ -106,5 +106,5 @@ None blocking. Deferred: comment/close #88 and update #1 once a public prod URL 
 ## Definition of Done
 
 - U1 and U2 complete; verification commands recorded with exit codes.
-- PR open against `main`; CI watched to decided (LFG babysit); **do not merge**.
+- PR open against `main`; required CI checks pass (LFG babysit to decided); **do not merge**.
 - ROADMAP.md pointer left intact (already correct).

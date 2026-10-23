@@ -184,7 +184,7 @@ export function LandingPage() {
           <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-6 py-16 lg:grid-cols-2">
             <div>
               <h2 className="text-[24px] font-semibold leading-tight tracking-[-0.4px]">Clone to board in ten minutes.</h2>
-              <p className="mt-3 text-[14px] leading-relaxed text-ink-muted">AGPL-3.0 licensed. Docker Compose runs Postgres, Redis, the API and the web app on a VPS, a homelab or your laptop. Your issues stay on your machine, and the app loads no third-party scripts or fonts.</p>
+              <p className="mt-3 text-[14px] leading-relaxed text-ink-muted">AGPL-3.0 licensed. Docker Compose runs Postgres, the API and the web app on a VPS, a homelab or your laptop. Your issues stay on your machine, and the app loads no third-party scripts or fonts.</p>
               <div className="mt-5 flex flex-wrap gap-3">
                 <a href={`${REPO}/blob/main/docs/deploy.md`} target="_blank" rel="noreferrer" className="flex h-9 items-center rounded-sm border border-control px-4 text-[13px] text-ink hover:bg-surface-2">Read the deploy guide</a>
                 <a href={REPO} target="_blank" rel="noreferrer" className="flex h-9 items-center rounded-sm bg-accent px-4 text-[13px] font-medium text-on-accent hover:bg-accent-hover">Star on GitHub</a>
