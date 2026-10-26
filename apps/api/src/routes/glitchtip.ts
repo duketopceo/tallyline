@@ -1,19 +1,19 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../db/client.js";
-import { glitchtipIntegrations, teams } from "../db/schema.js";
+import { glitchtipIntegrations } from "../db/schema.js";
 import { config_ } from "../env.js";
 import { HttpError } from "../lib/errors.js";
 import { clock } from "../services/clock.js";
 import {
-  generateGlitchtipToken,
+  missingTeamKeys,
+  mintGlitchtipToken,
   normalizeProjectMap,
   type GlitchtipIntegration,
   webhookPath,
 } from "../services/glitchtip.js";
-import { hashToken } from "../services/tokens.js";
 import { requireRole } from "../services/members.js";
 import { requireWorkspace } from "./workspaces.js";
 
@@ -56,13 +56,7 @@ async function assertTeamsExist(
   workspaceId: string,
   keys: string[],
 ): Promise<void> {
-  const unique = [...new Set(keys)];
-  if (unique.length === 0) return;
-  const rows = await db
-    .select({ key: teams.key })
-    .from(teams)
-    .where(and(eq(teams.workspaceId, workspaceId), inArray(teams.key, unique)));
-  const missing = unique.filter((k) => !rows.some((r) => r.key === k));
+  const missing = await missingTeamKeys(workspaceId, keys);
   if (missing.length > 0) {
     throw new HttpError(
       422,
@@ -105,13 +99,13 @@ export const glitchtipRoutes = new Hono()
 
       const existing = await load(ws.id);
       if (!existing) {
-        const token = generateGlitchtipToken();
+        const { token, tokenHash, tokenLast4 } = mintGlitchtipToken();
         const [row] = await db
           .insert(glitchtipIntegrations)
           .values({
             workspaceId: ws.id,
-            tokenHash: hashToken(token),
-            tokenLast4: token.slice(-4),
+            tokenHash,
+            tokenLast4,
             projectMap: projectMap ?? {},
             defaultTeamKey: body.defaultTeamKey ?? null,
             enabled: body.enabled ?? true,
@@ -142,12 +136,12 @@ export const glitchtipRoutes = new Hono()
     if (!existing) {
       throw new HttpError(404, "NOT_FOUND", "glitchtip integration not set up");
     }
-    const token = generateGlitchtipToken();
+    const { token, tokenHash, tokenLast4 } = mintGlitchtipToken();
     const [row] = await db
       .update(glitchtipIntegrations)
       .set({
-        tokenHash: hashToken(token),
-        tokenLast4: token.slice(-4),
+        tokenHash,
+        tokenLast4,
         rotatedAt: clock.now(),
       })
       .where(eq(glitchtipIntegrations.id, existing.id))

@@ -20,6 +20,30 @@ export function generateGlitchtipToken(): string {
   return `${TOKEN_PREFIX}${randomBytes(24).toString("base64url")}`;
 }
 
+// a fresh secret plus the only two forms of it that are ever stored
+export function mintGlitchtipToken(): {
+  token: string;
+  tokenHash: string;
+  tokenLast4: string;
+} {
+  const token = generateGlitchtipToken();
+  return { token, tokenHash: hashToken(token), tokenLast4: token.slice(-4) };
+}
+
+// team keys from `keys` that do not exist in the workspace
+export async function missingTeamKeys(
+  workspaceId: string,
+  keys: string[],
+): Promise<string[]> {
+  const unique = [...new Set(keys)];
+  if (unique.length === 0) return [];
+  const rows = await db
+    .select({ key: teams.key })
+    .from(teams)
+    .where(and(eq(teams.workspaceId, workspaceId), inArray(teams.key, unique)));
+  return unique.filter((k) => !rows.some((r) => r.key === k));
+}
+
 export async function findIntegrationByToken(
   token: string,
 ): Promise<GlitchtipIntegration | undefined> {
@@ -95,14 +119,16 @@ export async function ingestGlitchtipAlert(
 
   // decide every destination before ingesting anything so a batch never
   // half-lands
-  const destinations = parsed.items.map((item) => ({
-    item,
-    teamKey: teamFor(integration, item),
-  }));
-  const unmapped = destinations.filter((d) => !d.teamKey);
+  const destinations: { item: GlitchtipItem; teamKey: string }[] = [];
+  const unmapped: GlitchtipItem[] = [];
+  for (const item of parsed.items) {
+    const teamKey = teamFor(integration, item);
+    if (teamKey) destinations.push({ item, teamKey });
+    else unmapped.push(item);
+  }
   if (unmapped.length > 0) {
     const names = [
-      ...new Set(unmapped.map((d) => d.item.projectName ?? "(no project)")),
+      ...new Set(unmapped.map((item) => item.projectName ?? "(no project)")),
     ].slice(0, 10);
     throw new HttpError(
       422,
@@ -110,14 +136,10 @@ export async function ingestGlitchtipAlert(
       `no team mapped for GlitchTip project ${names.join(", ")} and no default team is set`,
     );
   }
-  const keys = [...new Set(destinations.map((d) => d.teamKey!))];
-  const found = await db
-    .select({ key: teams.key })
-    .from(teams)
-    .where(
-      and(eq(teams.workspaceId, integration.workspaceId), inArray(teams.key, keys)),
-    );
-  const missing = keys.filter((k) => !found.some((t) => t.key === k));
+  const missing = await missingTeamKeys(
+    integration.workspaceId,
+    destinations.map((d) => d.teamKey),
+  );
   if (missing.length > 0) {
     throw new HttpError(
       422,
@@ -155,11 +177,11 @@ export async function ingestGlitchtipAlert(
         },
       },
       { type: "system", id: null },
-      { teamKey: teamKey!, skipRank: true },
+      { teamKey, skipRank: true },
     );
     results.push({
       status: r.status,
-      teamKey: teamKey!,
+      teamKey,
       ...(r.issue
         ? { issueKey: r.issue.key, occurrenceCount: r.issue.occurrenceCount }
         : {}),

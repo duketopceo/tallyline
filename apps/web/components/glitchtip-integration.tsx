@@ -25,6 +25,9 @@ export interface TeamOption {
   name: string;
 }
 
+const ghostButtonClass =
+  "rounded-sm px-2 py-1 text-xs text-ink-subtle hover:bg-surface-2 hover:text-ink";
+
 const fieldClass =
   "h-8 rounded-sm border border-lining bg-surface-2 px-2 text-[13px] text-ink outline-none placeholder:text-ink-tertiary focus:border-lining-strong disabled:opacity-50";
 
@@ -42,6 +45,10 @@ export function GlitchtipPanel({
   const [error, setError] = useState<string | null>(null);
   const [reveal, setReveal] = useState<Reveal | null>(null);
   const [copied, setCopied] = useState(false);
+
+  function updateRow(index: number, patch: Partial<MapRow>) {
+    setRows(rows.map((row, j) => (j === index ? { ...row, ...patch } : row)));
+  }
 
   async function call(
     method: string,
@@ -144,7 +151,7 @@ export function GlitchtipPanel({
             />
             <button
               onClick={copy}
-              className="rounded-sm px-2 py-1 text-xs text-ink-subtle hover:bg-surface-2 hover:text-ink"
+              className={ghostButtonClass}
             >
               {copied ? "copied" : "copy"}
             </button>
@@ -168,9 +175,7 @@ export function GlitchtipPanel({
                   value={r.name}
                   aria-label={`GlitchTip project name, row ${i + 1}`}
                   placeholder="project name"
-                  onChange={(e) =>
-                    setRows(rows.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
-                  }
+                  onChange={(e) => updateRow(i, { name: e.target.value })}
                   className={`${fieldClass} w-full font-mono`}
                 />
               </td>
@@ -178,9 +183,7 @@ export function GlitchtipPanel({
                 <select
                   value={r.team}
                   aria-label={`Team for row ${i + 1}`}
-                  onChange={(e) =>
-                    setRows(rows.map((x, j) => (j === i ? { ...x, team: e.target.value } : x)))
-                  }
+                  onChange={(e) => updateRow(i, { team: e.target.value })}
                   className={fieldClass}
                 >
                   <option value="">choose team</option>
@@ -195,7 +198,7 @@ export function GlitchtipPanel({
                 <button
                   onClick={() => setRows(rows.filter((_, j) => j !== i))}
                   aria-label={`Remove row ${i + 1}`}
-                  className="rounded-sm px-2 py-1 text-xs text-ink-subtle hover:bg-surface-2 hover:text-ink"
+                  className={ghostButtonClass}
                 >
                   remove
                 </button>
@@ -215,7 +218,7 @@ export function GlitchtipPanel({
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <button
           onClick={() => setRows([...rows, { name: "", team: "" }])}
-          className="rounded-sm px-2 py-1 text-xs text-ink-subtle hover:bg-surface-2 hover:text-ink"
+          className={ghostButtonClass}
         >
           add project
         </button>
@@ -250,14 +253,14 @@ export function GlitchtipPanel({
             <button
               onClick={rotate}
               disabled={busy}
-              className="rounded-sm px-2 py-1 text-xs text-ink-subtle hover:bg-surface-2 hover:text-ink disabled:opacity-50"
+              className={`${ghostButtonClass} disabled:opacity-50`}
             >
               rotate secret
             </button>
             <button
               onClick={remove}
               disabled={busy}
-              className="rounded-sm px-2 py-1 text-xs text-ink-subtle hover:bg-surface-2 hover:text-ink disabled:opacity-50"
+              className={`${ghostButtonClass} disabled:opacity-50`}
             >
               delete
             </button>

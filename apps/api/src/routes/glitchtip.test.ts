@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { app } from "../index.js";
 import { closeDb, db } from "../db/client.js";
 import { runMigrations } from "../db/migrate.js";
-import { glitchtipIntegrations, intakeEvents, issues } from "../db/schema.js";
+import { comments, glitchtipIntegrations, intakeEvents, issues } from "../db/schema.js";
 import { resetClock, setClock } from "../services/clock.js";
 import { ingestIntake } from "../services/intake.js";
 
@@ -210,6 +210,8 @@ describe("glitchtip native integration", () => {
     const rows = await db.select().from(issues).where(eq(issues.intakeFingerprint, "glitchtip:errors.pacehq.io/pace/4121"));
     expect(rows).toHaveLength(1);
     expect(rows[0]!.occurrenceCount).toBe(2);
+    const notes = await db.select().from(comments).where(eq(comments.issueId, rows[0]!.id));
+    expect(notes.filter((c) => c.body.includes("New occurrence via glitchtip"))).toHaveLength(1);
   });
 
   it("lands every item of a batch on its project's team", async () => {
@@ -255,6 +257,62 @@ describe("glitchtip native integration", () => {
     expect(r.status).toBe(422);
     expect(r.body).toMatchObject({ error: { code: "UNMAPPED_PROJECT" } });
     expect(await db.select().from(issues)).toHaveLength(before.length);
+  });
+
+  it("a batch with one unmapped project lands nothing, not even its mapped items", async () => {
+    const batch = JSON.parse(fx("batch")) as { attachments: { fields: { title: string; value: string }[] }[] };
+    batch.attachments[2]!.fields[0]!.value = "billing-cron"; // was wisp, now unmapped
+    const issuesBefore = await db.select().from(issues);
+    const eventsBefore = await db.select().from(intakeEvents);
+    const r = await hook(token, JSON.stringify(batch));
+    expect(r.status).toBe(422);
+    expect(r.body).toMatchObject({ error: { code: "UNMAPPED_PROJECT" } });
+    expect(await db.select().from(issues)).toHaveLength(issuesBefore.length);
+    expect(await db.select().from(intakeEvents)).toHaveLength(eventsBefore.length);
+  });
+
+  it("an attachment without a Project field is unmapped", async () => {
+    const body = JSON.parse(fx("single-error")) as { attachments: { title_link: string; fields: { title: string }[] }[] };
+    body.attachments[0]!.fields = body.attachments[0]!.fields.filter((f) => f.title !== "Project");
+    body.attachments[0]!.title_link = "https://errors.pacehq.io/pace/issues/5555";
+    const r = await hook(token, JSON.stringify(body));
+    expect(r.status).toBe(422);
+    expect(r.body).toMatchObject({ error: { code: "UNMAPPED_PROJECT" } });
+  });
+
+  it("a mapped team that no longer exists is a 422 and writes nothing", async () => {
+    const [row] = await db.select().from(glitchtipIntegrations);
+    await db
+      .update(glitchtipIntegrations)
+      .set({ projectMap: { ...row!.projectMap, "billing-cron": "GONE" } })
+      .where(eq(glitchtipIntegrations.id, row!.id));
+    const issuesBefore = await db.select().from(issues);
+    const r = await hook(token, fx("unmapped-project"));
+    expect(r.status).toBe(422);
+    expect(r.body).toMatchObject({ error: { code: "UNKNOWN_TEAM" } });
+    expect(await db.select().from(issues)).toHaveLength(issuesBefore.length);
+    await db
+      .update(glitchtipIntegrations)
+      .set({ projectMap: row!.projectMap })
+      .where(eq(glitchtipIntegrations.id, row!.id));
+  });
+
+  it("ingests at most 25 attachments per delivery and reports the rest as dropped", async () => {
+    const one = (JSON.parse(fx("warning")) as { attachments: Record<string, unknown>[] }).attachments[0]!;
+    const body = {
+      text: "GlitchTip Alert (26 issues)",
+      attachments: Array.from({ length: 26 }, (_, i) => ({
+        ...one,
+        title: `Flood ${i}`,
+        title_link: `https://errors.pacehq.io/pace/issues/${8000 + i}`,
+      })),
+    };
+    const r = await hook(token, JSON.stringify(body));
+    expect(r.status).toBe(200);
+    expect(r.body.results).toHaveLength(25);
+    expect(r.body.dropped).toBe(1);
+    const created = (r.body.results as { status: string }[]).filter((x) => x.status === "created");
+    expect(created).toHaveLength(25);
   });
 
   it("routes an unmapped project to the default team once one is set", async () => {
