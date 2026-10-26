@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { app } from "../index.js";
 import { closeDb, db } from "../db/client.js";
 import { runMigrations } from "../db/migrate.js";
-import { comments, glitchtipIntegrations, intakeEvents, issues } from "../db/schema.js";
+import { comments, glitchtipIntegrations, intakeEvents, issues, workspaces } from "../db/schema.js";
 import { resetClock, setClock } from "../services/clock.js";
 import { ingestIntake } from "../services/intake.js";
 
@@ -313,6 +313,25 @@ describe("glitchtip native integration", () => {
     expect(r.body.dropped).toBe(1);
     const created = (r.body.results as { status: string }[]).filter((x) => x.status === "created");
     expect(created).toHaveLength(25);
+  });
+
+  it("a project named like an Object.prototype key is unmapped, not a crash", async () => {
+    for (const name of ["constructor", "__proto__", "toString"]) {
+      const body = JSON.parse(fx("unmapped-project")) as { attachments: { title_link: string; fields: { title: string; value: string }[] }[] };
+      body.attachments[0]!.fields[0]!.value = name;
+      body.attachments[0]!.title_link = `https://errors.pacehq.io/pace/issues/${6000 + name.length}`;
+      const r = await hook(token, JSON.stringify(body));
+      expect(r.status, name).toBe(422);
+      expect(r.body, name).toMatchObject({ error: { code: "UNMAPPED_PROJECT" } });
+    }
+  });
+
+  it("a workspace pending deletion answers like an unknown secret", async () => {
+    const [row] = await db.select().from(glitchtipIntegrations);
+    await db.update(workspaces).set({ deletedAt: new Date() }).where(eq(workspaces.id, row!.workspaceId));
+    expect((await hook(token, fx("single-error"))).status).toBe(404);
+    await db.update(workspaces).set({ deletedAt: null }).where(eq(workspaces.id, row!.workspaceId));
+    expect((await hook(token, fx("uptime"))).status).toBe(200);
   });
 
   it("routes an unmapped project to the default team once one is set", async () => {

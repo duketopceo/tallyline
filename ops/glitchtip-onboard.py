@@ -108,6 +108,22 @@ class Omaseal:
 
 
 # ----------------------------------------------------------------------- http
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow a redirect: the bearer token must only reach the host it was meant for."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[override]
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
+def require_https(url: str, flag: str) -> str:
+    if not url.lower().startswith("https://"):
+        raise Abort(f"{flag} must be an https:// URL (tokens are sent with every request)")
+    return url
+
+
 class Http:
     def request(
         self, method: str, url: str, token: str, body: object | None = None
@@ -125,10 +141,12 @@ class Http:
             },
         )
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with _OPENER.open(req, timeout=30) as resp:
                 raw = resp.read()
                 return resp.status, (json.loads(raw) if raw else {})
         except urllib.error.HTTPError as e:
+            if 300 <= e.code < 400:
+                raise Abort(f"{method} {url.split('?')[0]} answered a redirect (HTTP {e.code}); refusing to follow it with a token attached")
             raw = e.read()
             try:
                 return e.code, json.loads(raw)
@@ -213,8 +231,8 @@ def run(ctx: Ctx) -> int:
         raise Abort(f"no GlitchTip token in omaseal (tried {tried})")
     out.learn(gt_tok)
 
-    T = ctx.tally_url.rstrip("/")
-    G = ctx.glitchtip_url.rstrip("/")
+    T = require_https(ctx.tally_url, "--tally-url").rstrip("/")
+    G = require_https(ctx.glitchtip_url, "--glitchtip-url").rstrip("/")
 
     # ---- Tallyline: who am I, which workspace, am I admin
     st, who = ctx.http.request("GET", f"{T}/v1/whoami", tally_tok)
@@ -344,7 +362,11 @@ def run(ctx: Ctx) -> int:
                     raise Abort("rotate returned no webhook URL")
                 out.learn(url)
                 adopt(url)
-                ctx.secrets.set(*STORED_URL_REF, url)
+                try:
+                    ctx.secrets.set(*STORED_URL_REF, url)
+                except Abort:
+                    out.say("  !!   the secret was rotated on the server (the old URL is dead) but could not be stored in omaseal; rerun with --rotate to mint and store another")
+                    raise
                 out.say(f"  ok   stored the new webhook URL in omaseal ({last4(url)})")
         elif usable:
             adopt(stored)  # type: ignore[arg-type]
@@ -647,7 +669,23 @@ def self_test() -> int:
         assert "Tallyline token" in str(e)
     assert empty_world.calls == []
 
-    print("self-test ok: 9 scenarios")
+    # 10. plain http and redirects are refused
+    for flag_kwargs in ({"tally_url": "http://api.test"}, {"glitchtip_url": "http://glitch.test"}):
+        w = FakeWorld()
+        cc = ctx_for(w, FakeSecrets(base_secrets), apply=False)
+        for k, v in flag_kwargs.items():
+            setattr(cc, k, v)
+        try:
+            run(cc)
+            raise AssertionError("expected Abort")
+        except Abort as e:
+            assert "https://" in str(e)
+        assert w.calls == []
+    redir = urllib.error.HTTPError("https://x/y", 302, "Found", {}, None)  # type: ignore[arg-type]
+    assert _NoRedirect().redirect_request(None, None, 302, "Found", {}, "https://evil/") is None  # type: ignore[arg-type]
+    assert redir.code == 302
+
+    print("self-test ok: 10 scenarios")
     return 0
 
 
@@ -693,6 +731,9 @@ def main(argv: list[str] | None = None) -> int:
         return run(ctx)
     except Abort as e:
         ctx.out.say(f"error: {e}")
+        return 1
+    except Exception as e:  # unexpected response shapes must not dump a traceback with context
+        ctx.out.say(f"error: unexpected {type(e).__name__} while talking to the servers; rerun to continue (the script is safe to re-run)")
         return 1
 
 

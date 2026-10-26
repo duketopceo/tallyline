@@ -57,20 +57,26 @@ export function GlitchtipPanel({
   ): Promise<unknown | null> {
     setBusy(true);
     setError(null);
-    const res = await fetch(`/api/settings/glitchtip${path}`, {
-      method,
-      headers: { "content-type": "application/json" },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
-    setBusy(false);
-    const data = (await res.json().catch(() => null)) as {
-      error?: { message?: string };
-    } | null;
-    if (!res.ok) {
-      setError(data?.error?.message ?? "request failed");
+    try {
+      const res = await fetch(`/api/settings/glitchtip${path}`, {
+        method,
+        headers: { "content-type": "application/json" },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      if (!res.ok) {
+        setError(data?.error?.message ?? "request failed");
+        return null;
+      }
+      return data ?? {};
+    } catch {
+      setError("could not reach the server");
       return null;
+    } finally {
+      setBusy(false);
     }
-    return data ?? {};
   }
 
   async function save() {
@@ -104,8 +110,12 @@ export function GlitchtipPanel({
 
   async function copy() {
     if (!reveal) return;
-    await navigator.clipboard.writeText(reveal.webhookUrl).catch(() => undefined);
-    setCopied(true);
+    try {
+      await navigator.clipboard.writeText(reveal.webhookUrl);
+      setCopied(true);
+    } catch {
+      setError("could not copy; select the URL and copy it by hand");
+    }
   }
 
   const configured = status?.configured === true;

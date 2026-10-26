@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { glitchtipIntegrations, teams } from "../db/schema.js";
+import { glitchtipIntegrations, teams, workspaces } from "../db/schema.js";
 import { HttpError } from "../lib/errors.js";
 import {
   parseGlitchtipAlert,
@@ -48,12 +48,19 @@ export async function findIntegrationByToken(
   token: string,
 ): Promise<GlitchtipIntegration | undefined> {
   if (!token.startsWith(TOKEN_PREFIX) || token.length > 128) return undefined;
+  // a workspace pending deletion is closed: its URL answers like an unknown one
   const [row] = await db
-    .select()
+    .select({ integration: glitchtipIntegrations })
     .from(glitchtipIntegrations)
-    .where(eq(glitchtipIntegrations.tokenHash, hashToken(token)))
+    .innerJoin(workspaces, eq(workspaces.id, glitchtipIntegrations.workspaceId))
+    .where(
+      and(
+        eq(glitchtipIntegrations.tokenHash, hashToken(token)),
+        isNull(workspaces.deletedAt),
+      ),
+    )
     .limit(1);
-  return row && row.enabled ? row : undefined;
+  return row?.integration.enabled ? row.integration : undefined;
 }
 
 export function webhookPath(token: string): string {
@@ -65,12 +72,12 @@ export function webhookPath(token: string): string {
 export function normalizeProjectMap(
   map: Record<string, string>,
 ): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [name, team] of Object.entries(map)) {
-    const k = name.trim().toLowerCase();
-    if (k) out[k] = team.trim().toUpperCase();
-  }
-  return out;
+  // fromEntries defines own properties, so a project named "__proto__" stays data
+  return Object.fromEntries(
+    Object.entries(map)
+      .map(([name, team]) => [name.trim().toLowerCase(), team.trim().toUpperCase()] as const)
+      .filter(([name]) => name),
+  );
 }
 
 export interface AlertResult {
@@ -90,9 +97,12 @@ function teamFor(
   integration: GlitchtipIntegration,
   item: GlitchtipItem,
 ): string | undefined {
-  const mapped = item.projectName
-    ? integration.projectMap[item.projectName.toLowerCase()]
-    : undefined;
+  // own-property lookup: a project called "constructor" must not hit Object.prototype
+  const name = item.projectName?.toLowerCase();
+  const mapped =
+    name !== undefined && Object.hasOwn(integration.projectMap, name)
+      ? integration.projectMap[name]
+      : undefined;
   return mapped ?? integration.defaultTeamKey ?? undefined;
 }
 

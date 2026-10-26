@@ -34,6 +34,12 @@ describe("glitchtip form helpers", () => {
     expect(dup).toMatchObject({ ok: false });
   });
 
+  it("treats Object.prototype names as ordinary project names", () => {
+    const r = buildConfigBody([{ name: "constructor", team: "pace" }, { name: "toString", team: "wisp" }], "");
+    expect(r).toMatchObject({ ok: true });
+    if (r.ok) expect(Object.keys(r.body.projectMap).sort()).toEqual(["constructor", "tostring"]);
+  });
+
   it("round-trips a stored map into sorted rows", () => {
     expect(rowsFromMap({ wisp: "WISP", relay: "PACE" })).toEqual([
       { name: "relay", team: "PACE" },

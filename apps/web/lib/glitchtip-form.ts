@@ -25,18 +25,21 @@ export function buildConfigBody(
   rows: MapRow[],
   defaultTeamKey: string,
 ): BuildResult {
-  const projectMap: Record<string, string> = {};
+  const projectMap: Record<string, string> = Object.create(null);
   for (const row of rows) {
     const name = row.name.trim().toLowerCase();
     const team = row.team.trim().toUpperCase();
     if (!name && !team) continue;
     if (!name) return { ok: false, error: "a mapped row needs a GlitchTip project name" };
     if (!team) return { ok: false, error: `choose a team for ${name}` };
-    if (name in projectMap) return { ok: false, error: `${name} is listed twice` };
+    if (Object.hasOwn(projectMap, name)) return { ok: false, error: `${name} is listed twice` };
     projectMap[name] = team;
   }
   const dflt = defaultTeamKey.trim().toUpperCase();
-  return { ok: true, body: { projectMap, defaultTeamKey: dflt || null } };
+  return {
+    ok: true,
+    body: { projectMap: { ...projectMap }, defaultTeamKey: dflt || null },
+  };
 }
 
 // the one-time reveal: the URL exists only in the response to create/rotate,

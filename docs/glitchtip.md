@@ -19,7 +19,10 @@ GlitchTip alert  ->  POST /webhooks/glitchtip/<secret>  ->  intake  ->  triage i
 - GlitchTip cannot sign requests or add headers, which is why the secret lives
   in the URL.
 - Each issue attachment in a delivery becomes one intake event with provider
-  `glitchtip`. A batched alert (several issues in one post) lands every issue.
+  `glitchtip`. A batched alert (several issues in one post) lands every issue,
+  up to 25 per delivery: attachments beyond the 25th are not ingested and are
+  counted in the response's `dropped` field (GlitchTip itself caps issues per
+  alert, so this only matters for hand-made posts).
 
 ### Payload mapping
 

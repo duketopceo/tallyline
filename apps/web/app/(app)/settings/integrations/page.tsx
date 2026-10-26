@@ -78,8 +78,6 @@ export default async function IntegrationsPage() {
         projects={projectsRes.data?.projects ?? []}
       />
       <GlitchtipPanel
-        // remount when the stored map changes so the draft rows follow it
-        key={JSON.stringify(glitchtipRes.data?.integration ?? null)}
         status={glitchtipRes.data?.integration ?? null}
         teams={teamsRes.data?.teams ?? []}
       />
