@@ -153,7 +153,9 @@ python3 ops/glitchtip-onboard.py --self-test  # offline checks, no network
   address. Each integration gets `GLITCHTIP_RATE_PER_MIN` deliveries a minute
   (default 60, counted whether or not the body is valid) and
   `GLITCHTIP_ISSUES_PER_HOUR` newly created issues an hour (default 100;
-  occurrences folded onto an existing issue do not count). Beyond either the
+  occurrences folded onto an existing issue do not count; the hourly cap is
+  soft, checked before a delivery and charged after it, so one batch of up to 25
+  attachments can overshoot it by that much). Beyond either the
   receiver answers `429 RATE_LIMITED` with `Retry-After`; GlitchTip does not
   retry, so those alerts are dropped. Set a value to `0` to disable that cap.
   Counters live in process memory (reset on restart, per replica) behind the

@@ -97,8 +97,8 @@ export async function ingestIntake(
   // occurrenceCount and leaves a provenance comment instead of a second
   // issue. Several issues can share a fingerprint (an earlier one was closed
   // and a newer one opened), so prefer a live one, newest first: a done-then-
-  // new alert must land on the new issue, never spawn a third. Canceled
-  // issues still bump when nothing is live (a human verdict stands); done
+  // new alert must land on the new issue, never spawn a third. Canceled and
+  // duplicate issues still bump when nothing is live (a human verdict stands); done
   // issues never do, so a regression after a fix opens a fresh issue.
   if (event.fingerprint) {
     const [hit] = await db
@@ -111,7 +111,7 @@ export async function ingestIntake(
         ),
       )
       .orderBy(
-        sql`case ${issues.state} when 'done' then 2 when 'canceled' then 1 else 0 end`,
+        sql`case ${issues.state} when 'done' then 2 when 'canceled' then 1 when 'duplicate' then 1 else 0 end`,
         desc(issues.createdAt),
       )
       .limit(1);
