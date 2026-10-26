@@ -4,7 +4,11 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { app } from "../index.js";
 import { closeDb, db } from "../db/client.js";
 import { runMigrations } from "../db/migrate.js";
-import { comments, glitchtipIntegrations, intakeEvents, issues, workspaces } from "../db/schema.js";
+import { comments, events, glitchtipIntegrations, intakeEvents, issues, teams, workspaces } from "../db/schema.js";
+import { config_ } from "../env.js";
+import { MemoryRateStore } from "../lib/rate-limit.js";
+import { glitchtipDeliveryLimiter, glitchtipIssueLimiter } from "./glitchtip-webhook.js";
+import { hashToken } from "../services/tokens.js";
 import { resetClock, setClock } from "../services/clock.js";
 import { ingestIntake } from "../services/intake.js";
 
@@ -374,5 +378,100 @@ describe("glitchtip native integration", () => {
     expect((await hook(token, fx("uptime"))).status).toBe(404);
     expect((await admin("/rotate", { method: "POST" })).status).toBe(404);
     expect((await admin("")).body.integration).toBeNull();
+  });
+});
+
+describe("glitchtip webhook rate limits (per integration, not per IP)", () => {
+  const OTHER_TOKEN = "tly_gt_other-integration-secret-0123456789";
+  // config_ is read-only to the type system; the limiters read it per request
+  const cfg = config_ as unknown as { glitchtipRatePerMin: number; glitchtipIssuesPerHour: number };
+  const saved = { rate: cfg.glitchtipRatePerMin, issues: cfg.glitchtipIssuesPerHour };
+  let mine = "";
+
+  const alert = (n: number): string => fx("single-error").replaceAll("4121", String(n));
+  const reset = () => {
+    (glitchtipDeliveryLimiter.store as MemoryRateStore).buckets.clear();
+    (glitchtipIssueLimiter.store as MemoryRateStore).buckets.clear();
+  };
+
+  beforeAll(async () => {
+    const r = await admin("", { method: "PUT", body: JSON.stringify({ projectMap: { "portal-ui": "PACE" } }) });
+    expect(r.status).toBe(201);
+    mine = r.body.token as string;
+    // a second workspace and integration, as another tenant behind the same
+    // GlitchTip egress address
+    const [ws] = await db.insert(workspaces).values({ slug: "gt-other", name: "GT Other" }).returning();
+    await db.insert(teams).values({ workspaceId: ws!.id, key: "OTH", name: "Other" });
+    await db.insert(glitchtipIntegrations).values({
+      workspaceId: ws!.id,
+      tokenHash: hashToken(OTHER_TOKEN),
+      tokenLast4: OTHER_TOKEN.slice(-4),
+      defaultTeamKey: "OTH",
+    });
+  });
+
+  afterAll(async () => {
+    cfg.glitchtipRatePerMin = saved.rate;
+    cfg.glitchtipIssuesPerHour = saved.issues;
+    const [ws] = await db.select().from(workspaces).where(eq(workspaces.slug, "gt-other"));
+    if (ws) {
+      await db.delete(glitchtipIntegrations).where(eq(glitchtipIntegrations.workspaceId, ws.id));
+      const other = await db.select({ id: issues.id }).from(issues).where(eq(issues.workspaceId, ws.id));
+      for (const o of other) await db.delete(comments).where(eq(comments.issueId, o.id));
+      await db.delete(intakeEvents).where(eq(intakeEvents.workspaceId, ws.id));
+      await db.delete(events).where(eq(events.workspaceId, ws.id));
+      await db.delete(issues).where(eq(issues.workspaceId, ws.id));
+      await db.delete(teams).where(eq(teams.workspaceId, ws.id));
+      await db.delete(workspaces).where(eq(workspaces.id, ws.id));
+    }
+  });
+
+  it("answers 429 with Retry-After beyond N deliveries a minute; another integration is unaffected; the window reopens", async () => {
+    reset();
+    cfg.glitchtipRatePerMin = 3;
+    cfg.glitchtipIssuesPerHour = 0;
+    for (let i = 0; i < 3; i++) expect((await hook(mine, fx("uptime"))).status).toBe(200);
+    const res = await app.fetch(
+      new Request(`http://api.test/webhooks/glitchtip/${mine}`, { method: "POST", body: fx("uptime") }),
+    );
+    expect(res.status).toBe(429);
+    expect(Number(res.headers.get("retry-after"))).toBeGreaterThan(0);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("RATE_LIMITED");
+
+    // same source address, different integration: its own budget
+    for (let i = 0; i < 3; i++) expect((await hook(OTHER_TOKEN, fx("uptime"))).status).toBe(200);
+    expect((await hook(OTHER_TOKEN, fx("uptime"))).status).toBe(429);
+
+    setClock(() => T0 + 61_000);
+    expect((await hook(mine, fx("uptime"))).status).toBe(200);
+  });
+
+  it("unknown tokens stay 404 and spend no integration's budget", async () => {
+    reset();
+    cfg.glitchtipRatePerMin = 2;
+    for (let i = 0; i < 5; i++) expect((await hook("tly_gt_does-not-exist", fx("uptime"))).status).toBe(404);
+    expect((await hook(mine, fx("uptime"))).status).toBe(200);
+  });
+
+  it("caps issues created per hour; deduped occurrences do not spend it; another integration still creates", async () => {
+    reset();
+    cfg.glitchtipRatePerMin = 0;
+    cfg.glitchtipIssuesPerHour = 2;
+    setClock(() => T0 + 2 * 3_600_000);
+    expect(((await hook(mine, alert(70001))).body.results as { status: string }[])[0]!.status).toBe("created");
+    // a repeat later folds onto the existing issue and is free
+    setClock(() => T0 + 2 * 3_600_000 + 5 * 60_000);
+    expect(((await hook(mine, alert(70001))).body.results as { status: string }[])[0]!.status).toBe("deduped");
+    expect(((await hook(mine, alert(70002))).body.results as { status: string }[])[0]!.status).toBe("created");
+    const over = await hook(mine, alert(70003));
+    expect(over.status).toBe(429);
+    expect(await db.select().from(issues).where(eq(issues.intakeFingerprint, "glitchtip:errors.pacehq.io/pace/70003"))).toHaveLength(0);
+
+    const other = await hook(OTHER_TOKEN, alert(70003));
+    expect(other.status).toBe(200);
+    expect((other.body.results as { status: string; teamKey: string }[])[0]).toMatchObject({ status: "created", teamKey: "OTH" });
+
+    setClock(() => T0 + 2 * 3_600_000 + 61 * 60_000);
+    expect((await hook(mine, alert(70003))).status).toBe(200);
   });
 });

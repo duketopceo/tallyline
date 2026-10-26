@@ -146,8 +146,22 @@ python3 ops/glitchtip-onboard.py --self-test  # offline checks, no network
   `/webhooks/glitchtip/` in proxy logs where you can, and rotate if in doubt.
   The API itself does not log request paths for this route.
 - A leaked URL can only create or bump issues in the mapped teams, capped at 25
-  per delivery and 256 KB per body. Disabling or rotating the integration stops
-  it at once.
+  per delivery and 256 KB per body, and rate limited per integration (below).
+  Disabling or rotating the integration stops it at once.
+- Rate limits are keyed on the integration the secret resolves to, not the
+  client IP, because GlitchTip delivers every workspace's alerts from one
+  address. Each integration gets `GLITCHTIP_RATE_PER_MIN` deliveries a minute
+  (default 60, counted whether or not the body is valid) and
+  `GLITCHTIP_ISSUES_PER_HOUR` newly created issues an hour (default 100;
+  occurrences folded onto an existing issue do not count). Beyond either the
+  receiver answers `429 RATE_LIMITED` with `Retry-After`; GlitchTip does not
+  retry, so those alerts are dropped. Set a value to `0` to disable that cap.
+  Counters live in process memory (reset on restart, per replica) behind the
+  same store interface as the API's other limiters.
+- Intake dedupe prefers a live issue: when a fingerprint matches several
+  issues, a live one (newest first) takes the new occurrence, then a canceled
+  one; a done issue is never bumped, so a regression after a fix opens one new
+  issue and later repeats land on it.
 - Alert text is untrusted. The body of an issue is rendered as plain lines with
   backticks, angle brackets and `@` stripped from payload values, and links are
   accepted only when they are `https` on the GlitchTip host seen in the first

@@ -100,6 +100,47 @@ function limited(c: Context, bucket: Bucket, now: number) {
   return apiError(c, 429, "RATE_LIMITED", `retry in ${retry}s`);
 }
 
+export interface KeyedLimiter {
+  store: RateStore;
+  /** Count one hit for `key`; a 429 response once over the limit. */
+  hit(c: Context, key: string): Promise<Response | undefined>;
+  /** Refuse (429) when `key` is already at the limit, without counting. */
+  guard(c: Context, key: string): Promise<Response | undefined>;
+}
+
+/**
+ * Limiter for a caller-chosen key (e.g. an integration id resolved from a
+ * path token) rather than the requester's identity or IP. `limit` may be a
+ * function so config is read per request; <= 0 disables the limiter.
+ */
+export function createKeyedLimiter(
+  limit: number | (() => number),
+  windowMs: number,
+  opts: LimiterOptions = {},
+): KeyedLimiter {
+  const store = opts.store ?? new MemoryRateStore();
+  const prefix = opts.prefix ?? "key";
+  const max = () => (typeof limit === "function" ? limit() : limit);
+  return {
+    store,
+    async hit(c, key) {
+      const cap = max();
+      if (cap <= 0) return undefined;
+      const now = clock.ms();
+      const bucket = await store.hit(`${prefix}:${key}`, windowMs, now);
+      setHeaders(c, cap, bucket, now);
+      return bucket.count > cap ? limited(c, bucket, now) : undefined;
+    },
+    async guard(c, key) {
+      const cap = max();
+      if (cap <= 0) return undefined;
+      const now = clock.ms();
+      const bucket = await store.peek(`${prefix}:${key}`, now);
+      return bucket && bucket.count >= cap ? limited(c, bucket, now) : undefined;
+    },
+  };
+}
+
 /** Per-identity limiter (agent key / user / IP), mounted after requireSession. */
 export function createRateLimiter(
   limitPerMin: number,

@@ -39,6 +39,11 @@ export const config_ = {
   rateLimitAnonPerMin: Number(env("RATE_LIMIT_ANON_PER_MIN", "120")),
   // login / bootstrap / invite-accept / OAuth start+callback per client IP
   rateLimitAuthPerMin: Number(env("RATE_LIMIT_AUTH_PER_MIN", "30")),
+  // GlitchTip webhook, per integration (not per IP: GlitchTip egresses from
+  // one address for every workspace). Deliveries per minute and issues
+  // created per hour; 0 disables either cap.
+  glitchtipRatePerMin: Number(env("GLITCHTIP_RATE_PER_MIN", "60")),
+  glitchtipIssuesPerHour: Number(env("GLITCHTIP_ISSUES_PER_HOUR", "100")),
   // dispatch ack window: a dispatch still `queued` this long is dead —
   // delivery retries (max ~7.5 min) must finish inside it. 0 disables.
   dispatchAckTimeoutMs: Number(env("DISPATCH_ACK_TIMEOUT_MS", "600000")),
