@@ -2,7 +2,9 @@ import { Hono } from "hono";
 import { commentRoutes } from "./issues/comments.js";
 import { coreIssueRoutes } from "./issues/core.js";
 import { labelRoutes } from "./issues/labels.js";
+import { relationRoutes } from "./issues/relations.js";
 import { slackLinkRoutes } from "./issues/slack-link.js";
+import { suggestionRoutes } from "./issues/suggestions.js";
 import { workflowRoutes } from "./issues/workflow.js";
 
 // The issues surface, mounted in original registration order — sub-routers
@@ -13,4 +15,6 @@ export const issueRoutes = new Hono()
   .route("/", commentRoutes)
   .route("/", workflowRoutes)
   .route("/", labelRoutes)
-  .route("/", slackLinkRoutes);
+  .route("/", slackLinkRoutes)
+  .route("/", suggestionRoutes)
+  .route("/", relationRoutes);

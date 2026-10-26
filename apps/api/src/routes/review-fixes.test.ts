@@ -31,7 +31,7 @@ const req = (method: string, path: string, init: { cookie?: string; body?: unkno
     new Request(`http://rf.test${path}`, {
       method,
       headers: {
-        ...(init.cookie ? { cookie: `dok_session=${init.cookie}` } : {}),
+        ...(init.cookie ? { cookie: `tly_session=${init.cookie}` } : {}),
         ...(init.body === undefined ? {} : { "content-type": "application/json" }),
       },
       ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
