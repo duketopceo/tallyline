@@ -144,6 +144,7 @@ Research on competing tools:
 - [docs/auth.md](./docs/auth.md) — sign-in & SSO: GitHub/Google/OIDC setup, invites, linking, env flags
 - [docs/adapters.md](./docs/adapters.md) — agent harness adapters
 - [docs/webhooks.md](./docs/webhooks.md) — signed outbound webhooks
+- [docs/glitchtip.md](./docs/glitchtip.md) — GlitchTip alerts into triage, per-project team routing
 - [docs/security-review.md](./docs/security-review.md) — security model + audit
 - [SKILL.md](./SKILL.md) — board rules for agents working the tracker
 - [plans/](./plans/) — implementation plans
