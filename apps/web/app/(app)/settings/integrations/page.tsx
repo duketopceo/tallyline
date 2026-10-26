@@ -3,6 +3,11 @@ import {
   GithubRepoPanel,
   type GithubRepoRow,
 } from "@/components/github-repos";
+import {
+  GlitchtipPanel,
+  type GlitchtipStatus,
+  type TeamOption,
+} from "@/components/glitchtip-integration";
 import { SettingsTabs } from "@/components/settings-tabs";
 
 interface ReposResponse {
@@ -31,13 +36,19 @@ export default async function IntegrationsPage() {
     );
   }
 
-  const [reposRes, installRes, projectsRes] = await Promise.all([
+  const [reposRes, installRes, projectsRes, glitchtipRes, teamsRes] = await Promise.all([
     api<ReposResponse>(`/v1/workspaces/${me.data.workspaceSlug}/github/repos`),
     api<InstallUrlResponse>(
       `/v1/workspaces/${me.data.workspaceSlug}/github/install-url`,
     ),
     api<{ projects?: { id: string; name: string }[] }>(
       `/v1/workspaces/${me.data.workspaceSlug}/projects`,
+    ),
+    api<{ integration: GlitchtipStatus | null }>(
+      `/v1/workspaces/${me.data.workspaceSlug}/glitchtip`,
+    ),
+    api<{ teams?: TeamOption[] }>(
+      `/v1/workspaces/${me.data.workspaceSlug}/teams`,
     ),
   ]);
   const repos = reposRes.data?.repos ?? [];
@@ -65,6 +76,12 @@ export default async function IntegrationsPage() {
         installed={installed}
         installUrl={installRes.data?.installUrl ?? null}
         projects={projectsRes.data?.projects ?? []}
+      />
+      <GlitchtipPanel
+        // remount when the stored map changes so the draft rows follow it
+        key={JSON.stringify(glitchtipRes.data?.integration ?? null)}
+        status={glitchtipRes.data?.integration ?? null}
+        teams={teamsRes.data?.teams ?? []}
       />
     </main>
   );
