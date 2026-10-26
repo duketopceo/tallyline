@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { LegalLinks } from "@/components/legal-links";
 import { TallyMark } from "@/components/tally-mark";
 
 interface Provider {
