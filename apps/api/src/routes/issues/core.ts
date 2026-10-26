@@ -363,7 +363,10 @@ export const coreIssueRoutes = new Hono()
         await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
       }
       // assigning to an agent starts a run: refuse before writing anything
-      if (body.assigneeType === "agent" && body.assigneeId) {
+      if (
+        (body.assigneeType === "agent" && body.assigneeId) ||
+        (body.delegateType === "agent" && body.delegateId)
+      ) {
         await assertWithinLimit("agent_runs", ws.id);
       }
       await validateDelegate(ws.id, body.delegateType, body.delegateId);

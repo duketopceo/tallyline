@@ -7,13 +7,18 @@ describe("isPublicPath", () => {
       expect(isPublicPath(p), p).toBe(true);
     }
   });
+  it("treats account-recovery, trust pages and security.txt as public", () => {
+    for (const p of ["/forgot-password", "/reset-password", "/verify-email", "/privacy", "/terms", "/security", "/status", "/.well-known/security.txt"]) {
+      expect(isPublicPath(p), p).toBe(true);
+    }
+  });
   it("treats static assets and metadata images as public", () => {
     for (const p of ["/_next/static/a.js", "/api/auth/methods", "/favicon.ico", "/brand/mark.svg", "/landing/board-dark.webp", "/opengraph-image.png", "/twitter-image.png"]) {
       expect(isPublicPath(p), p).toBe(true);
     }
   });
   it("keeps every app route behind a session (regression: '/' prefix-matched everything)", () => {
-    for (const p of ["/my-issues", "/issues", "/board", "/settings/agents", "/integrations/github/callback", "/activity", "/loginx", "/joined"]) {
+    for (const p of ["/my-issues", "/issues", "/board", "/settings/agents", "/integrations/github/callback", "/activity", "/loginx", "/joined", "/privacy-settings", "/statuses"]) {
       expect(isPublicPath(p), p).toBe(false);
     }
   });

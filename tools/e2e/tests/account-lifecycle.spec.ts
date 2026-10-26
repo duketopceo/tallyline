@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, request, test, type Browser, type Page } from "@playwright/test";
+import { SAME_ORIGIN } from "./helpers";
 
 // Account lifecycle end to end: password reset, email verification, exports,
 // workspace delete + restore, account deletion. Mail is never sent: the API
@@ -42,7 +43,7 @@ async function invitedUser(
 ): Promise<{ email: string; password: string }> {
   const email = `lifecycle-${uniq()}@tallyline.test`;
   const password = `pw-${uniq()}-long-enough`;
-  const inv = await page.request.post("/api/settings/invites", { data: { email, role } });
+  const inv = await page.request.post("/api/settings/invites", { headers: SAME_ORIGIN, data: { email, role } });
   expect(inv.ok(), await inv.text()).toBe(true);
   const { joinUrl } = (await inv.json()) as { joinUrl: string };
   const anon = await request.newContext({ storageState: { cookies: [], origins: [] } });
@@ -56,7 +57,7 @@ async function invitedUser(
 
 async function signedInAs(browser: Browser, email: string, password: string) {
   const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
-  const res = await ctx.request.post("/api/login", { data: { email, password } });
+  const res = await ctx.request.post("/api/login", { headers: SAME_ORIGIN, data: { email, password } });
   expect(res.ok(), await res.text()).toBe(true);
   return { ctx, page: await ctx.newPage() };
 }
@@ -81,7 +82,7 @@ test("password reset: request, emailed link, new password, signed out elsewhere 
   await expect(anon.getByText("Check your email")).toBeVisible();
 
   // the same answer for an address with no account (no enumeration)
-  const unknown = await ctx.request.post("/api/auth/password/forgot", { data: { email: `ghost-${uniq()}@tallyline.test` } });
+  const unknown = await ctx.request.post("/api/auth/password/forgot", { headers: SAME_ORIGIN, data: { email: `ghost-${uniq()}@tallyline.test` } });
   expect(unknown.status()).toBe(202);
 
   const link = await mailLink(page, person.email, "password_reset", "/reset-password");
@@ -102,7 +103,7 @@ test("password reset: request, emailed link, new password, signed out elsewhere 
   // the other device was signed out; the new password works
   await other.page.goto("/settings/account");
   await expect(other.page).toHaveURL(/\/login/);
-  const login = await ctx.request.post("/api/login", { data: { email: person.email, password: fresh } });
+  const login = await ctx.request.post("/api/login", { headers: SAME_ORIGIN, data: { email: person.email, password: fresh } });
   expect(login.ok()).toBe(true);
   await ctx.close();
   await other.ctx.close();
@@ -168,7 +169,7 @@ test("workspace delete then restore, typing the slug @keyboard", async ({ page }
   const slug = `del-${uniq()}`;
   const created = await page.request.post(`${API}/v1/workspaces`, { data: { slug, name: `Delete me ${slug}` } });
   expect(created.status(), await created.text()).toBe(201);
-  const sw = await page.request.post("/api/auth/session", { data: { workspaceSlug: slug } });
+  const sw = await page.request.post("/api/auth/session", { headers: SAME_ORIGIN, data: { workspaceSlug: slug } });
   expect(sw.ok()).toBe(true);
   try {
     await page.goto("/settings/workspace");
@@ -198,7 +199,7 @@ test("workspace delete then restore, typing the slug @keyboard", async ({ page }
     await page.goto("/my-issues");
     await expect(page.getByText("is scheduled for deletion")).toHaveCount(0);
   } finally {
-    await page.request.post("/api/auth/session", { data: { workspaceSlug: "e2e" } });
+    await page.request.post("/api/auth/session", { headers: SAME_ORIGIN, data: { workspaceSlug: "e2e" } });
   }
 });
 
@@ -222,7 +223,7 @@ test("account deletion: typed email, refused for a sole owner, signs out @keyboa
   await p.keyboard.press("Enter");
   await expect(p).toHaveURL(/\/login\?error=account_deleted/);
   await expect(p.getByText("Your account was deleted.")).toBeVisible();
-  const again = await ctx.request.post("/api/login", { data: { email: person.email, password: person.password } });
+  const again = await ctx.request.post("/api/login", { headers: SAME_ORIGIN, data: { email: person.email, password: person.password } });
   expect(again.status()).toBe(401);
   await ctx.close();
 });

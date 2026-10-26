@@ -71,7 +71,7 @@ test("@keyboard provenance: filed-by, session card, failed variant with actions,
   expect(mv.ok).toBeTruthy();
   await failSession(f);
   await page.goto(`/issues/${f.issueKey}`);
-  await expect(page.getByText(new RegExp(`Filed by ${f.agent.name}`))).toBeVisible();
+  await expect(page.getByText(new RegExp(`Filed by ${f.agent.name}`)).locator("visible=true").first()).toBeVisible();
   const sessions = page.getByRole("region", { name: "Agent sessions" });
   await expect(sessions.getByText(f.agent.name).first()).toBeVisible();
   await expect(sessions.getByText("Failed")).toBeVisible();
