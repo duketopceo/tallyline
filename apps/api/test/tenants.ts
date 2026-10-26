@@ -12,6 +12,7 @@ import {
   dispatches,
   events,
   githubInstallations,
+  glitchtipIntegrations,
   githubIssueLinks,
   githubRepos,
   invites,
@@ -595,6 +596,12 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
   const reviewIssue = await mkIssue(t, { state: "in_review" });
   await mkIssueLabel(issue.id, label.id);
   const endpoint = await mkEndpoint(t);
+  await db.insert(glitchtipIntegrations).values({
+    workspaceId: t.ws.id,
+    tokenHash: `gt-hash-${t.sentinel}-0123456789abcdef`,
+    tokenLast4: "abcd",
+    projectMap: {},
+  });
   await db
     .insert(intakeEvents)
     .values({ workspaceId: t.ws.id, provider: "matrix", issueId: issue.id });

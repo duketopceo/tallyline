@@ -1,0 +1,11 @@
+{
+  "text": "GlitchTip Uptime Alert",
+  "attachments": [
+    {
+      "title": "Monitor is down: portal.pacehq.io",
+      "title_link": "https://errors.pacehq.io/pace/uptime/12",
+      "text": "Expected 200 got 503",
+      "color": "#e52b50"
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "text": "GlitchTip Alert (3 issues)",
+  "attachments": [
+    {
+      "title": "TypeError: Cannot read properties of undefined (reading 'id')",
+      "title_link": "https://errors.pacehq.io/pace/issues/4121",
+      "text": "src/portal/checkout.ts in submitOrder",
+      "color": "#e52b50",
+      "fields": [
+        {
+          "title": "Project",
+          "value": "portal-ui",
+          "short": true
+        },
+        {
+          "title": "Environment",
+          "value": "production",
+          "short": true
+        },
+        {
+          "title": "Server Name",
+          "value": "pace-edge-1",
+          "short": true
+        },
+        {
+          "title": "Release",
+          "value": "2026.10.24-3",
+          "short": false
+        }
+      ],
+      "mrkdown_in": [
+        "text"
+      ]
+    },
+    {
+      "title": "ECONNRESET talking to relay",
+      "title_link": "https://errors.pacehq.io/pace/issues/4177",
+      "text": "strut/dispatch.go in (*Dispatcher).Send",
+      "color": "#e9b949",
+      "fields": [
+        {
+          "title": "Project",
+          "value": "strut",
+          "short": true
+        },
+        {
+          "title": "Environment",
+          "value": "production",
+          "short": true
+        },
+        {
+          "title": "Server Name",
+          "value": "pace-edge-1",
+          "short": true
+        },
+        {
+          "title": "Release",
+          "value": "2026.10.24-3",
+          "short": false
+        }
+      ],
+      "mrkdown_in": [
+        "text"
+      ]
+    },
+    {
+      "title": "wisp: ledger write timed out",
+      "title_link": "https://errors.pacehq.io/pace/issues/301",
+      "text": "wisp/ledger.py in append",
+      "color": "#e52b50",
+      "fields": [
+        {
+          "title": "Project",
+          "value": "wisp",
+          "short": true
+        },
+        {
+          "title": "Environment",
+          "value": "production",
+          "short": true
+        },
+        {
+          "title": "Server Name",
+          "value": "pace-edge-1",
+          "short": true
+        },
+        {
+          "title": "Release",
+          "value": "2026.10.24-3",
+          "short": false
+        }
+      ],
+      "mrkdown_in": [
+        "text"
+      ]
+    }
+  ]
+}

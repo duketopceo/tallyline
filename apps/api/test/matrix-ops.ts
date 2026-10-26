@@ -582,6 +582,21 @@ export const OPERATIONS: Record<string, Builder> = {
     return { method: "GET", path: `${base(t)}/webhook-endpoints/${e.id}/deliveries` };
   },
 
+  // ── glitchtip integration ──────────────────────────────────────────────────
+  "GET /v1/workspaces/{ws}/glitchtip": get((t) => `${base(t)}/glitchtip`),
+  "PUT /v1/workspaces/{ws}/glitchtip": async (t) => ({
+    method: "PUT",
+    path: `${base(t)}/glitchtip`,
+    body: { projectMap: {}, enabled: true },
+  }),
+  "DELETE /v1/workspaces/{ws}/glitchtip": simple("DELETE", (t) => `${base(t)}/glitchtip`),
+  "POST /v1/workspaces/{ws}/glitchtip/rotate": simple("POST", (t) => `${base(t)}/glitchtip/rotate`),
+  "POST /webhooks/glitchtip/{token}": async () => ({
+    method: "POST",
+    path: "/webhooks/glitchtip/tly_gt_not-a-real-token",
+    rawBody: "{}",
+  }),
+
   // ── account lifecycle ──────────────────────────────────────────────────────
   // Destructive lifecycle ops carry a confirm that does NOT match, so an
   // authorized caller gets 400 CONFIRM_MISMATCH (authorization already passed)

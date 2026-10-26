@@ -777,6 +777,31 @@ export const agentActivities = pgTable(
   (t) => [index().on(t.sessionId), index().on(t.workspaceId)],
 );
 
+// One GlitchTip alert-webhook integration per workspace. The URL secret is
+// only ever stored as a sha256 hash (plus its last four characters for the
+// UI); projectMap keys are lowercased GlitchTip project names -> team keys.
+export const glitchtipIntegrations = pgTable("glitchtip_integrations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .unique()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull().unique(),
+  tokenLast4: text("token_last4").notNull(),
+  glitchtipHost: text("glitchtip_host"),
+  projectMap: jsonb("project_map")
+    .$type<Record<string, string>>()
+    .notNull()
+    .default({}),
+  defaultTeamKey: text("default_team_key"),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  rotatedAt: timestamp("rotated_at", { withTimezone: true }),
+  lastReceivedAt: timestamp("last_received_at", { withTimezone: true }),
+});
+
 // outbound webhook endpoints — consumers subscribe to issue.*/dispatch.* actions
 export const webhookEndpoints = pgTable(
   "webhook_endpoints",

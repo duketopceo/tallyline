@@ -28,6 +28,8 @@ import { workflowRoutes } from "./routes/workflows.js";
 import { eventRoutes } from "./routes/events.js";
 import { githubPublicRoutes, githubRoutes } from "./routes/github.js";
 import { importRoutes } from "./routes/import.js";
+import { glitchtipRoutes } from "./routes/glitchtip.js";
+import { glitchtipWebhookRoutes } from "./routes/glitchtip-webhook.js";
 import { intakeRoutes } from "./routes/intake.js";
 import { inviteAcceptRoutes, inviteRoutes } from "./routes/invites.js";
 import { issueRoutes } from "./routes/issues.js";
@@ -79,6 +81,7 @@ export const app = new Hono()
   .route("/", mcpRoutes)
   .route("/webhooks", webhookRoutes)
   .route("/webhooks", slackRoutes)
+  .route("/webhooks", glitchtipWebhookRoutes)
   .route("/github", githubPublicRoutes)
   .route("/v1/auth", authRoutes)
   .route("/v1/auth", oauthRoutes)
@@ -100,6 +103,7 @@ export const app = new Hono()
   .route("/v1", eventRoutes)
   .route("/v1", issueRoutes)
   .route("/v1", intakeRoutes)
+  .route("/v1", glitchtipRoutes)
   .route("/v1", agentRoutes)
   .route("/v1", resourceRoutes)
   .route("/v1", tokenRoutes)

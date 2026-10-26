@@ -1,0 +1,36 @@
+{
+  "text": "GlitchTip Alert",
+  "attachments": [
+    {
+      "title": "Slow query: tenants.list",
+      "title_link": "https://errors.pacehq.io/pace/issues/4300",
+      "text": "relay/db.rs in list_tenants",
+      "color": "#e9b949",
+      "fields": [
+        {
+          "title": "Project",
+          "value": "relay",
+          "short": true
+        },
+        {
+          "title": "Environment",
+          "value": "production",
+          "short": true
+        },
+        {
+          "title": "Server Name",
+          "value": "pace-edge-1",
+          "short": true
+        },
+        {
+          "title": "Release",
+          "value": "2026.10.24-3",
+          "short": false
+        }
+      ],
+      "mrkdown_in": [
+        "text"
+      ]
+    }
+  ]
+}

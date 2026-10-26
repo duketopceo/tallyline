@@ -688,6 +688,66 @@ export const extraPaths: Record<string, PathItem> = {
       },
     },
   },
+  "/webhooks/glitchtip/{token}": {
+    post: {
+      summary:
+        "GlitchTip alert webhook receiver (generic or Slack recipient type) — the path secret identifies the workspace integration (stored hashed); unauthenticated by session. Each issue attachment becomes one triage intake event on the mapped team",
+      parameters: [
+        { name: "token", in: "path", required: true, schema: { type: "string" } },
+      ],
+      requestBody: jsonBody({
+        type: "object",
+        properties: {
+          text: { type: "string" },
+          attachments: { type: "array", items: { type: "object" } },
+        },
+      }),
+      responses: {
+        "200": { description: "Accepted, deduped, or ignored (no issue attachment)" },
+        "400": { description: "MALFORMED_PAYLOAD" },
+        "404": { description: "Unknown, rotated or disabled token" },
+        "413": { description: "Body over 256 KB" },
+        "422": { description: "UNMAPPED_PROJECT or UNKNOWN_TEAM" },
+      },
+    },
+  },
+  "/v1/workspaces/{ws}/glitchtip": {
+    get: {
+      summary: "GlitchTip integration status (owner/admin only; the secret is never returned, only its last 4)",
+      parameters: [wsParam],
+      responses: { "200": { description: "Integration or null" } },
+    },
+    put: {
+      summary:
+        "Create the GlitchTip integration, or update its project map, default team and enabled flag (owner/admin only); creation returns the webhook URL once",
+      parameters: [wsParam],
+      requestBody: jsonBody({
+        type: "object",
+        properties: {
+          projectMap: { type: "object", additionalProperties: { type: "string" } },
+          defaultTeamKey: { type: ["string", "null"] },
+          enabled: { type: "boolean" },
+        },
+      }),
+      responses: {
+        "200": { description: "Updated integration" },
+        "201": { description: "Created (includes token and webhookUrl, shown once)" },
+        "422": { description: "UNKNOWN_TEAM" },
+      },
+    },
+    delete: {
+      summary: "Delete the GlitchTip integration (owner/admin only); its webhook URL stops working",
+      parameters: [wsParam],
+      responses: { "200": { description: "Deleted" }, "404": { description: "Not set up" } },
+    },
+  },
+  "/v1/workspaces/{ws}/glitchtip/rotate": {
+    post: {
+      summary: "Rotate the GlitchTip webhook secret (owner/admin only); the old URL dies immediately, the new one is returned once",
+      parameters: [wsParam],
+      responses: { "200": { description: "Rotated (includes token and webhookUrl)" }, "404": { description: "Not set up" } },
+    },
+  },
   "/v1/workspaces/{ws}/webhook-endpoints": {
     get: {
       summary: "List outbound webhook endpoints (owner/admin only; secrets masked to last 4)",

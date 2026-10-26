@@ -15,6 +15,8 @@ export interface TenantTablePolicy {
 }
 
 export const TENANT_TABLES: Record<string, TenantTablePolicy> = {
+  agent_activities: { export: true },
+  agent_sessions: { export: true },
   agent_keys: { export: true, redact: ["token_hash"] },
   agents: { export: true, redact: ["endpoint_secret"] },
   auth_providers: {
@@ -28,12 +30,17 @@ export const TENANT_TABLES: Record<string, TenantTablePolicy> = {
   dispatches: { export: true },
   events: { export: true },
   github_installations: { export: true },
+  glitchtip_integrations: { export: true, redact: ["token_hash"] },
   github_issue_links: { export: true },
   github_repos: { export: true },
+  intake_events: { export: true },
   invites: { export: true, redact: ["token_hash"] },
   issue_external_refs: { export: true },
+  issue_relations: { export: true },
+  issue_suggestions: { export: true },
   issues: { export: true },
   labels: { export: true },
+  notifications: { export: true },
   oauth_codes: {
     export: false,
     reason: "one-minute sign-in handoff codes (hashes); transient auth state, not workspace content",
@@ -47,10 +54,12 @@ export const TENANT_TABLES: Record<string, TenantTablePolicy> = {
   },
   slack_links: { export: true },
   teams: { export: true },
+  usage_daily: { export: true },
   user_tokens: { export: true, redact: ["token_hash"] },
   views: { export: true },
   webhook_deliveries: { export: true },
   webhook_endpoints: { export: true, redact: ["secret"] },
+  workflow_definitions: { export: true },
   workspace_members: { export: true },
 };
 

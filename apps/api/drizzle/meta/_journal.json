@@ -232,6 +232,13 @@
       "when": 1792805882015,
       "tag": "0032_delegate_and_linear_l3_l8",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792987490244,
+      "tag": "0033_glitchtip_integration",
+      "breakpoints": true
     }
   ]
 }

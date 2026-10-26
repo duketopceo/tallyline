@@ -24,6 +24,14 @@ export interface IntakeInput {
   payload?: Record<string, unknown> | undefined;
 }
 
+// Call options that are not part of the event body: the GlitchTip receiver
+// routes to a specific team and never feeds untrusted error text to the
+// triage ranker.
+export interface IntakeOptions {
+  teamKey?: string | undefined;
+  skipRank?: boolean | undefined;
+}
+
 export type IntakeStatus = "created" | "deduped" | "duplicate_delivery";
 
 export interface IntakeResult {
@@ -65,6 +73,7 @@ export async function ingestIntake(
   workspaceId: string,
   event: IntakeInput,
   actor: Actor,
+  options: IntakeOptions = {},
 ): Promise<IntakeResult> {
   const provider = event.provider ?? "generic";
 
@@ -129,18 +138,28 @@ export async function ingestIntake(
     }
   }
 
-  // 3. intake lands on the workspace's first team as a triage issue
+  // 3. intake lands on the requested team, else the workspace's first team,
+  // as a triage issue
   const [team] = await db
     .select({ id: teams.id })
     .from(teams)
-    .where(eq(teams.workspaceId, workspaceId))
+    .where(
+      options.teamKey
+        ? and(
+            eq(teams.workspaceId, workspaceId),
+            eq(teams.key, options.teamKey),
+          )
+        : eq(teams.workspaceId, workspaceId),
+    )
     .orderBy(teams.key)
     .limit(1);
   if (!team) {
     throw new HttpError(
       422,
       "NO_TEAM",
-      "workspace has no team to receive automated intake",
+      options.teamKey
+        ? `team ${options.teamKey} not found for automated intake`
+        : "workspace has no team to receive automated intake",
     );
   }
 
@@ -165,7 +184,7 @@ export async function ingestIntake(
   let suggestion:
     | { action: "accept" | "decline"; reason: string; at: string }
     | undefined;
-  if (llmEnabled()) {
+  if (llmEnabled() && !options.skipRank) {
     try {
       const s = await createAssist().suggestTriage(workspaceId, issue.key);
       suggestion = {
