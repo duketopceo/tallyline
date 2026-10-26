@@ -36,6 +36,7 @@ issues:
   show        show <KEY> — detail + comments
   comment     comment <KEY> [body] [--body b]  (or stdin)
   triage      triage <KEY> accept|decline
+  teams       teams [list] | teams create --key K --name N [--rollover r]
 
 plans:
   import-plan import-plan <path|https-url> --project P --scope KP

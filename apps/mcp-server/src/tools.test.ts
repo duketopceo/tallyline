@@ -482,6 +482,13 @@ describe("tool surface over the real API", () => {
       (teamsRes.data.teams as { key: string }[]).map((t) => t.key),
     ).toContain(teamKey);
 
+    const madeTeam = await call("create_team", { key: "MCPT", name: "Made by MCP" });
+    expect(madeTeam.res.isError).toBeFalsy();
+    expect(madeTeam.data.key).toBe("MCPT");
+    const dupTeam = await call("create_team", { key: "MCPT", name: "Again" });
+    expect(dupTeam.res.isError).toBe(true);
+    expect(dupTeam.data.error!.code).toBe("CONFLICT");
+
     const membersRes = await call("list_members", {});
     expect(
       (membersRes.data.members as { role: string }[]).map((m) => m.role),
@@ -777,6 +784,7 @@ describe("MCP protocol end-to-end (InMemoryTransport)", () => {
       "create_cycle",
       "assign_cycle",
       "list_teams",
+      "create_team",
       "list_labels",
       "list_events",
       "session_get",

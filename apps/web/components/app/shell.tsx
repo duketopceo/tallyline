@@ -93,6 +93,7 @@ export function Shell({ children, peek }: { children: ReactNode; peek: ReactNode
     { href: "/issues", label: "Issues", hint: "g a", icon: "issues" },
     { href: "/cycle", label: "Cycles", hint: "g c", icon: "cycle" },
     { href: "/roadmap", label: "Roadmap", hint: "g p", icon: "roadmap" },
+    { href: "/projects", label: "Projects", hint: "g o", icon: "roadmap" },
   ];
   const more: Item[] = [
     { href: "/activity", label: "Activity", hint: "g e", icon: "activity" },

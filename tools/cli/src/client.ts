@@ -136,6 +136,12 @@ export interface Workspace {
   createdAt: string;
 }
 
+export interface Team {
+  id: string;
+  key: string;
+  name: string;
+}
+
 export interface CreateIssueInput {
   title: string;
   teamKey?: string;
@@ -278,6 +284,18 @@ export class ApiClient {
         limit: query.limit,
       },
     });
+  }
+
+  listTeams(): Promise<{ teams: Team[] }> {
+    return this.req("GET", "/teams");
+  }
+
+  createTeam(body: {
+    key: string;
+    name: string;
+    rolloverBehavior?: "next_cycle" | "backlog";
+  }): Promise<Team> {
+    return this.req("POST", "/teams", { body });
   }
 
   getIssue(key: string): Promise<IssueDetail> {

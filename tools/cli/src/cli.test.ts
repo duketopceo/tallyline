@@ -409,6 +409,18 @@ describe("tallyline cli (in-process api)", () => {
     expect(bad.err[0]).toContain("NOT_IN_TRIAGE");
   });
 
+  it("teams lists and creates; a duplicate key is a conflict", async () => {
+    const made = await cli(["teams", "create", "--key", "clit", "--name", "CLI team", "--json"]);
+    expect(made.code).toBe(0);
+    expect((made.json() as { key: string }).key).toBe("CLIT");
+    const listed = await cli(["teams", "--json"]);
+    expect((listed.json() as { teams: { key: string }[] }).teams.map((t) => t.key)).toContain("CLIT");
+    const dup = await cli(["teams", "create", "--key", "CLIT", "--name", "again"]);
+    expect(dup.code).toBe(5);
+    const bad = await cli(["teams", "create", "--key", "toolongkey", "--name", "x"]);
+    expect(bad.code).toBe(2);
+  });
+
   it("events returns the feed chronologically with --after resume", async () => {
     const all = await cli(["events", "--json"]);
     expect(all.code).toBe(0);
