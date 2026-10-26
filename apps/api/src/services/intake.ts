@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { comments, intakeEvents, issues, teams } from "../db/schema.js";
 import { HttpError } from "../lib/errors.js";
@@ -93,9 +93,13 @@ export async function ingestIntake(
     .returning({ id: intakeEvents.id });
   if (!eventRow) return { status: "duplicate_delivery" };
 
-  // 2. fingerprint dedupe — a fingerprint already on a live (non-done) issue
-  // bumps occurrenceCount and leaves a provenance comment instead of a second
-  // issue. Declined/canceled issues bump too: a human verdict stands.
+  // 2. fingerprint dedupe — a fingerprint already on a live issue bumps
+  // occurrenceCount and leaves a provenance comment instead of a second
+  // issue. Several issues can share a fingerprint (an earlier one was closed
+  // and a newer one opened), so prefer a live one, newest first: a done-then-
+  // new alert must land on the new issue, never spawn a third. Canceled
+  // issues still bump when nothing is live (a human verdict stands); done
+  // issues never do, so a regression after a fix opens a fresh issue.
   if (event.fingerprint) {
     const [hit] = await db
       .select()
@@ -105,6 +109,10 @@ export async function ingestIntake(
           eq(issues.workspaceId, workspaceId),
           eq(issues.intakeFingerprint, event.fingerprint),
         ),
+      )
+      .orderBy(
+        sql`case ${issues.state} when 'done' then 2 when 'canceled' then 1 else 0 end`,
+        desc(issues.createdAt),
       )
       .limit(1);
     if (hit && hit.state !== "done") {

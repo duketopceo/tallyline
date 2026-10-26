@@ -178,6 +178,39 @@ describe("automated intake", () => {
     expect((got.body as { intakeFingerprint?: string }).intakeFingerprint).toBe("fp-xyz");
   });
 
+  it("done then a new alert opens one fresh issue; a third alert bumps it instead of making a third", async () => {
+    const fp = "fp-regress";
+    const first = await postIntake({ kind: "error", provider: "glitchtip", title: "regress", fingerprint: fp, externalId: "reg-1" });
+    expect(first.status).toBe(201);
+    const oldKey = (first.body.issue as { key: string }).key;
+    await db.update(issues).set({ state: "done" }).where(eq(issues.key, oldKey));
+
+    // done issues are never bumped: the regression opens a new issue
+    const second = await postIntake({ kind: "error", provider: "glitchtip", title: "regress", fingerprint: fp, externalId: "reg-2" });
+    expect(second.status).toBe(201);
+    const newKey = (second.body.issue as { key: string }).key;
+    expect(newKey).not.toBe(oldKey);
+
+    // with a done issue and a newer live one, the live one wins (newest-first
+    // alone would also pick it, so make the done one the NEWEST row too)
+    await db.update(issues).set({ createdAt: new Date(Date.now() + 60_000) }).where(eq(issues.key, oldKey));
+    const third = await postIntake({ kind: "error", provider: "glitchtip", title: "regress", fingerprint: fp, externalId: "reg-3" });
+    expect(third.body.status).toBe("deduped");
+    expect((third.body.issue as { key: string; occurrenceCount: number })).toMatchObject({ key: newKey, occurrenceCount: 2 });
+    const rows = await db.select().from(issues).where(eq(issues.intakeFingerprint, fp));
+    expect(rows).toHaveLength(2);
+  });
+
+  it("a canceled issue only absorbs repeats when no live one exists", async () => {
+    const fp = "fp-canceled";
+    const first = await postIntake({ kind: "error", provider: "glitchtip", title: "cx", fingerprint: fp, externalId: "cx-1" });
+    const key = (first.body.issue as { key: string }).key;
+    await db.update(issues).set({ state: "canceled" }).where(eq(issues.key, key));
+    const again = await postIntake({ kind: "error", provider: "glitchtip", title: "cx", fingerprint: fp, externalId: "cx-2" });
+    expect(again.body.status).toBe("deduped");
+    expect((again.body.issue as { key: string }).key).toBe(key);
+  });
+
   it("rejects malformed events", async () => {
     const res = await postIntake({ kind: "error" });
     expect(res.status).toBe(400);
