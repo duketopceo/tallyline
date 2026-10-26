@@ -363,7 +363,10 @@ export const coreIssueRoutes = new Hono()
         await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
       }
       // assigning to an agent starts a run: refuse before writing anything
-      if (body.assigneeType === "agent" && body.assigneeId) {
+      if (
+        (body.assigneeType === "agent" && body.assigneeId) ||
+        (body.delegateType === "agent" && body.delegateId)
+      ) {
         await assertWithinLimit("agent_runs", ws.id);
       }
       await validateDelegate(ws.id, body.delegateType, body.delegateId);
@@ -501,19 +504,31 @@ export const coreIssueRoutes = new Hono()
           after: { assigneeId: body.assigneeId ?? null },
         });
       }
-      if (
-        body.delegateType === "agent" &&
-        body.delegateId &&
-        issue &&
-        (prevAssignment?.delegateType !== "agent" ||
-          prevAssignment?.delegateId !== body.delegateId)
-      ) {
-        await createDispatch({
-          workspaceId: ws.id,
-          issueId: issue.id,
-          agentId: body.delegateId,
-          trigger: "assign",
-        });
+      // Dispatch triggers: the delegate (changed), and the legacy agent
+      // assignee (deprecated but still dispatches — clients that only set
+      // assigneeType='agent' must keep working). One dispatch per distinct
+      // agent, so a client sending both for the same agent isn't doubled.
+      if (issue) {
+        const dispatchAgents = new Set<string>();
+        if (
+          body.delegateType === "agent" &&
+          body.delegateId &&
+          (prevAssignment?.delegateType !== "agent" ||
+            prevAssignment?.delegateId !== body.delegateId)
+        ) {
+          dispatchAgents.add(body.delegateId);
+        }
+        if (body.assigneeType === "agent" && body.assigneeId) {
+          dispatchAgents.add(body.assigneeId);
+        }
+        for (const agentId of dispatchAgents) {
+          await createDispatch({
+            workspaceId: ws.id,
+            issueId: issue.id,
+            agentId,
+            trigger: "assign",
+          });
+        }
       }
       // human assignment change → inbox row (re-assigning the same person
       // doesn't re-notify)

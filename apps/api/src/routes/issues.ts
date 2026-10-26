@@ -16,5 +16,5 @@ export const issueRoutes = new Hono()
   .route("/", workflowRoutes)
   .route("/", labelRoutes)
   .route("/", slackLinkRoutes)
-  .route("/", relationRoutes)
-  .route("/", suggestionRoutes);
+  .route("/", suggestionRoutes)
+  .route("/", relationRoutes);

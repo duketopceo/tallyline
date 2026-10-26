@@ -41,7 +41,7 @@ async function req(
       method: init.method ?? "GET",
       headers: {
         ...(init.body !== undefined ? { "content-type": "application/json" } : {}),
-        ...(init.cookie ? { cookie: `dok_session=${init.cookie}` } : {}),
+        ...(init.cookie ? { cookie: `tly_session=${init.cookie}` } : {}),
         ...(init.bearer ? { authorization: `Bearer ${init.bearer}` } : {}),
       },
       ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
@@ -287,7 +287,7 @@ describe("email verification", () => {
       body: { token, name: "New Person", password: "new-person-password" },
     });
     expect(r.status).toBe(201);
-    return r.headers.get("set-cookie")!.match(/dok_session=([^;]+)/)![1]!;
+    return r.headers.get("set-cookie")!.match(/tly_session=([^;]+)/)![1]!;
   }
 
   it("invite claims start unverified: banner flag, no PATs or agent keys until verified", async () => {
@@ -386,7 +386,7 @@ describe("account deletion", () => {
 
     const r = await req("/v1/me/deletion", { method: "POST", cookie, body: { confirm: ` ${u!.email.toUpperCase()} ` } });
     expect(r.status).toBe(200);
-    expect(r.headers.get("set-cookie")).toMatch(/dok_session=;/);
+    expect(r.headers.get("set-cookie")).toMatch(/tly_session=;/);
 
     expect(await db.select().from(users).where(eq(users.id, m.userId))).toHaveLength(0);
     expect(await db.select().from(sessions).where(eq(sessions.userId, m.userId))).toHaveLength(0);

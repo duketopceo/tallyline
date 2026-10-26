@@ -26,6 +26,27 @@ export const commentRoutes = new Hono()
       await validateAgentActor(ws.id, actor);
       const body = c.req.valid("json");
 
+      // a mention starts a run: refuse before the comment (or anything else)
+      // is written, so a 402 leaves no half-applied state
+      const mentioned = new Set(
+        [...body.body.matchAll(/@([a-z0-9][a-z0-9_-]*)/gi)].map((m) =>
+          m[1]!.toLowerCase(),
+        ),
+      );
+      let mentionedAgents: (typeof agents.$inferSelect)[] = [];
+      if (mentioned.size > 0) {
+        const wsAgents = await db
+          .select()
+          .from(agents)
+          .where(eq(agents.workspaceId, ws.id));
+        mentionedAgents = wsAgents.filter((a) =>
+          mentioned.has(a.name.toLowerCase()),
+        );
+        if (mentionedAgents.length > 0) {
+          await assertWithinLimit("agent_runs", ws.id, mentionedAgents.length);
+        }
+      }
+
       const [comment] = await db
         .insert(comments)
         .values({
@@ -69,23 +90,7 @@ export const commentRoutes = new Hono()
       // @mentions split two ways: an agent name creates a dispatch; a
       // member name creates a notification. The same token can hit both —
       // dispatch and inbox are independent effects.
-      const mentioned = new Set(
-        [...body.body.matchAll(/@([a-z0-9][a-z0-9_-]*)/gi)].map((m) =>
-          m[1]!.toLowerCase(),
-        ),
-      );
       if (mentioned.size > 0) {
-        const wsAgents = await db
-          .select()
-          .from(agents)
-          .where(eq(agents.workspaceId, ws.id));
-        const mentionedAgents = wsAgents.filter((a) =>
-          mentioned.has(a.name.toLowerCase()),
-        );
-        // a mention starts a run: refuse before the dispatch is written
-        if (mentionedAgents.length > 0) {
-          await assertWithinLimit("agent_runs", ws.id, mentionedAgents.length);
-        }
         for (const agent of mentionedAgents) {
           await createDispatch({
             workspaceId: ws.id,

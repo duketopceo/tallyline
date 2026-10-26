@@ -41,7 +41,13 @@ export function UsageCharts({ daily }: { daily: UsageDay[] }) {
 
   return (
     <div className="grid grid-cols-1 gap-px lg:grid-cols-2">
-      <Panel title="Agent runs" hint={`${runs.toLocaleString("en-US")} in ${daily.length} days`}>
+      <Panel
+        title="Agent runs"
+        hint={`${runs.toLocaleString("en-US")} in ${daily.length} days`}
+        summary={`Agent runs per day, ${daily.length} days`}
+        columns={[{ key: "day", label: "Day" }, { key: "runs", label: "Agent runs" }]}
+        rows={data.map((d) => ({ day: d.label, runs: d.agentRuns }))}
+      >
         <ResponsiveContainer width="100%" height={176}>
           <BarChart data={data} margin={MARGIN} accessibilityLayer>
             <CartesianGrid stroke="var(--sl-lining-faint)" vertical={false} />
@@ -53,7 +59,13 @@ export function UsageCharts({ daily }: { daily: UsageDay[] }) {
         </ResponsiveContainer>
       </Panel>
 
-      <Panel title="API calls" hint={`${calls.toLocaleString("en-US")} in ${daily.length} days`}>
+      <Panel
+        title="API calls"
+        hint={`${calls.toLocaleString("en-US")} in ${daily.length} days`}
+        summary={`API calls per day, ${daily.length} days`}
+        columns={[{ key: "day", label: "Day" }, { key: "calls", label: "API calls" }]}
+        rows={data.map((d) => ({ day: d.label, calls: d.apiCalls }))}
+      >
         <ResponsiveContainer width="100%" height={176}>
           <BarChart data={data} margin={MARGIN} accessibilityLayer>
             <CartesianGrid stroke="var(--sl-lining-faint)" vertical={false} />
@@ -65,7 +77,13 @@ export function UsageCharts({ daily }: { daily: UsageDay[] }) {
         </ResponsiveContainer>
       </Panel>
 
-      <Panel title="Members and agents" hint="end-of-day count">
+      <Panel
+        title="Members and agents"
+        hint="end-of-day count"
+        summary={`Members and agents per day, ${daily.length} days`}
+        columns={[{ key: "day", label: "Day" }, { key: "members", label: "Members" }, { key: "agents", label: "Agents" }]}
+        rows={data.map((d) => ({ day: d.label, members: d.seats, agents: d.agents }))}
+      >
         <ResponsiveContainer width="100%" height={176}>
           <LineChart data={data} margin={MARGIN} accessibilityLayer>
             <CartesianGrid stroke="var(--sl-lining-faint)" vertical={false} />
@@ -79,7 +97,13 @@ export function UsageCharts({ daily }: { daily: UsageDay[] }) {
         </ResponsiveContainer>
       </Panel>
 
-      <Panel title="Storage" hint="issues, comments, activity and run logs">
+      <Panel
+        title="Storage"
+        hint="issues, comments, activity and run logs"
+        summary={`Storage used per day in MB, ${daily.length} days`}
+        columns={[{ key: "day", label: "Day" }, { key: "storage", label: "Storage (MB)" }]}
+        rows={data.map((d) => ({ day: d.label, storage: d.storageMb.toFixed(2) }))}
+      >
         <ResponsiveContainer width="100%" height={176}>
           <LineChart data={data} margin={MARGIN} accessibilityLayer>
             <CartesianGrid stroke="var(--sl-lining-faint)" vertical={false} />

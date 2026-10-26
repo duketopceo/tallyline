@@ -24,7 +24,7 @@
     "openid-client": "^6.8.8",
     "papaparse": "^5.7.0",
     "pg": "^8.23.1",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/papaparse": "^5.5.2",

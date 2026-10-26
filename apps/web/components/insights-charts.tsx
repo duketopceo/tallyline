@@ -48,6 +48,15 @@ export const TIP = {
   cursor: { fill: "var(--sl-surface-2)" },
 } as const;
 
+// durations read as minutes, hours or days, never as raw floats
+export function fmtDays(d: number): string {
+  if (!Number.isFinite(d) || d <= 0) return "0m";
+  if (d < 1 / 1440) return "<1m";
+  if (d < 1 / 24) return `${Math.round(d * 1440)}m`;
+  if (d < 1) return `${(d * 24).toFixed(1)}h`;
+  return `${d.toFixed(1)}d`;
+}
+
 export function Panel({
   title,
   hint,

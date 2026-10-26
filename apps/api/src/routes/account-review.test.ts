@@ -40,7 +40,7 @@ async function req(
       method: init.method ?? "GET",
       headers: {
         ...(init.body !== undefined ? { "content-type": "application/json" } : {}),
-        ...(init.cookie ? { cookie: `dok_session=${init.cookie}` } : {}),
+        ...(init.cookie ? { cookie: `tly_session=${init.cookie}` } : {}),
         ...(init.headers ?? {}),
       },
       ...(init.raw !== undefined

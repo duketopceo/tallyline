@@ -38,7 +38,7 @@ async function call(
     new Request(`http://ent.test${path}`, {
       method,
       headers: {
-        cookie: `dok_session=${cookie}`,
+        cookie: `tly_session=${cookie}`,
         ...(body === undefined ? {} : { "content-type": "application/json" }),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),

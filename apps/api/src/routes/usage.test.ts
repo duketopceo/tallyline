@@ -27,7 +27,7 @@ let seq = 0;
 const nextKey = () => `U${String.fromCharCode(65 + (seq % 26))}${String.fromCharCode(65 + (Math.floor(seq++ / 26) % 26))}`;
 
 async function get(path: string, cookie: string) {
-  const res = await app.fetch(new Request(`http://usage.test${path}`, { headers: { cookie: `dok_session=${cookie}` } }));
+  const res = await app.fetch(new Request(`http://usage.test${path}`, { headers: { cookie: `tly_session=${cookie}` } }));
   return { status: res.status, json: (await res.json().catch(() => null)) as never };
 }
 
