@@ -36,8 +36,13 @@ export function checkBridgeRequest(req: Request): NextResponse | null {
   const refused = checkOrigin(req);
   if (refused) return refused;
   if (isRead(req)) return null;
-  const method = req.method.toUpperCase();
-  const hasBody = method !== "DELETE" || req.headers.has("content-type");
+  // the JSON rule guards bodies; a bodyless POST (resend link, restore,
+  // mark read) carries nothing to misparse and has already passed the origin check
+  // (req.body is a stream even for an empty POST under Next, so go by headers)
+  const hasBody =
+    req.headers.has("content-type") ||
+    req.headers.has("transfer-encoding") ||
+    Number(req.headers.get("content-length") ?? 0) > 0;
   if (hasBody && !/^application\/json\b/i.test(req.headers.get("content-type") ?? "")) {
     return deny(415, "UNSUPPORTED_MEDIA_TYPE", "content-type must be application/json");
   }

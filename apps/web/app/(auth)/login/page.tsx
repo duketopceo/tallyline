@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { LegalLinks } from "@/components/legal-links";
 import { TallyMark } from "@/components/tally-mark";
 
 interface Provider {
@@ -35,6 +36,7 @@ function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [methods, setMethods] = useState<{
     password: boolean;
@@ -46,7 +48,8 @@ function LoginInner() {
 
   useEffect(() => {
     const code = params.get("error");
-    if (code) setError(ERROR_COPY[code] ?? ERROR_COPY.auth!);
+    if (code === "account_deleted") setNotice("Your account was deleted.");
+    else if (code) setError(ERROR_COPY[code] ?? ERROR_COPY.auth!);
     fetch("/api/auth/methods")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -106,6 +109,12 @@ function LoginInner() {
           <h1 className="mt-8 text-[24px] font-semibold leading-tight tracking-[-0.4px]">Sign in</h1>
           <p className="mt-1 text-[13px] text-ink-muted">One board for you and your agents.</p>
 
+          {notice && (
+            <p role="status" className="mt-5 rounded-sm border border-lining-bright bg-surface-2 px-3 py-2 text-[13px] text-ink">
+              {notice}
+            </p>
+          )}
+
           {error && (
             <p role="alert" className="mt-5 rounded-sm border border-lining-bright bg-surface-2 px-3 py-2 text-[13px] text-ink">
               <span className="font-medium text-urgent">Could not sign in.</span> {error}
@@ -148,6 +157,7 @@ function LoginInner() {
             Invited? Open the invite link you were sent. Running a new instance? <Link href="/bootstrap" className="text-accent underline underline-offset-2 hover:text-accent-hover">Create the first workspace</Link>.
           </p>
           <p className="mt-2 text-[12px] text-ink-subtle">Hosted beta: no SLA, and data may be lost.</p>
+          <LegalLinks className="mt-6 text-[12px] text-ink-subtle" />
         </div>
       </main>
       <aside aria-hidden className="relative hidden overflow-hidden border-l border-lining-faint bg-surface-1 lg:block">

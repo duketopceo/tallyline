@@ -37,6 +37,17 @@ describe("bridge CSRF guard", () => {
   });
 });
 
+describe("bodyless bridge mutations", () => {
+  it("allows a same-origin POST with no body and no content-type", () => {
+    const r = new Request(url, { method: "POST", headers: { "sec-fetch-site": "same-origin" } });
+    expect(checkBridgeRequest(r)).toBeNull();
+  });
+  it("still refuses a cross-origin bodyless POST", () => {
+    const r = new Request(url, { method: "POST", headers: { origin: "https://evil.test" } });
+    expect(checkBridgeRequest(r)?.status).toBe(403);
+  });
+});
+
 describe("rotate bridge route", () => {
   it("a cross-origin POST is 403 before any session or upstream work", async () => {
     const res = await rotate(mk({ ...json, origin: "https://evil.test" }), {
