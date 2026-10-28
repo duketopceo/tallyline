@@ -1,0 +1,1 @@
+ALTER TABLE "issue_external_refs" ADD COLUMN "meta" jsonb;

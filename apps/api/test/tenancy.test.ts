@@ -153,6 +153,13 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
       "DELETE /v1/workspaces/{ws}/projects/{id}/milestones/{mid}",
     ],
   },
+  project_updates: {
+    ops: [
+      "GET /v1/workspaces/{ws}/projects/{id}/updates",
+      "POST /v1/workspaces/{ws}/projects/{id}/updates",
+      "GET /v1/workspaces/{ws}/projects/{id}/update-draft",
+    ],
+  },
   projects: {
     ops: [
       "GET /v1/workspaces/{ws}/projects",
@@ -340,7 +347,7 @@ describe("tenancy: static coverage", () => {
     const stale = Object.keys(TABLE_ENDPOINTS).filter((t) => !tenantTables.includes(t));
     expect(missing, "tenant-scoped tables with no entry in TABLE_ENDPOINTS").toEqual([]);
     expect(stale, "TABLE_ENDPOINTS entries for tables that no longer have workspace_id").toEqual([]);
-    expect(tenantTables.length).toBe(37);
+    expect(tenantTables.length).toBe(38);
   });
 
   it("the export/purge table list (src/services/tenant-tables.ts) is exactly the tenant tables", () => {
@@ -496,6 +503,7 @@ describe("tenancy: cross-tenant references in A's writes", () => {
     { name: "cycle for B's team key", table: "cycles", build: () => ({ method: "POST", path: `${ws()}/cycles`, body: { teamKey: B.team.key, startsAt: "2026-11-01T00:00:00.000Z", endsAt: "2026-11-14T00:00:00.000Z" } }) },
     { name: "project for B's team key", table: "projects", build: () => ({ method: "POST", path: `${ws()}/projects`, body: { name: "x", teamKey: B.team.key } }) },
     { name: "milestone on B's project", table: "project_milestones", build: () => ({ method: "POST", path: `${ws()}/projects/${EB.project.id}/milestones`, body: { title: "x" } }) },
+    { name: "status update on B's project", table: "project_updates", build: () => ({ method: "POST", path: `${ws()}/projects/${EB.project.id}/updates`, body: { health: "on_track", body: "x" } }) },
     { name: "invite into B's team", table: "invites", build: () => ({ method: "POST", path: `${ws()}/invites`, body: { teamId: B.team.id } }) },
     { name: "key for B's agent", table: "agent_keys", build: () => ({ method: "POST", path: `${ws()}/agents/${B.agent.id}/keys`, body: { name: "k", scopes: ["read"] } }) },
     { name: "list B agent's keys", table: "agent_keys", mayIgnore: true, build: () => ({ method: "GET", path: `${ws()}/agents/${B.agent.id}/keys` }) },
@@ -535,7 +543,7 @@ describe("tenancy: cross-tenant references in A's writes", () => {
 
   it("covers every tenant table that has endpoints", () => {
     const probed = new Set(probes.map((p) => p.table));
-    for (const table of ["issues", "issue_labels", "cycles", "projects", "project_milestones", "invites", "agent_keys", "dispatches", "dispatch_events", "agent_sessions", "agent_activities", "webhook_deliveries", "webhook_endpoints", "workspace_members", "user_tokens", "views", "teams", "slack_links", "comments", "github_repos", "issue_external_refs", "github_installations", "issue_suggestions", "issue_relations", "workflow_definitions"]) {
+    for (const table of ["issues", "issue_labels", "cycles", "projects", "project_milestones", "project_updates", "invites", "agent_keys", "dispatches", "dispatch_events", "agent_sessions", "agent_activities", "webhook_deliveries", "webhook_endpoints", "workspace_members", "user_tokens", "views", "teams", "slack_links", "comments", "github_repos", "issue_external_refs", "github_installations", "issue_suggestions", "issue_relations", "workflow_definitions"]) {
       expect(probed.has(table), table).toBe(true);
     }
   });

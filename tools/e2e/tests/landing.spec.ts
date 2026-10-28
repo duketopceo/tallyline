@@ -71,3 +71,14 @@ test.describe("logged out", () => {
     });
   });
 });
+
+test.describe("logged in", () => {
+  test("landing stays reachable and links back into the app", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1, name: /One board for humans and agents/ })).toBeVisible();
+    const open = page.getByRole("link", { name: "Open app" }).first();
+    await expect(open).toHaveAttribute("href", "/workspaces");
+    await open.click();
+    await expect(page).toHaveURL(/\/(workspaces|my-issues)/);
+  });
+});

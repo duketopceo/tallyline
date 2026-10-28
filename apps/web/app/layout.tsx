@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import {
   APPEARANCE_COOKIE,
   generateCustom,
   parseAppearance,
   themeToStyle,
+  tokens,
 } from "@tallyline/silver-lining";
 import { cookies } from "next/headers";
 import type { CSSProperties, ReactNode } from "react";
@@ -29,6 +30,16 @@ export const metadata: Metadata = {
   description,
   openGraph: { title: "Tallyline", description, siteName: "Tallyline", type: "website" },
   twitter: { card: "summary_large_image", title: "Tallyline", description },
+  appleWebApp: { capable: true, title: "Tallyline", statusBarStyle: "black-translucent" },
+};
+
+// viewport-fit=cover lets the app paint under the phone notch; the canvas color
+// tints the browser chrome and the installed app's status bar.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: tokens.dark.canvas,
 };
 
 // Per-device appearance (Settings > Appearance) lives in a cookie so the first

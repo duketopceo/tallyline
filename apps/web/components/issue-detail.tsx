@@ -20,7 +20,8 @@ import { Markdown } from "@/lib/markdown";
 export interface DetailComment { id: string; body: string; actorType: string; actorId: string | null; createdAt: string; pending?: boolean }
 export interface DetailEvent { id: number; action: string; actorType: string; actorId: string | null; before: Record<string, unknown> | null; after: Record<string, unknown> | null; createdAt: string }
 type Child = { key: string; title: string };
-export type FullIssue = IssueDetail & { children: Child[]; parentId?: string | null };
+export interface PullRequestLink { repo: string; number: number; title: string; state: "draft" | "open" | "merged" | "closed"; url: string | null }
+export type FullIssue = IssueDetail & { children: Child[]; parentId?: string | null; pullRequests?: PullRequestLink[] };
 
 const abs = (iso: string) => new Date(iso).toLocaleString();
 
@@ -361,6 +362,23 @@ export function IssueDetailView({
                 <ul className="mt-2 divide-y divide-lining-faint rounded-md border border-lining bg-surface-1">
                   {serverIssue.children.map((c) => (
                     <li key={c.key}><Link href={`/issues/${c.key}`} className="flex h-9 items-center gap-3 px-3 text-[13px] text-ink-muted hover:bg-surface-2"><span className="font-mono text-[12px] text-ink-subtle">{c.key}</span><span className="truncate">{c.title}</span></Link></li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {(serverIssue.pullRequests?.length ?? 0) > 0 && (
+              <section aria-label="Pull requests" className="mt-8">
+                <h2 className="text-[13px] font-semibold">Pull requests <span className="font-normal tabular-nums text-ink-subtle">{serverIssue.pullRequests!.length}</span></h2>
+                <ul className="mt-2 divide-y divide-lining-faint rounded-md border border-lining bg-surface-1">
+                  {serverIssue.pullRequests!.map((p) => (
+                    <li key={`${p.repo}#${p.number}`}>
+                      <a href={p.url ?? undefined} target="_blank" rel="noreferrer noopener" className="flex h-9 items-center gap-3 px-3 text-[13px] text-ink-muted hover:bg-surface-2">
+                        <span className="font-mono text-[12px] text-ink-subtle">#{p.number}</span>
+                        <span className="truncate">{p.title}</span>
+                        <span className="ml-auto shrink-0 rounded-full border border-lining px-2 text-[12px] capitalize text-ink-subtle">{p.state}</span>
+                      </a>
+                    </li>
                   ))}
                 </ul>
               </section>

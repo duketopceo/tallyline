@@ -273,6 +273,7 @@ const readyCmd: Command = {
     const me = await resolveIdentity(ctx, false);
     const { issues } = await ctx.client.listIssues({
       state: states.join(","),
+      unblocked: true,
       limit: 200,
     });
     const rows = issues
@@ -315,6 +316,7 @@ const nextCmd: Command = {
     if (!pick) {
       const { issues } = await ctx.client.listIssues({
         state: "todo",
+        unblocked: true,
         limit: 200,
       });
       pick = issues

@@ -15,6 +15,7 @@ const TABS = [
   { href: "/settings/providers", label: "Providers" },
   { href: "/settings/workspace", label: "Workspace" },
   { href: "/settings/account", label: "Account" },
+  { href: "/settings/appearance", label: "Appearance" },
   { href: "/settings/usage", label: "Usage" },
 ];
 
