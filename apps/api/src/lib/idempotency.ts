@@ -41,7 +41,7 @@ export const idempotent: MiddlewareHandler = async (c, next) => {
   const scope = `${ws.id}|${principal}`;
   const body = await c.req.text();
   const fingerprint = createHash("sha256")
-    .update(`${c.req.method}\n${c.req.path}\n${body}`)
+    .update(`${c.req.method}\n${new URL(c.req.url).pathname}${new URL(c.req.url).search}\n${body}`)
     .digest("hex");
 
   const now = clock.now();

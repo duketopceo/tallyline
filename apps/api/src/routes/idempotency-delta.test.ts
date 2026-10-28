@@ -81,6 +81,18 @@ describe("Idempotency-Key", () => {
     expect(await countTitled("something else")).toBe(0);
   });
 
+  it("the query string is part of the request: same key and body with a different query is refused", async () => {
+    const key = KEY();
+    const post = (qs: string) =>
+      call(`${issuesPath(A)}${qs}`, { method: "POST", cookie: admin, key, body: JSON.stringify({ title: "with query" }) });
+    expect((await post("")).status).toBe(201);
+    const other = await post("?dupCheck=1");
+    expect(other.status).toBe(422);
+    expect((other.body.error as { code: string }).code).toBe("IDEMPOTENCY_KEY_REUSED");
+    expect((await post("")).headers.get("idempotent-replayed")).toBe("true");
+    expect(await countTitled("with query")).toBe(1);
+  });
+
   it("simultaneous retries create exactly one issue", async () => {
     const key = KEY();
     const results = await Promise.all([1, 2, 3, 4].map(() => create("racing write", key)));
