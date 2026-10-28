@@ -3,6 +3,8 @@ import { db } from "../src/db/client.js";
 import {
   devices,
   pairingCodes,
+  aiProviders,
+  aiUsageLedger,
   agents,
   authProviders,
   comments,
@@ -126,6 +128,19 @@ export async function seedTenant(label: string, teamKey: string): Promise<Tenant
     userId: people.owner.id,
     codeHash: `seeded-${sentinel}`,
     expiresAt: new Date(Date.now() + 60_000),
+  });
+  await db.insert(aiProviders).values({
+    workspaceId: ws!.id,
+    kind: "openai_compatible",
+    label: `AI ${sentinel}`,
+    baseUrl: "https://ai.example.invalid/v1",
+    model: `model-${sentinel}`,
+    apiKeyEnc: `v1:sealed-${sentinel}`,
+  });
+  await db.insert(aiUsageLedger).values({
+    workspaceId: ws!.id,
+    action: `act-${sentinel}`,
+    model: `model-${sentinel}`,
   });
   const kr = await createAgentKey(agent!.id, ws!.id, "read", ["read"]);
   const kw = await createAgentKey(agent!.id, ws!.id, "write", ["read", "write"]);

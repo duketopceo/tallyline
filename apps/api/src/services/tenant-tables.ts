@@ -19,6 +19,8 @@ export const TENANT_TABLES: Record<string, TenantTablePolicy> = {
   agent_sessions: { export: true },
   agent_keys: { export: true, redact: ["token_hash"] },
   agents: { export: true, redact: ["endpoint_secret"] },
+  ai_providers: { export: true, redact: ["api_key_enc"] },
+  ai_usage_ledger: { export: true },
   auth_providers: {
     export: false,
     reason: "instance-scoped sign-in config (workspace_id reserved, NULL in v1); holds encrypted client secrets",

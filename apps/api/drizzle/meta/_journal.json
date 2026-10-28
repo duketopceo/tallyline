@@ -281,6 +281,13 @@
       "when": 1793200143115,
       "tag": "0039_device_pairing",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793200721239,
+      "tag": "0040_ai_providers",
+      "breakpoints": true
     }
   ]
 }

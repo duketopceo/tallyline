@@ -40,6 +40,15 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
     ],
   },
   pairing_codes: { ops: ["POST /v1/workspaces/{ws}/devices/pairing"] },
+  ai_providers: {
+    ops: [
+      "GET /v1/workspaces/{ws}/ai/provider",
+      "PUT /v1/workspaces/{ws}/ai/provider",
+      "DELETE /v1/workspaces/{ws}/ai/provider",
+      "POST /v1/workspaces/{ws}/ai/provider/test",
+    ],
+  },
+  ai_usage_ledger: { ops: ["GET /v1/workspaces/{ws}/ai/usage", "GET /v1/workspaces/{ws}/ai/provider"] },
   auth_providers: {
     ops: [],
     reason:
@@ -359,7 +368,7 @@ describe("tenancy: static coverage", () => {
     const stale = Object.keys(TABLE_ENDPOINTS).filter((t) => !tenantTables.includes(t));
     expect(missing, "tenant-scoped tables with no entry in TABLE_ENDPOINTS").toEqual([]);
     expect(stale, "TABLE_ENDPOINTS entries for tables that no longer have workspace_id").toEqual([]);
-    expect(tenantTables.length).toBe(40);
+    expect(tenantTables.length).toBe(42);
   });
 
   it("the export/purge table list (src/services/tenant-tables.ts) is exactly the tenant tables", () => {
