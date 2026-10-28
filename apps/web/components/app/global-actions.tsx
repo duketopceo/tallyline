@@ -14,6 +14,7 @@ const NAV: [string, string, string, string][] = [
   ["nav-issues", "All issues", "/issues", "g a"],
   ["nav-insights", "Insights", "/insights", "g s"],
   ["nav-roadmap", "Roadmap", "/roadmap", "g p"],
+  ["nav-projects", "Projects", "/projects", "g o"],
   ["nav-activity", "Activity", "/activity", "g e"],
   ["nav-settings", "Settings", "/settings/members", "g ,"],
 ];

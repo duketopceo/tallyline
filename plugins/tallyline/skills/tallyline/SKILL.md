@@ -74,5 +74,5 @@ Do not work around it. See `docs/import.md`.
 - Branch convention: `<KEY>-slug` — e.g. `ENG-42-rate-limit-responses`.
 - Commits: conventional (`feat:`, `fix:`) and reference the key.
 - CLI: `tallyline ready|next|claim|start|done|state|comment|create|list|search|show|triage|import-plan|events` — `--json` on everything for machine reads; `events --follow` streams the live board.
-- MCP: `whoami, list_issues, ready, get_issue, create_issue, update_issue, triage_issue, comment, claim, list_agents, list_teams, list_labels, list_projects, list_cycles, create_cycle, assign_cycle, list_events, create_project, update_project, import_plan` — setup per harness in `docs/agents.md`.
+- MCP: `whoami, list_issues, ready, get_issue, create_issue, update_issue, triage_issue, comment, claim, list_agents, list_teams, create_team, list_labels, list_projects, list_cycles, create_cycle, assign_cycle, list_events, create_project, update_project, import_plan` — setup per harness in `docs/agents.md`.
 - REST: `GET /openapi.json` on the API host. Errors carry `{error:{code,message}}` — surface the code, don't guess.

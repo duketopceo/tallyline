@@ -710,6 +710,25 @@ export const toolDefs: ToolDef[] = [
   }),
 
   defineTool({
+    name: "create_team",
+    description:
+      "Create a team. key is 1-6 chars, uppercase letters/digits starting with a letter (it prefixes issue keys, e.g. KATE-12); a duplicate key is refused with CONFLICT. Needs write scope.",
+    inputSchema: {
+      key: z
+        .string()
+        .min(1)
+        .max(6)
+        .regex(/^[A-Z][A-Z0-9]*$/),
+      name: z.string().min(1).max(120),
+      rolloverBehavior: z.enum(["next_cycle", "backlog"]).optional(),
+    },
+    handler: async (args, client) => {
+      const t = await client.apiPost<TeamRow>("/teams", args);
+      return { id: t.id, key: t.key, name: t.name };
+    },
+  }),
+
+  defineTool({
     name: "list_members",
     description:
       "List human members of the workspace (name, email, role) — assignee resolution for issues.",

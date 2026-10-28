@@ -47,6 +47,12 @@ const patchTeamSchema = z.object({
   message: "patch body must set at least one field",
 });
 
+// Team writes: humans need admin; agent credentials (memberRole null, R24)
+// pass on their write scope, so an agent can stand up a team for its project.
+function requireTeamWriter(c: Context) {
+  if (!c.get("agentAuth")) requireRole(c, "admin");
+}
+
 export const workspaceRoutes = new Hono()
   .post("/workspaces", zValidator("json", createWorkspaceSchema), async (c) => {
     // Humans mint workspaces; delegated credentials and agent keys cannot —
@@ -131,6 +137,7 @@ export const workspaceRoutes = new Hono()
     zValidator("json", createTeamSchema),
     async (c) => {
       const ws = await requireWorkspace(c);
+      requireTeamWriter(c);
       const body = c.req.valid("json");
       const [existing] = await db
         .select({ id: teams.id })
@@ -164,6 +171,7 @@ export const workspaceRoutes = new Hono()
     zValidator("json", patchTeamSchema),
     async (c) => {
       const ws = await requireWorkspace(c);
+      requireTeamWriter(c);
       const body = c.req.valid("json");
       const [team] = await db
         .update(teams)
