@@ -414,6 +414,22 @@ describe("tool surface over the real API", () => {
     expect(await inboxKeys()).toContain(blocked);
   });
 
+  it("draft_project_update reads the log and post_project_update records an agent-authored update", async () => {
+    const proj = await call("create_project", { name: "update-tool-project" });
+    const projectId = proj.data.id as string;
+    const draft = await call("draft_project_update", { projectId });
+    expect(draft.res.isError).toBeFalsy();
+    expect(draft.data.empty).toBe(true);
+    const posted = await call("post_project_update", {
+      projectId,
+      health: "at_risk",
+      body: "tool-posted",
+    });
+    expect(posted.res.isError).toBeFalsy();
+    expect(posted.data.authorType).toBe("agent");
+    expect(posted.data.health).toBe("at_risk");
+  });
+
   it("create_cycle and assign_cycle schedule work; a foreign-workspace cycle is refused", async () => {
     const day = 86_400_000;
     const created = await call("create_cycle", {
@@ -816,6 +832,8 @@ describe("MCP protocol end-to-end (InMemoryTransport)", () => {
       "whoami",
       "create_project",
       "update_project",
+      "draft_project_update",
+      "post_project_update",
       "import_plan",
     ]) {
       expect(names).toContain(t);

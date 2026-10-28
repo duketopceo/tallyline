@@ -50,6 +50,7 @@ export const TENANT_TABLES: Record<string, TenantTablePolicy> = {
   },
   oauth_grants: { export: true },
   project_milestones: { export: true },
+  project_updates: { export: true },
   projects: { export: true },
   sessions: {
     export: false,

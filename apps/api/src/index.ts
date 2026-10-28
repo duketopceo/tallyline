@@ -39,6 +39,7 @@ import { buildMcpOAuthRoutes } from "./routes/mcp-oauth.js";
 import { mcpOAuthAdminRoutes } from "./routes/mcp-oauth-admin.js";
 import { oauthRoutes } from "./routes/oauth.js";
 import { providerRoutes } from "./routes/providers.js";
+import { projectUpdateRoutes } from "./routes/project-updates.js";
 import { resourceRoutes } from "./routes/resources.js";
 import { slackRoutes } from "./routes/slack.js";
 import { tokenRoutes } from "./routes/tokens.js";
@@ -106,6 +107,7 @@ export const app = new Hono()
   .route("/v1", glitchtipRoutes)
   .route("/v1", agentRoutes)
   .route("/v1", resourceRoutes)
+  .route("/v1", projectUpdateRoutes)
   .route("/v1", tokenRoutes)
   .route("/v1", memberRoutes)
   .route("/v1", inviteRoutes)
