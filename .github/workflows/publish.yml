@@ -15,6 +15,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: npm
+    # the mcp-server tests boot the API harness, which refuses to run without an
+    # explicit non-dev DATABASE_URL (apps/api/test/db-guard.ts), same as check.yml
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tallyline_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tallyline_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tallyline_test
     permissions:
       contents: read
       id-token: write # npm provenance / trusted publishing
@@ -29,6 +45,8 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
+      - name: Throwaway JWT secret for the test harness
+        run: echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
       - name: Tag must match package versions
         run: |
           tag="${GITHUB_REF_NAME#v}"
