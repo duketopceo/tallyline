@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { run } from "./cli.js";
+import { lazyTokenStore } from "./secrets.js";
+import { clackPrompter } from "./ui/prompt.js";
 
 // Piped stdin feeds `comment`/`create` bodies; a TTY returns empty so
 // commands fall back to argument/--body validation.
@@ -24,5 +26,9 @@ const code = await run(process.argv.slice(2), {
   fetch: (request) => fetch(request),
   stdin: readStdin,
   isTTY: process.stdout.isTTY === true,
+  tokens: lazyTokenStore(process.env),
+  ...(process.stdout.isTTY === true && process.stdin.isTTY === true
+    ? { prompter: clackPrompter }
+    : {}),
 });
 process.exitCode = code;

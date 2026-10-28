@@ -61,6 +61,14 @@ setup:
   init        init --workspace <slug> [--api-url u] [--agent-id id]
               writes ./.tallyline/config.json + agent.md
 
+account:
+  connect     connect [--server URL] [--workspace slug] [--token-stdin]
+              sign in; token goes to the keychain, never to a flag
+  disconnect  disconnect [--yes] — forget the saved sign-in
+  status      status [--json] — server, workspace and who you are
+  config      config [path | get <key> | set <key> <value>]
+              keys: server, workspace, agent
+
 global flags:
   --json / --format json   machine-readable output (agent chaining)
   --format text            human output (default)
@@ -171,6 +179,7 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     const { config } = await resolveConfig({
       env: io.env,
       cwd: io.cwd,
+      ...(io.tokens ? { tokens: io.tokens } : {}),
       flags: {
         ...(typeof flags["api-url"] === "string"
           ? { apiUrl: flags["api-url"] }
@@ -257,7 +266,11 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
 // `tallyline` with no arguments on a terminal: where things stand, and what to
 // do next. Never throws; a server that is slow or away just shows "not connected".
 async function runHome(io: CliIo): Promise<number> {
-  const { config } = await resolveConfig({ env: io.env, cwd: io.cwd });
+  const { config } = await resolveConfig({
+    env: io.env,
+    cwd: io.cwd,
+    ...(io.tokens ? { tokens: io.tokens } : {}),
+  });
   const base = {
     version: VERSION,
     server: config.apiUrl,

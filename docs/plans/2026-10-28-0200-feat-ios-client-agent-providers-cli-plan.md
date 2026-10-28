@@ -90,10 +90,14 @@ does not restate them. Where a unit below names `R#` or `D#`, it means those.
   OmaSeal when present on Omarchy, else a 0600 file with a doctor warning. Existing
   `.tallyline/config.json` repo-local config and the three env vars keep working
   and win over the profile.
-- **KTD4 — CLI login uses the OAuth server that already exists.** Loopback
-  redirect, auth code plus PKCE (RFC 8252), DCR once per server. Headless fallback
-  is "paste a personal token from Settings → Tokens" with a deep link. No new
-  server endpoint in Stage 1.
+- **KTD4 — CLI login is a pasted personal token first; browser sign-in is a
+  server addition (S1-U7).** Corrected after reading `apps/api/src/middleware`:
+  OAuth access tokens are audience-bound to `/mcp` and are refused on `/v1`, so
+  the existing OAuth server cannot sign a CLI in. Stage 1 therefore ships
+  `connect` as: ask for the server, open (or print) the Settings → Tokens link,
+  take the token as a hidden prompt or `--token-stdin`, validate it with
+  `GET /v1/whoami`, then store it in the keychain. S1-U7 adds an RFC 8628 device
+  authorization flow so the browser can mint a PAT for the CLI with no pasting.
 - **KTD5 — Setup stack is generated, not templated by hand.** `tallyline setup`
   writes a compose file and an env file under `~/.tallyline/` from an embedded
   template, generating all secrets (`JWT_SECRET`, `AUTH_SECRET_KEY`, DB password,
@@ -239,10 +243,10 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 
 #### S1-U4. `connect` (login) and `status`
 - **Goal:** "Sign in" without env vars or minted keys.
-- **Files:** `tools/cli/src/login.ts` (new), `tools/cli/src/ui/connect.ts`.
-- **Approach:** KTD4. Ask for server address (default Tallyline Cloud), discover, DCR, open browser to authorize with loopback redirect, store tokens, pick workspace. Headless: print a link to Settings → Tokens and prompt for the token. `status` shows server, user, workspace, version.
-- **Test scenarios:** stubbed OAuth server happy path; denied consent; wrong server address gives the plain-language error; expired refresh signs out cleanly; headless paste path.
-- **Verification:** live sign-in against `api.tallyline.app`.
+- **Files:** `tools/cli/src/connect.ts`, `tools/cli/src/secrets.ts`, `tools/cli/src/ui/prompt.ts`.
+- **Approach:** KTD4. Ask for server address (default Tallyline Cloud), guess the Settings → Tokens page, hidden token prompt (or `--token-stdin`), validate via `GET /v1/whoami`, save the profile (server, workspace) and put the token in the OS keychain. Also `disconnect`, `config`. `status` shows server, user, workspace.
+- **Shipped:** this unit landed with the pasted-token design. Tests cover scripted and guided flows, wrong token, non-Tallyline server, keychain adapters (token never in argv) and config precedence.
+- **Verification:** live sign-in against `api.tallyline.app` once it is reachable.
 
 #### S1-U5. `doctor` and `--fix`
 - **Goal:** R21, AE5.
@@ -250,6 +254,13 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 - **Approach:** Concurrent checks grouped Your server / Your connections / This computer, each returning `{ok|warn|fail, plain message, fix}`. Client-side checks: reachability, TLS, version skew, token validity, keychain, PATH, update available. Server checks use existing endpoints now (`/health`, whoami, list agents) and the S2-U3 status endpoint when present. `--json` emits the same shape as OmaSeal's doctor. `--fix` runs only safe fixes and asks first.
 - **Test scenarios:** each check fails independently with its message; offline machine; `--json` schema stable; `--fix` never runs a destructive action without confirmation.
 - **Verification:** tests; manual run against a broken local stack.
+
+#### S1-U7. Browser sign-in for the CLI (device authorization)
+- **Goal:** `tallyline connect` with no pasting: the CLI shows a short code, the user approves in their browser, the CLI receives a personal token.
+- **Files:** `apps/api/src/routes/device-auth.ts` (new), `apps/web` approval page, `tools/cli/src/connect.ts`.
+- **Approach:** RFC 8628. `POST /device/code` returns user code and polling interval; the approval page (signed-in session) mints a `tly_pat_` scoped to the chosen workspace; `POST /device/token` returns it once. Codes are single-use and expire in 10 minutes; polling is rate limited; the token never appears in a URL.
+- **Test scenarios:** approve, deny, expire, wrong code, slow-down, replay of a used code.
+- **Verification:** live run on the dev stack. Needs an API change, so it ships in its own PR with a changelog note.
 
 #### S1-U6. Art, demo and CLI design doc
 - **Goal:** R24.

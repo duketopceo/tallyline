@@ -413,3 +413,53 @@ export class ApiClient {
     return res;
   }
 }
+
+export interface Whoami {
+  type: "agent" | "human";
+  id: string;
+  name: string;
+  scopes: string[];
+  workspaceSlug: string | null;
+  role?: string | null;
+}
+
+/** Who a token belongs to. Workspace-free, so it works before a workspace is chosen. */
+export async function whoami(
+  apiUrl: string,
+  token: string,
+  fetchImpl: FetchLike,
+): Promise<Whoami> {
+  const base = apiUrl.replace(/\/+$/, "");
+  let res: Response;
+  try {
+    res = await fetchImpl(
+      new Request(`${base}/v1/whoami`, {
+        headers: { authorization: `Bearer ${token}`, accept: "application/json" },
+        signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
+      }),
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new ApiError(0, "NETWORK", `request to ${base} failed: ${msg}`);
+  }
+  const text = await res.text();
+  let data: unknown;
+  try {
+    data = text ? JSON.parse(text) : undefined;
+  } catch {
+    data = undefined;
+  }
+  if (!res.ok) {
+    const p = (data ?? {}) as ErrorPayload;
+    throw new ApiError(
+      res.status,
+      typeof p.error?.code === "string" ? p.error.code : "HTTP_ERROR",
+      typeof p.error?.message === "string" ? p.error.message : res.statusText,
+      data,
+    );
+  }
+  if (typeof data !== "object" || data === null || !("id" in data)) {
+    throw new ApiError(0, "NOT_TALLYLINE", `${base} did not answer like a Tallyline server`);
+  }
+  return data as Whoami;
+}

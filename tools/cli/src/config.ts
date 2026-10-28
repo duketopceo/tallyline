@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { readEnv } from "@tallyline/types";
 
 export type EnvLike = Record<string, string | undefined>;
@@ -51,6 +51,8 @@ export async function resolveConfig(opts: {
   env: EnvLike;
   cwd: string;
   flags?: { apiUrl?: string; token?: string; workspace?: string };
+  /** consulted last, only when no flag, env var or file supplied a token */
+  tokens?: { get(server: string): Promise<string | undefined> };
 }): Promise<ResolvedConfig> {
   const home = opts.env.HOME ?? homedir();
   const candidates = [
@@ -105,5 +107,34 @@ export async function resolveConfig(opts: {
   if (opts.flags?.workspace) config.workspace = opts.flags.workspace;
 
   config.apiUrl = config.apiUrl.replace(/\/+$/, "");
+  if (!config.token && opts.tokens) {
+    const saved = await opts.tokens.get(config.apiUrl).catch(() => undefined);
+    if (saved) config.token = saved;
+  }
   return { config, files };
+}
+
+// ── saving settings ─────────────────────────────────────────────────────
+
+
+export function globalConfigPath(env: EnvLike): string {
+  return join(env.HOME ?? homedir(), ".config", "tallyline", "config.json");
+}
+
+export type Profile = Partial<Pick<CliConfig, "apiUrl" | "workspace" | "agentId">>;
+
+// Merge into the global config file. Unknown keys survive, so a hand-edited or
+// older file is never clobbered, and the token is never written here (it goes
+// to the token store).
+export async function saveProfile(env: EnvLike, patch: Profile): Promise<string> {
+  const path = globalConfigPath(env);
+  const current = (await readConfigFile(path)) ?? {};
+  const next: Record<string, unknown> = { ...current, ...patch };
+  delete next.token;
+  for (const [k, v] of Object.entries(next)) if (v === undefined) delete next[k];
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  await writeFile(path, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 });
+  // writeFile only applies `mode` to a new file; tighten one that already existed
+  await chmod(path, 0o600);
+  return path;
 }
