@@ -35,6 +35,10 @@ const GROUP_TITLE: Record<Group, string> = {
 
 const LEVEL: Record<Status, Level> = { ok: "ok", warn: "warn", fail: "fail" };
 
+function tilde(path: string, home: string | undefined): string {
+  return home && path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
+}
+
 async function loosePath(path: string): Promise<boolean | undefined> {
   try {
     return ((await stat(path)).mode & 0o077) !== 0;
@@ -206,12 +210,12 @@ export async function runChecks(ctx: CmdCtx, tokens: TokenStore | undefined): Pr
             id,
             group: "computer",
             status: "warn",
-            message: `${path} can be read by other people on this computer`,
-            fix: `chmod 600 ${path}   (or run tallyline doctor --fix)`,
+            message: `${tilde(path, io.env.HOME)} can be read by other people on this computer`,
+            fix: `chmod 600 ${tilde(path, io.env.HOME)}   (or run tallyline doctor --fix)`,
             fixId: "chmod-private",
             path,
           }
-        : { id, group: "computer", status: "ok", message: `${path} is private` },
+        : { id, group: "computer", status: "ok", message: `${tilde(path, io.env.HOME)} is private` },
     );
   }
   return checks;
