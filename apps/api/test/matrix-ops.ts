@@ -1,4 +1,6 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
+import { db } from "../src/db/client.js";
+import { deviceAuthorizations } from "../src/db/schema.js";
 import { consentView, registerClient } from "../src/services/mcp-oauth.js";
 import { createAuthRequest, RESOURCE } from "../src/services/mcp-oauth.js";
 import {
@@ -162,6 +164,19 @@ const sessionOp =
     return { method, path: `${base(t)}/agent-sessions/${s.id}${suffix}`, ...(body === undefined ? {} : { body }) };
   };
 
+/** a live device sign-in request, as the CLI would have started it */
+async function mkDeviceRequest() {
+  // inserted directly: starting through the service would trip the per-address cap
+  const userCode = Array.from({ length: 8 }, () => "BCDFGHJKMNPQRSTVWXZ23456789"[randomInt(27)]).join("");
+  await db.insert(deviceAuthorizations).values({
+    deviceCodeHash: randomBytes(16).toString("hex"),
+    userCode,
+    clientName: "matrix cli",
+    expiresAt: new Date(Date.now() + 600_000),
+  });
+  return { userCode: `${userCode.slice(0, 4)}-${userCode.slice(4)}` };
+}
+
 const providerOp =
   (method: string, suffix = "", body?: unknown): Builder =>
   async () => {
@@ -193,6 +208,10 @@ export const OPERATIONS: Record<string, Builder> = {
     body: { email: t.people.member.email, password: PASSWORD },
   }),
   "POST /v1/auth/logout": simple("POST", () => "/v1/auth/logout"),
+  "POST /v1/auth/device/code": simple("POST", () => "/v1/auth/device/code", { clientName: "matrix" }),
+  "POST /v1/auth/device/token": simple("POST", () => "/v1/auth/device/token", {
+    deviceCode: "no-such-device-code-0000000000",
+  }),
   "GET /github/manifest/callback/{state}": get(() => "/github/manifest/callback/not-a-state?code=x"),
   "POST /webhooks/github": async () => ({
     method: "POST",
@@ -379,6 +398,15 @@ export const OPERATIONS: Record<string, Builder> = {
   "POST /v1/workspaces/{ws}/tokens": simple("POST", (t) => `${base(t)}/tokens`, {
     name: "matrix token",
     scopes: ["read"],
+  }),
+  "GET /v1/workspaces/{ws}/device/{userCode}": async (t) => ({
+    method: "GET",
+    path: `${base(t)}/device/${(await mkDeviceRequest()).userCode}`,
+  }),
+  "POST /v1/workspaces/{ws}/device/{userCode}": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/device/${(await mkDeviceRequest()).userCode}`,
+    body: { decision: "deny" },
   }),
   "DELETE /v1/workspaces/{ws}/tokens/{id}": async (t, who) => {
     const tok = await mkToken(t, who.userId ?? t.people.owner.id);

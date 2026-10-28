@@ -49,6 +49,7 @@ their versions match the product.
 
 #### Added
 
+- **Device authorization (RFC 8628)** for the CLI: `POST /v1/auth/device/code`, `POST /v1/auth/device/token` and the approval routes under `/v1/workspaces/{ws}/device/{userCode}`. Migration `0037_device_authorizations`. API only; the web approval page and the CLI wiring follow.
 - **Native GlitchTip webhook** (`POST /webhooks/glitchtip/:token`): GlitchTip's
   own alert payload becomes triage issues through the existing intake pipe,
   routed to a team by GlitchTip project name. Per-workspace secret (stored

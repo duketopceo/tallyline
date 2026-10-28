@@ -558,6 +558,38 @@ const basePaths = {
         responses: { "200": { description: "Available auth methods" } },
       },
     },
+    "/v1/auth/device/code": {
+      post: {
+        summary:
+          "RFC 8628 step 1 — a headless client (the CLI) asks for a device code and a short user code to show the human; unauthenticated, rate limited",
+        requestBody: jsonBody({
+          type: "object",
+          properties: { clientName: { type: "string" } },
+        }),
+        responses: {
+          "200": {
+            description:
+              "{device_code, user_code, verification_uri, verification_uri_complete, expires_in, interval}",
+          },
+          "429": { description: "Rate limited" },
+        },
+      },
+    },
+    "/v1/auth/device/token": {
+      post: {
+        summary:
+          "RFC 8628 step 3 — poll with the device code. 200 returns a personal access token once; 400 returns authorization_pending, slow_down, access_denied or expired_token",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["deviceCode"],
+          properties: { deviceCode: { type: "string" } },
+        }),
+        responses: {
+          "200": { description: "{access_token, token_type: 'Bearer', scope}" },
+          "400": { description: "{error, interval?}" },
+        },
+      },
+    },
     "/v1/auth/oauth/{provider}/start": {
       get: {
         summary:
@@ -767,6 +799,28 @@ const basePaths = {
           },
         }),
         responses: { "201": { description: "Token minted" } },
+      },
+    },
+    "/v1/workspaces/{ws}/device/{userCode}": {
+      get: {
+        summary:
+          "RFC 8628 step 2 — what is asking to sign in (client name, requesting IP, expiry) for a user code; admin, human session only",
+        parameters: [wsParam, { name: "userCode", in: "path", required: true, schema: { type: "string" } }],
+        responses: { "200": { description: "Pending request" }, "404": { description: "Invalid, expired or already decided code" } },
+      },
+      post: {
+        summary:
+          "Approve or deny a device sign-in for this workspace; approval lets the waiting client mint one personal access token (90 days); admin, human session only",
+        parameters: [wsParam, { name: "userCode", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["decision"],
+          properties: {
+            decision: { type: "string", enum: ["approve", "deny"] },
+            scopes: { type: "array", items: { type: "string", enum: ["read", "write"] } },
+          },
+        }),
+        responses: { "200": { description: "Decision recorded" }, "404": { description: "Invalid, expired or already decided code" } },
       },
     },
     "/v1/workspaces/{ws}/tokens/{id}": {

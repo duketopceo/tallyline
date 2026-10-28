@@ -260,6 +260,13 @@
       "when": 1793169323875,
       "tag": "0036_project_icon_url",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793178670023,
+      "tag": "0037_device_authorizations",
+      "breakpoints": true
     }
   ]
 }

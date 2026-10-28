@@ -136,6 +136,36 @@ single-use token, default 7-day expiry. Options: `email` binding,
   workspace-bound. None can create workspaces, manage members/invites/
   providers, or mint credentials — those are cookie+role-gated.
 
+## Device sign-in for the CLI (RFC 8628)
+
+OAuth access tokens (`tly_oat_`) are audience-bound to `/mcp` and are refused on
+`/v1`, so a CLI cannot sign in through the OAuth server. Headless clients use the
+device authorization grant instead and end up holding a personal access token.
+
+1. `POST /v1/auth/device/code` `{ "clientName": "Tallyline CLI on kate-mbp" }` returns
+   `device_code` (secret, kept by the client), `user_code` (`BCDF-GHJK`, shown to
+   the human), `verification_uri`, `verification_uri_complete`, `expires_in`
+   (600 s) and `interval` (5 s). Unauthenticated, behind the auth limiter, and at
+   most 20 live codes per client address.
+2. The human signs in on the web and approves the code for a workspace:
+   `GET /v1/workspaces/{ws}/device/{userCode}` shows what is asking (client name,
+   requesting address, expiry); `POST` the same path with
+   `{ "decision": "approve" | "deny", "scopes": ["read","write"] }` decides. Same
+   bar as minting a token in Settings: cookie session, verified email, admin role.
+   Delegated tokens and agent keys cannot approve. Wrong, expired, used and
+   short codes all return the same 404.
+3. `POST /v1/auth/device/token` `{ "deviceCode": "..." }` is polled by the client.
+   `400` carries `authorization_pending`, `slow_down` (the interval grows by 5 s),
+   `access_denied` or `expired_token`. The first poll after approval returns
+   `200 { access_token, token_type: "Bearer", scope }`: a `tly_pat_` token that
+   expires in 90 days and is named after the client. The token is minted at that
+   moment, once; replaying the device code returns `expired_token`. Nothing in
+   `device_authorizations` is a credential (the device code is stored as a hash).
+
+Approvals are written to the workspace feed as `device_authorized` and
+`device_denied`. The web page at `/device` that renders step 2 is not built yet,
+so `verification_uri` currently points at a route the web app does not serve.
+
 ## Operational flags
 
 | Var | Effect |

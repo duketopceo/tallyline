@@ -529,6 +529,39 @@ export const userTokens = pgTable(
   (t) => [index().on(t.userId), index().on(t.workspaceId)],
 );
 
+// RFC 8628 device authorization: a CLI (or any headless client) shows a short
+// code, a signed-in human approves it in the browser, and the client's next
+// poll receives a personal access token. Only hashes of the device code are
+// stored; the token itself is minted at the moment of the one successful poll,
+// so no credential ever sits in this table.
+export const deviceAuthorizations = pgTable(
+  "device_authorizations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    deviceCodeHash: text("device_code_hash").notNull().unique(),
+    /** normalized (no dash, upper case) */
+    userCode: text("user_code").notNull(),
+    clientName: text("client_name").notNull(),
+    /** where the request came from, shown to the approver */
+    requestIp: text("request_ip"),
+    /** pending | approved | denied | consumed */
+    status: text("status").notNull().default("pending"),
+    intervalS: integer("interval_s").notNull().default(5),
+    lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    // named so it is not mistaken for a tenant-owned row: it only records
+    // which workspace the approver chose, and goes away with that workspace
+    approvedWorkspaceId: uuid("approved_workspace_id").references(() => workspaces.id, {
+      onDelete: "cascade",
+    }),
+    scopes: jsonb("scopes").$type<string[]>().notNull().default(["read", "write"]),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index().on(t.userCode), index().on(t.expiresAt)],
+);
+
 export const views = pgTable(
   "views",
   {

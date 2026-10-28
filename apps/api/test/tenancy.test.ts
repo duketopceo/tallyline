@@ -227,6 +227,8 @@ const UNSCOPED_TABLES: Record<string, string> = {
     "MCP authorization codes / access / refresh tokens, stored as sha256 hashes and always attached to an oauth_grants row (tenant-scoped, ON DELETE CASCADE); only resolved by hash at /oauth/token and /mcp, never listed",
   account_tokens:
     "single-use password-reset / email-verify tokens, user-scoped (sha256 at rest); only resolved by hash at /v1/auth/password/reset and /v1/auth/verify-email, never listed",
+  device_authorizations:
+    "ten-minute RFC 8628 sign-in handshakes: device code stored as a sha256 hash, user code single-use, never listed; resolved only by hash at /v1/auth/device/token or by the exact user code inside the approver's workspace route. approved_workspace_id records the approver's choice (ON DELETE CASCADE) and no credential is stored here",
   audit_events:
     "account-level security log (reset, verify, export, deletion) keyed by user id with no email or names; included only in that user's own /v1/me/export",
   github_webhook_events:
