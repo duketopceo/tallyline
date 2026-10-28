@@ -26,12 +26,13 @@ export function section(title: string, lines: string[]): string {
   return [bold(title), ...lines.map((l) => `  ${l}`)].join("\n");
 }
 
-export function nextSteps(steps: [command: string, what: string][]): string {
+export function nextRows(steps: [command: string, what: string][]): string[] {
   const w = Math.max(...steps.map(([c]) => c.length));
-  return section(
-    "Next",
-    steps.map(([c, what]) => `${accent(c.padEnd(w))}   ${dim(what)}`),
-  );
+  return steps.map(([c, what]) => `${accent(c.padEnd(w))}   ${dim(what)}`);
+}
+
+export function nextSteps(steps: [command: string, what: string][]): string {
+  return section("Next", nextRows(steps));
 }
 
 export function errorBlock(f: Friendly): string {

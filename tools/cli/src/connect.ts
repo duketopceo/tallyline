@@ -5,7 +5,7 @@ import { globalConfigPath, resolveConfig, saveProfile, type EnvLike } from "./co
 import type { TokenStore } from "./secrets.js";
 import { friendlyApiError } from "./ui/errors.js";
 import { Cancelled, type Prompter } from "./ui/prompt.js";
-import { errorBlock, nextSteps } from "./ui/render.js";
+import { errorBlock, nextRows, nextSteps } from "./ui/render.js";
 
 export const CLOUD_API = "https://api.tallyline.app";
 
@@ -142,10 +142,10 @@ async function interactiveConnect(ctx: CmdCtx): Promise<void> {
     p.step("ok", `Token ${keptNote(done.keptIn)}`);
     p.step("ok", `Settings saved to ${globalConfigPath(ctx.io.env)}`);
     p.note(
-      nextSteps([
+      nextRows([
         ["tallyline", "see where things stand"],
         ["tallyline ready", "pick something to work on"],
-      ]).replace(/^Next\n/, ""),
+      ]).join("\n"),
       "Next",
     );
     p.outro("You're connected.");

@@ -56,8 +56,10 @@ export const clackPrompter: Prompter = {
     ask(
       await clack.text({
         message: o.message,
-        ...(o.initial !== undefined ? { initialValue: o.initial, defaultValue: o.initial } : {}),
-        ...(o.placeholder !== undefined ? { placeholder: o.placeholder } : {}),
+        // A default, not a prefilled value: typing replaces it instead of
+        // appending to it, and Enter on an empty line keeps it.
+        ...(o.initial !== undefined ? { defaultValue: o.initial } : {}),
+        ...((o.placeholder ?? o.initial) !== undefined ? { placeholder: (o.placeholder ?? o.initial) as string } : {}),
         ...validator(o.validate),
       }),
     ),
