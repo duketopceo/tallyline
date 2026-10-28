@@ -267,6 +267,13 @@
       "when": 1793178670023,
       "tag": "0037_device_authorizations",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1793199497217,
+      "tag": "0038_idempotency_keys",
+      "breakpoints": true
     }
   ]
 }

@@ -562,6 +562,28 @@ export const deviceAuthorizations = pgTable(
   (t) => [index().on(t.userCode), index().on(t.expiresAt)],
 );
 
+// Idempotency-Key replay store for mutating issue and comment routes (offline
+// clients retry writes after a dropped connection). Scoped to one principal in
+// one workspace; holds the first successful response so a retry returns it
+// instead of writing twice. Entries older than a day are swept.
+export const idempotencyKeys = pgTable(
+  "idempotency_keys",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    /** "<workspace id>|<principal>" so a key never crosses callers or tenants */
+    scope: text("scope").notNull(),
+    key: text("key").notNull(),
+    /** sha256 of method, path and body: a reused key with a different request is refused */
+    fingerprint: text("fingerprint").notNull(),
+    /** in_progress | done */
+    state: text("state").notNull().default("in_progress"),
+    responseStatus: integer("response_status"),
+    responseBody: text("response_body"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex().on(t.scope, t.key), index().on(t.createdAt)],
+);
+
 export const views = pgTable(
   "views",
   {

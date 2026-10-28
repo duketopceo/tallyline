@@ -13,11 +13,13 @@ import { notifyUsers } from "../../services/notifications.js";
 import { queueDeliveries } from "../../services/outbound.js";
 import { requireWorkspace } from "../workspaces.js";
 import { track } from "../../services/background.js";
+import { idempotent } from "../../lib/idempotency.js";
 import { commentSchema, findIssue, slack, validateAgentActor } from "./shared.js";
 
 export const commentRoutes = new Hono()
   .post(
     "/workspaces/:ws/issues/:key/comments",
+    idempotent,
     zValidator("json", commentSchema),
     async (c) => {
       const ws = await requireWorkspace(c);
