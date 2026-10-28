@@ -40,6 +40,7 @@ export const GROUPS: { title: string; items: [name: string, what: string][] }[] 
     title: "Set up",
     items: [
       ["connect", "sign in to your Tallyline"],
+      ["doctor", "check everything is healthy, and fix what's easy"],
       ["status", "see who and where you are connected"],
       ["config", "view or change saved settings"],
       ["disconnect", "forget the saved sign-in"],

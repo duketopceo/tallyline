@@ -13,7 +13,8 @@ import { prettyHelp } from "./ui/help.js";
 import { hostOf, loadHome, renderHome } from "./ui/home.js";
 import { errorBlock } from "./ui/render.js";
 
-export const VERSION = "2.0.0";
+import { VERSION } from "./version.js";
+export { VERSION };
 
 const GLOBAL_OPTIONS: ParseArgsOptionsConfig = {
   json: { type: "boolean" },
@@ -62,6 +63,8 @@ setup:
               writes ./.tallyline/config.json + agent.md
 
 account:
+  doctor      doctor [--fix] [--yes] — check server, sign-in and this computer
+              exit 1 when a check fails; --json for scripts
   connect     connect [--server URL] [--workspace slug] [--token-stdin]
               sign in; token goes to the keychain, never to a flag
   disconnect  disconnect [--yes] — forget the saved sign-in
@@ -243,6 +246,8 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
       return apiExitCode(err.status);
     }
     if (err instanceof CliError) {
+      // an empty message means the command already printed its own report
+      if (err.message === "") return err.exitCode;
       if (interactive) {
         const f: Friendly =
           err.exitCode === 2
