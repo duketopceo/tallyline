@@ -1,3 +1,4 @@
+import { configCmd, connectCmd, disconnectCmd, statusCmd } from "./connect.js";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -40,6 +41,10 @@ export type FlagValues = Record<
 >;
 
 export interface CliIo {
+  /** interactive prompts; only set when stdin and stdout are a terminal */
+  prompter?: import("./ui/prompt.js").Prompter;
+  /** where sign-in tokens are kept (keychain or private file) */
+  tokens?: import("./secrets.js").TokenStore;
   out: (line: string) => void;
   err: (line: string) => void;
   env: EnvLike;
@@ -50,15 +55,8 @@ export interface CliIo {
 }
 
 // CLI-side failure carrying an exit code. API-side failures stay ApiError.
-export class CliError extends Error {
-  constructor(
-    readonly exitCode: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = "CliError";
-  }
-}
+export { CliError } from "./cli-error.js";
+import { CliError } from "./cli-error.js";
 
 export const fail = (msg: string) => new CliError(1, msg);
 export const usage = (msg: string) => new CliError(2, msg);
@@ -1054,4 +1052,8 @@ export const commands: Record<string, Command> = {
   work: workCmd,
   "import-plan": importPlanCmd,
   init: initCmd,
+  connect: connectCmd,
+  disconnect: disconnectCmd,
+  status: statusCmd,
+  config: configCmd,
 };

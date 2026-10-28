@@ -97,6 +97,14 @@ setup:
   init        init --workspace <slug> [--api-url u] [--agent-id id]
               writes ./.tallyline/config.json + agent.md
 
+account:
+  connect     connect [--server URL] [--workspace slug] [--token-stdin]
+              sign in; token goes to the keychain, never to a flag
+  disconnect  disconnect [--yes] — forget the saved sign-in
+  status      status [--json] — server, workspace and who you are
+  config      config [path | get <key> | set <key> <value>]
+              keys: server, workspace, agent
+
 global flags:
   --json / --format json   machine-readable output (agent chaining)
   --format text            human output (default)
@@ -187,6 +195,14 @@ feed:
 setup:
   init        init --workspace <slug> [--api-url u] [--agent-id id]
               writes ./.tallyline/config.json + agent.md
+
+account:
+  connect     connect [--server URL] [--workspace slug] [--token-stdin]
+              sign in; token goes to the keychain, never to a flag
+  disconnect  disconnect [--yes] — forget the saved sign-in
+  status      status [--json] — server, workspace and who you are
+  config      config [path | get <key> | set <key> <value>]
+              keys: server, workspace, agent
 
 global flags:
   --json / --format json   machine-readable output (agent chaining)

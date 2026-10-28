@@ -17,7 +17,7 @@ interface Entry {
 }
 
 const BY_API_CODE: Record<string, Entry> = {
-  UNAUTHORIZED: {
+  UNAUTHENTICATED: {
     title: "Tallyline didn't accept your sign-in",
     why: "Your session may have expired, or the key was turned off.",
     fix: "tallyline connect",

@@ -38,7 +38,13 @@ export const GROUPS: { title: string; items: [name: string, what: string][] }[] 
   },
   {
     title: "Set up",
-    items: [["init", "save workspace settings in this folder"]],
+    items: [
+      ["connect", "sign in to your Tallyline"],
+      ["status", "see who and where you are connected"],
+      ["config", "view or change saved settings"],
+      ["disconnect", "forget the saved sign-in"],
+      ["init", "save workspace settings in this folder"],
+    ],
   },
 ];
 
