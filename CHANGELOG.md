@@ -3,6 +3,16 @@
 All notable changes to Tallyline (formerly docketry). Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver.
 
+## [Unreleased]
+
+### Added
+
+- **Bring your own AI provider** (see `docs/llm-assist.md`): admins connect OpenRouter or any OpenAI-compatible endpoint per workspace (`/ai/provider`, `/ai/provider/test`, `/ai/usage`). Keys are sealed at rest and never returned, a monthly spend limit stops calls before they happen, and the endpoint obeys the webhook SSRF policy (migration `0037_ai_providers`).
+
+### Fixed
+
+- Oversized AI provider responses are rejected instead of resolving with an empty body.
+
 ## [2.0.0] — 2026-10-26
 
 Major release: breaking ops, authorization, and naming changes (all listed

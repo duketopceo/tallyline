@@ -529,6 +529,55 @@ export const userTokens = pgTable(
   (t) => [index().on(t.userId), index().on(t.workspaceId)],
 );
 
+// The workspace's AI provider: where agent actions send their model calls.
+// One row per workspace. The API key (OpenRouter key, or whatever an
+// OpenAI-compatible endpoint wants) is sealed with AUTH_SECRET_KEY and never
+// returned, logged or put in an event.
+export const aiProviders = pgTable(
+  "ai_providers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    /** openrouter | openai_compatible */
+    kind: text("kind").notNull(),
+    label: text("label").notNull(),
+    baseUrl: text("base_url").notNull(),
+    model: text("model").notNull(),
+    apiKeyEnc: text("api_key_enc"),
+    /** monthly spend ceiling in US cents; null = no ceiling */
+    monthlyCapCents: integer("monthly_cap_cents"),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex().on(t.workspaceId)],
+);
+
+// One row per model call made through the provider seam, so spend caps and the
+// Settings -> AI usage view read the same numbers. Money is micro-dollars
+// (1e-6 USD) to avoid float drift; zero when the endpoint doesn't report cost.
+export const aiUsageLedger = pgTable(
+  "ai_usage_ledger",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    /** what asked: test, summarize, triage... */
+    action: text("action").notNull(),
+    model: text("model").notNull(),
+    tokensIn: integer("tokens_in").notNull().default(0),
+    tokensOut: integer("tokens_out").notNull().default(0),
+    costMicros: bigint("cost_micros", { mode: "number" }).notNull().default(0),
+    /** ok | error */
+    status: text("status").notNull().default("ok"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index().on(t.workspaceId, t.createdAt)],
+);
+
 export const views = pgTable(
   "views",
   {

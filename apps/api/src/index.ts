@@ -31,6 +31,7 @@ import { importRoutes } from "./routes/import.js";
 import { glitchtipRoutes } from "./routes/glitchtip.js";
 import { glitchtipWebhookRoutes } from "./routes/glitchtip-webhook.js";
 import { intakeRoutes } from "./routes/intake.js";
+import { aiProviderRoutes } from "./routes/ai-providers.js";
 import { inviteAcceptRoutes, inviteRoutes } from "./routes/invites.js";
 import { issueRoutes } from "./routes/issues.js";
 import { memberRoutes } from "./routes/members.js";
@@ -109,6 +110,7 @@ export const app = new Hono()
   .route("/v1", resourceRoutes)
   .route("/v1", projectUpdateRoutes)
   .route("/v1", tokenRoutes)
+  .route("/v1", aiProviderRoutes)
   .route("/v1", memberRoutes)
   .route("/v1", inviteRoutes)
   .route("/v1", notificationRoutes)

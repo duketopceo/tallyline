@@ -272,3 +272,82 @@ export async function safeGetText(
     req.end();
   });
 }
+
+export interface SafeFetchInit {
+  method?: "GET" | "POST";
+  headers?: Record<string, string>;
+  body?: string;
+  timeoutMs: number;
+  maxBytes: number;
+}
+
+/**
+ * Request a caller-supplied URL (an AI provider endpoint) with the SSRF policy
+ * enforced at connect time, redirects refused and the response body capped.
+ * Resolves with the status and body text; rejects on network error, block,
+ * redirect, oversize body or timeout. Plain http is only dialled when the
+ * operator opted into private networks (TALLYLINE_WEBHOOK_ALLOW_PRIVATE), so an
+ * API key is never sent in the clear to a public host.
+ */
+export async function safeFetchText(
+  rawUrl: string,
+  init: SafeFetchInit,
+): Promise<{ status: number; body: string }> {
+  const url = new URL(rawUrl);
+  const allowPrivate = webhookAllowPrivate();
+  if (url.protocol !== "https:" && !(allowPrivate && url.protocol === "http:")) {
+    throw new Error("endpoint must be https");
+  }
+  const host = stripBrackets(url.hostname);
+  if (!allowPrivate) {
+    if (!isIP(host)) assertHostnameAllowed(host, "endpoint");
+    else if (isPrivateAddress(host)) throw new Error(`blocked: ${host} is a non-public address`);
+  }
+  const mod = url.protocol === "https:" ? https : http;
+  const payload = init.body ?? "";
+  return new Promise((resolve, reject) => {
+    const req = mod.request(
+      url,
+      {
+        method: init.method ?? "POST",
+        headers: {
+          accept: "application/json",
+          ...init.headers,
+          ...(init.body !== undefined ? { "content-length": Buffer.byteLength(payload) } : {}),
+        },
+        timeout: init.timeoutMs,
+        ...(allowPrivate ? {} : { lookup: guardedLookup as never }),
+      },
+      (res) => {
+        const status = res.statusCode ?? 0;
+        if (status >= 300 && status < 400) {
+          res.resume();
+          reject(new Error(`endpoint returned redirect ${status} (redirects are not followed)`));
+          return;
+        }
+        const chunks: Buffer[] = [];
+        let size = 0;
+        let tooLarge = false;
+        res.on("data", (chunk: Buffer) => {
+          if (tooLarge) return;
+          size += chunk.length;
+          if (size > init.maxBytes) {
+            tooLarge = true;
+            reject(new Error("response too large"));
+            req.destroy();
+            return;
+          }
+          chunks.push(chunk);
+        });
+        res.on("end", () => {
+          if (!tooLarge) resolve({ status, body: Buffer.concat(chunks).toString("utf8") });
+        });
+        res.on("error", reject);
+      },
+    );
+    req.on("timeout", () => req.destroy(new Error("endpoint timed out")));
+    req.on("error", reject);
+    if (init.body !== undefined) req.end(payload);
+    else req.end();
+  });
+}

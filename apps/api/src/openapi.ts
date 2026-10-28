@@ -744,6 +744,56 @@ const basePaths = {
         responses: { "200": { description: "Revoked" } },
       },
     },
+    "/v1/workspaces/{ws}/ai/provider": {
+      get: {
+        summary:
+          "The workspace's AI provider (or the server-wide one set by environment) and this month's spend; never returns the API key; admin",
+        parameters: [wsParam],
+        responses: { "200": { description: "{provider|null, defaultMonthlyCapCents, usage}" } },
+      },
+      put: {
+        summary:
+          "Connect or change the AI provider: OpenRouter or any OpenAI-compatible endpoint. The key is sealed at rest; omit apiKey to keep it, send \"\" to remove it; admin",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["kind", "label", "model"],
+          properties: {
+            kind: { type: "string", enum: ["openrouter", "openai_compatible"] },
+            label: { type: "string" },
+            baseUrl: { type: "string", description: "required for openai_compatible; https and public unless the server allows private networks" },
+            model: { type: "string" },
+            apiKey: { type: "string" },
+            monthlyCapCents: { type: ["integer", "null"], description: "monthly spend ceiling in cents; null = none; default 1000 on first connect" },
+          },
+        }),
+        responses: {
+          "200": { description: "The saved provider view" },
+          "422": { description: "Bad address, missing key or limit out of range" },
+          "503": { description: "Server has no AUTH_SECRET_KEY to seal keys with" },
+        },
+      },
+      delete: {
+        summary: "Disconnect the workspace's own provider; admin",
+        parameters: [wsParam],
+        responses: { "200": { description: "Disconnected" }, "404": { description: "No provider of its own" } },
+      },
+    },
+    "/v1/workspaces/{ws}/ai/provider/test": {
+      post: {
+        summary:
+          "Make one tiny real call through the provider and say what happened ({ok, message}); counted in the usage ledger; admin; rate limited",
+        parameters: [wsParam],
+        responses: { "200": { description: "{ok, model?, code?, message?, ms}" } },
+      },
+    },
+    "/v1/workspaces/{ws}/ai/usage": {
+      get: {
+        summary: "This month's AI spend and the most recent calls; admin",
+        parameters: [wsParam],
+        responses: { "200": { description: "Usage" } },
+      },
+    },
     "/v1/workspaces/{ws}/tokens": {
       get: {
         summary: "List your personal access tokens (human session only)",
