@@ -279,6 +279,18 @@ least monthly; an untested backup is not a backup. The database name in the
 compose file is `tallyline` (kept so existing volumes work); the older manual
 snippet above says `tallyline` — use whatever `POSTGRES_DB` is on your box.
 
+### Backup operator record (U2)
+
+Status of the one-time operator steps. Update this table when a step changes.
+
+| Step | State | Notes |
+|---|---|---|
+| age key pair | done 2026-10-28 | Public key (safe to share, goes in `BACKUP_AGE_RECIPIENT`): `age1kg9z7kas8gsqc46vqc6zwcj8eqpnz6zs4805d3tqq2f4y6uanulszmqnek`. The private key was generated off cluster2 and must be copied into the password manager plus one offline copy. It never goes on cluster2. |
+| R2 bucket, bucket lock, upload token | open | Needs a Cloudflare dashboard session: create the bucket, add a lock rule (retention 14 days, per the plan), create an upload token scoped to that bucket and a separate read token for restores. |
+| Timer on cluster2 | open | Needs shell on cluster2: follow "Scheduled backups (systemd timer)" above with the public key and the bucket values. |
+| Restore drill against prod data | open | Run after the first real backup lands. Compare row counts of `projects`, `issues` and `github_webhook_events` against prod, and check that the Kate project is present. |
+| Script rehearsal | done 2026-10-28 | Off-host rehearsal with a throwaway Postgres 18: `backup.sh` (local-only mode) then `restore.sh` into an empty scratch database, checksum verified, row counts matched, and a private key in `BACKUP_AGE_RECIPIENT` was refused. This proves the scripts and the key, not prod data. |
+
 ## Hardening checklist
 
 - `JWT_SECRET` is set and not the dev default (enforced: the API won't boot in production otherwise).
