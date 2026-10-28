@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useIssueEdit, useMerged } from "@/components/app/issue-store";
 import { useIssueEditors } from "@/components/app/pickers";
 import { useMeta, useNames } from "@/components/app/providers";
+import { ProjectIcon } from "@/components/project-icon";
 import { useToast } from "@/components/app/toast";
 import { Assignee, Glint, Kbd, PriorityGlyph, StateGlyph } from "@/components/app/ui";
 import type { IssueDetail } from "@/components/app/peek-panel";
@@ -295,6 +296,7 @@ export function IssueDetailView({
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-lining-faint px-4">
         <Link href="/issues" className="text-[13px] text-ink-subtle hover:text-ink">Issues</Link>
         <span aria-hidden className="text-ink-tertiary">/</span>
+        {project && <span title={`Project: ${project.name}`} className="flex"><ProjectIcon name={project.name} iconUrl={project.iconUrl} size={20} /></span>}
         <span className="font-mono text-[12px] text-ink-muted">{issue.key}</span>
         <button type="button" onClick={() => { void navigator.clipboard?.writeText(window.location.href); toast.push({ message: `Link to ${issue.key} copied` }); }} className="h-7 rounded-sm px-2 text-[12px] text-ink-subtle hover:bg-surface-2 hover:text-ink">Copy link</button>
         <span className="ml-auto hidden items-center gap-2 text-[11px] text-ink-subtle md:flex"><span><Kbd>s</Kbd> state</span><span><Kbd>p</Kbd> priority</span><span><Kbd>a</Kbd> assign</span><span><Kbd>e</Kbd> title</span><span><Kbd>d</Kbd> description</span></span>
@@ -475,7 +477,7 @@ export function IssueDetailView({
               </div>
               <div>
                 <dt className="text-[12px] text-ink-subtle">Project</dt>
-                <dd><button type="button" className="-ml-2 mt-0.5 h-7 w-full rounded-sm px-2 text-left text-ink hover:bg-surface-2" aria-label={`Project: ${project?.name ?? "none"}. Change`} onClick={(e) => editors.pickProject(e.currentTarget, [like])}>{project?.name ?? <span className="text-ink-subtle">No project</span>}</button></dd>
+                <dd><button type="button" className="-ml-2 mt-0.5 h-7 w-full rounded-sm px-2 text-left text-ink hover:bg-surface-2" aria-label={`Project: ${project?.name ?? "none"}. Change`} onClick={(e) => editors.pickProject(e.currentTarget, [like])}>{project ? <span className="flex items-center gap-2"><ProjectIcon name={project.name} iconUrl={project.iconUrl} />{project.name}</span> : <span className="text-ink-subtle">No project</span>}</button></dd>
               </div>
               {project && (
               <div>

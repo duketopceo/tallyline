@@ -239,6 +239,32 @@ describe("projects + milestones (real postgres)", () => {
     expect(cleared.body.status).toBe("paused");
   });
 
+  it("project iconUrl is explicit, https-only and clearable", async () => {
+    const p = await createProject({ name: "iconed", iconUrl: "https://example.com/logo.png" });
+    expect(p.iconUrl).toBe("https://example.com/logo.png");
+    const plain = await createProject({ name: "plain" });
+    expect(plain.iconUrl).toBeNull();
+
+    for (const bad of ["http://example.com/a.png", "https://127.0.0.1/a.png", "javascript:alert(1)"]) {
+      const r = await req(`/v1/workspaces/${SLUG}/projects`, {
+        method: "POST",
+        body: JSON.stringify({ name: "bad icon", iconUrl: bad }),
+      });
+      expect(r.status).toBe(400);
+    }
+
+    const set = await req(`/v1/workspaces/${SLUG}/projects/${plain.id as string}`, {
+      method: "PATCH",
+      body: JSON.stringify({ iconUrl: "https://example.org/favicon.ico" }),
+    });
+    expect(set.body.iconUrl).toBe("https://example.org/favicon.ico");
+    const cleared = await req(`/v1/workspaces/${SLUG}/projects/${plain.id as string}`, {
+      method: "PATCH",
+      body: JSON.stringify({ iconUrl: null }),
+    });
+    expect(cleared.body.iconUrl).toBeNull();
+  });
+
   it("milestone CRUD is nested under the project and ordered", async () => {
     const p = await createProject({ name: "with milestones" });
 

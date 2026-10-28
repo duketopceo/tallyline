@@ -5,6 +5,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { githubIssueLinks, githubRepos, issues, projects } from "../db/schema.js";
 import { HttpError } from "../lib/errors.js";
+import { githubOwnerIconUrl } from "../lib/project-icon.js";
 import { clock } from "./clock.js";
 
 export interface RepoBackfillRow {
@@ -97,7 +98,10 @@ export async function backfillRepoProjects(
   if (apply) {
     await db.transaction(async (tx) => {
       for (const { repo, project, bind } of plans) {
-        if (bind) await tx.update(githubRepos).set({ projectId: project.id }).where(eq(githubRepos.id, repo.id));
+        if (bind) {
+          await tx.update(githubRepos).set({ projectId: project.id }).where(eq(githubRepos.id, repo.id));
+          await fillProjectIconFromRepo(tx, project.id, repo.fullName);
+        }
         await tx
           .update(issues)
           .set({ projectId: project.id, updatedAt: clock.now() })
@@ -113,4 +117,18 @@ export async function backfillRepoProjects(
     });
   }
   return result;
+}
+
+/** Auto-fill a project's icon from a bound repo's owner avatar; never overwrites an existing icon. */
+export async function fillProjectIconFromRepo(
+  exec: Pick<typeof db, "update">,
+  projectId: string,
+  repoFullName: string,
+): Promise<void> {
+  const iconUrl = githubOwnerIconUrl(repoFullName);
+  if (!iconUrl) return;
+  await exec
+    .update(projects)
+    .set({ iconUrl })
+    .where(and(eq(projects.id, projectId), isNull(projects.iconUrl)));
 }

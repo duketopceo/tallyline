@@ -803,6 +803,11 @@ const basePaths = {
               ],
             },
             teamKey: { type: "string" },
+            iconUrl: {
+              type: "string",
+              description:
+                "Public https logo URL; auto-filled from a bound GitHub repo owner avatar when unset",
+            },
             startDate: { type: "string", format: "date-time" },
             targetDate: { type: "string", format: "date-time" },
           },
@@ -823,6 +828,7 @@ const basePaths = {
           properties: {
             name: { type: "string" },
             description: { type: ["string", "null"] },
+            iconUrl: { type: ["string", "null"], description: "Public https logo URL; null clears" },
             status: {
               type: "string",
               enum: [

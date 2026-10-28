@@ -26,6 +26,7 @@ import { requireRole } from "../services/members.js";
 import {
   backfillRepoProjects,
   getWorkspaceProject,
+  fillProjectIconFromRepo,
 } from "../services/repo-projects.js";
 import { requireWorkspace } from "./workspaces.js";
 
@@ -257,6 +258,7 @@ export const githubRoutes = new Hono()
       if (!row) {
         throw new HttpError(404, "NOT_FOUND", `repo '${fullName}' not linked`);
       }
+      if (projectId) await fillProjectIconFromRepo(db, projectId, fullName);
       return c.json(row);
     },
   )

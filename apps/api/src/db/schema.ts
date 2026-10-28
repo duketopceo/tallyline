@@ -162,6 +162,9 @@ export const projects = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     status: text("status").notNull().default("planned"),
+    // https URL of the project's logo, stored once (explicit, or auto-filled from
+    // a bound GitHub repo's owner avatar); null = clients show a fallback
+    iconUrl: text("icon_url"),
     // startDate/targetDate are the roadmap span; either may be null — an
     // open project renders from createdAt to "now" (open-ended)
     startDate: timestamp("start_date", { withTimezone: true }),

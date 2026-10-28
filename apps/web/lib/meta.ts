@@ -8,7 +8,7 @@ export interface AgentRef { id: string; name: string; harness: string }
 export interface LabelRef { id: string; name: string; color: string }
 export interface TeamRef { id: string; key: string; name: string }
 export interface CycleRef { id: string; number: number; name: string | null; teamId: string; isActive: boolean }
-export interface ProjectRef { id: string; name: string; teamId: string | null }
+export interface ProjectRef { id: string; name: string; teamId: string | null; iconUrl?: string | null }
 export interface MilestoneRef { id: string; projectId: string; title: string; done: boolean }
 export interface ViewRef { id: string; name: string; filters: Record<string, unknown>; shared: boolean; ownerId: string }
 
