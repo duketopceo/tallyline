@@ -163,8 +163,13 @@ device authorization grant instead and end up holding a personal access token.
    `device_authorizations` is a credential (the device code is stored as a hash).
 
 Approvals are written to the workspace feed as `device_authorized` and
-`device_denied`. The web page at `/device` that renders step 2 is not built yet,
-so `verification_uri` currently points at a route the web app does not serve.
+`device_denied`. The web page at `/device` renders step 2: signed-out people go
+through `/login` and come back with the code (`?code=BCDF-GHJK`); the page shows
+which computer is asking and when the code expires, lets an admin or owner pick
+the workspace and read-only or read-write access, and posts the decision through
+the web bridge `/api/device/{ws}/{code}`. `tallyline connect` (interactive, or
+`--browser` anywhere) drives the client side, polls at the server's interval, and
+falls back to pasting a token when the server has no device endpoints.
 
 ## Operational flags
 

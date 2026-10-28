@@ -9,7 +9,7 @@ tallyline help
 ```
 
 ```
-tallyline connect     # sign in once; the token goes to your keychain
+tallyline connect     # sign in once, in your browser; the token goes to your keychain
 tallyline             # see where things stand
 tallyline doctor      # check everything is healthy
 ```
@@ -18,6 +18,12 @@ tallyline doctor      # check everything is healthy
 
 Scripts and CI can skip `connect` and set `TALLYLINE_API_URL`, `TALLYLINE_TOKEN`
 and `TALLYLINE_WORKSPACE`, or run `tallyline connect --server URL --token-stdin`.
+
+`tallyline connect` offers to sign you in through your browser: it shows a short code, opens
+the approval page, and waits. Over SSH or on a computer with no browser, run
+`tallyline connect --browser` and open the address it prints on any device. `--paste` goes
+straight to pasting a token. Browser sign-in needs a workspace admin or owner and a server
+that has the device endpoints (this release); older servers fall back to pasting automatically.
 
 ## What you see
 

@@ -2,9 +2,16 @@ import { ApiError, whoami, type FetchLike, type Whoami } from "./client.js";
 import { CliError } from "./cli-error.js";
 import type { CliIo, Command, CmdCtx } from "./commands.js";
 import { globalConfigPath, resolveConfig, saveProfile, type EnvLike } from "./config.js";
+import {
+  DeviceUnsupported,
+  isOpenableUrl,
+  startDevice,
+  waitForDeviceToken,
+  type DeviceStart,
+} from "./device.js";
 import { realKind, type TokenStore } from "./secrets.js";
 import { friendlyApiError } from "./ui/errors.js";
-import { Cancelled, type Prompter } from "./ui/prompt.js";
+import { Cancelled, type Prompter, type Spin } from "./ui/prompt.js";
 import { errorBlock, nextRows, nextSteps } from "./ui/render.js";
 
 export const CLOUD_API = "https://api.tallyline.app";
@@ -87,6 +94,50 @@ const keptNote = (k: TokenStore["kind"]) =>
       ? "saved in your Mac keychain"
       : "saved in your system keyring";
 
+
+function clientName(io: CliIo): string {
+  const host = (io.hostname ?? "").replace(/[^\w .-]/g, "").trim().slice(0, 80);
+  return `Tallyline CLI on ${host || "this computer"}`;
+}
+
+/**
+ * Browser sign-in: show the code, open the page, wait for the approval, return the token.
+ * `shown` lets the caller render the code its own way (a boxed note, or plain lines).
+ * Throws DeviceUnsupported when the server has no browser sign-in.
+ */
+async function browserToken(
+  io: CliIo,
+  server: string,
+  shown: (start: DeviceStart, opened: boolean) => void,
+  onWaiting?: () => void,
+): Promise<string> {
+  const start = await startDevice(server, clientName(io), io.fetch);
+  const opened =
+    io.openUrl !== undefined && isOpenableUrl(start.verificationUriComplete)
+      ? await io.openUrl(start.verificationUriComplete).catch(() => false)
+      : false;
+  shown(start, opened);
+  return waitForDeviceToken({
+    server,
+    start,
+    fetch: io.fetch,
+    ...(io.sleep ? { sleep: io.sleep } : {}),
+    ...(onWaiting ? { onWaiting } : {}),
+  });
+}
+
+function codeNote(start: DeviceStart, opened: boolean): string {
+  return [
+    opened ? "Your browser should be opening now." : "Open this page in your browser:",
+    `  ${start.verificationUri}`,
+    "",
+    `Check that it shows this code, then choose Allow:`,
+    `  ${start.userCode}`,
+    "",
+    `The code works for ${Math.round(start.expiresIn / 60)} minutes.`,
+  ].join("\n");
+}
+
 async function interactiveConnect(ctx: CmdCtx): Promise<void> {
   const p: Prompter | undefined = ctx.io.prompter;
   if (!p) throw new CliError(2, "connect needs a terminal; use --server and --token-stdin in scripts");
@@ -110,17 +161,51 @@ async function interactiveConnect(ctx: CmdCtx): Promise<void> {
           },
         })),
     );
-    const page = tokenPageUrl(server);
-    p.note(
-      page
-        ? `1. Open ${page}\n2. Create a new token (read and write)\n3. Copy it and paste it below`
-        : "In Tallyline, open Settings, then Tokens.\nCreate a new token (read and write), copy it, and paste it below.",
-      "Get a sign-in token",
-    );
-    const token = await p.secret({
-      message: "Paste your token (it stays hidden)",
-      validate: (v) => (v.trim() ? undefined : "paste the token you just created"),
-    });
+    let token: string | undefined;
+    const method =
+      ctx.flags.paste === true
+        ? "paste"
+        : await p.select({
+            message: "How would you like to sign in?",
+            options: [
+              { value: "browser", label: "In your browser", hint: "recommended, nothing to copy" },
+              { value: "paste", label: "Paste a token", hint: "from Settings, Tokens" },
+            ],
+            initial: "browser",
+          });
+    if (method === "browser") {
+      const ask = p.spin(`Asking ${new URL(server).host} for a sign-in code…`);
+      let current: Spin = ask;
+      try {
+        token = await browserToken(ctx.io, server, (start, opened) => {
+          ask.succeed("Got a sign-in code");
+          p.note(codeNote(start, opened), "Approve in your browser");
+          current = p.spin("Waiting for you to approve it…");
+        });
+        current.succeed("Approved in the browser");
+      } catch (e) {
+        if (e instanceof DeviceUnsupported) {
+          current.fail("Browser sign-in isn't available here");
+          p.step("warn", `${e.message}. Let's use a token instead.`);
+        } else {
+          current.fail("That didn't work");
+          throw e;
+        }
+      }
+    }
+    if (token === undefined) {
+      const page = tokenPageUrl(server);
+      p.note(
+        page
+          ? `1. Open ${page}\n2. Create a new token (read and write)\n3. Copy it and paste it below`
+          : "In Tallyline, open Settings, then Tokens.\nCreate a new token (read and write), copy it, and paste it below.",
+        "Get a sign-in token",
+      );
+      token = await p.secret({
+        message: "Paste your token (it stays hidden)",
+        validate: (v) => (v.trim() ? undefined : "paste the token you just created"),
+      });
+    }
     const spin = p.spin(`Checking with ${new URL(server).host}…`);
     let done: Connected;
     try {
@@ -156,17 +241,53 @@ async function interactiveConnect(ctx: CmdCtx): Promise<void> {
   }
 }
 
+// `connect --browser` without a prompter (SSH, scripts you watch): the code and address go to
+// stderr so stdout stays the result, and we wait for the approval.
+async function scriptedBrowserConnect(ctx: CmdCtx): Promise<void> {
+  const flagServer = typeof ctx.flags.server === "string" ? ctx.flags.server : undefined;
+  const { config } = await resolveConfig({ env: ctx.io.env, cwd: ctx.io.cwd });
+  const server = normalizeServer(flagServer ?? (config.token ? config.apiUrl : CLOUD_API));
+  let token: string;
+  try {
+    token = await browserToken(ctx.io, server, (start, opened) => {
+      ctx.io.err(codeNote(start, opened));
+      ctx.io.err("Waiting for you to approve it…");
+    });
+  } catch (e) {
+    if (e instanceof DeviceUnsupported) {
+      throw new CliError(1, `${e.message}. Create a token in Settings and run: printf %s "$TOKEN" | tallyline connect --server ${server} --token-stdin`);
+    }
+    throw e;
+  }
+  const done = await connectWith({
+    server,
+    token,
+    workspace: typeof ctx.flags.workspace === "string" ? ctx.flags.workspace : undefined,
+    fetch: ctx.io.fetch,
+    env: ctx.io.env,
+    tokens: tokensOf(ctx.io),
+  });
+  if (ctx.json) {
+    ctx.io.out(JSON.stringify({ server: done.server, workspace: done.workspace, user: done.who.name, storedIn: done.keptIn }));
+  } else {
+    ctx.io.out(`connected to ${done.server} as ${done.who.name} (${done.workspace}); token ${keptNote(done.keptIn)}`);
+  }
+}
+
 export const connectCmd: Command = {
   usage:
-    "tallyline connect [--server URL] [--workspace slug] [--token-stdin]",
+    "tallyline connect [--server URL] [--workspace slug] [--browser | --paste | --token-stdin]",
   summary:
     "sign in: on a terminal it walks you through it; in scripts pipe the token in with --token-stdin (never as an argument)",
   options: {
     server: { type: "string" },
     "token-stdin": { type: "boolean" },
+    browser: { type: "boolean" },
+    paste: { type: "boolean" },
   },
   needsApi: false,
   run: async (ctx) => {
+    if (ctx.flags.browser === true && ctx.flags["token-stdin"] !== true) return scriptedBrowserConnect(ctx);
     const scripted = ctx.flags["token-stdin"] === true || ctx.io.isTTY !== true;
     if (!scripted) return interactiveConnect(ctx);
     const server = typeof ctx.flags.server === "string" ? ctx.flags.server : undefined;

@@ -13,6 +13,7 @@ All notable changes to Tallyline (formerly docketry). Format loosely follows
 - **Bring your own AI provider** (see `docs/llm-assist.md`): admins connect OpenRouter or any OpenAI-compatible endpoint per workspace (`/ai/provider`, `/ai/provider/test`, `/ai/usage`). Keys are sealed at rest and never returned, a monthly spend limit stops calls before they happen, and the endpoint obeys the webhook SSRF policy (migration `0040_ai_providers`).
 
 - **Deploy lock and provenance** (`ops/deploy.sh`, U3): one deployer under `flock`, refuses a dirty tree, a target off `origin/main` or older than the running commit, runs the backup, builds api, web and mcp-server with `--profile mcp` and an `org.opencontainers.image.revision` label, health-checks all three, reads the labels back and logs commit, time and actor. See `docs/deploy.md`.
+- **Browser sign-in for the CLI** (S1-U7, client half; see `docs/auth.md`): the web app now serves `/device`, where an admin or owner approves the code their terminal shows, choosing the workspace and read-only or read-write access. `tallyline connect` offers "In your browser" first and falls back to pasting a token; `tallyline connect --browser` works over SSH, `--paste` skips the choice. Signed-out visitors return to `/device` with the code after login.
 
 ### Fixed
 
