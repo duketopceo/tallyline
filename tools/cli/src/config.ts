@@ -1,6 +1,6 @@
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { readEnv } from "@tallyline/types";
 
 export type EnvLike = Record<string, string | undefined>;
@@ -132,8 +132,9 @@ export async function saveProfile(env: EnvLike, patch: Profile): Promise<string>
   const next: Record<string, unknown> = { ...current, ...patch };
   delete next.token;
   for (const [k, v] of Object.entries(next)) if (v === undefined) delete next[k];
-  await mkdir(join(path, ".."), { recursive: true, mode: 0o700 });
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   await writeFile(path, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 });
+  // writeFile only applies `mode` to a new file; tighten one that already existed
   await chmod(path, 0o600);
   return path;
 }

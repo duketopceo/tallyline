@@ -29,6 +29,12 @@ export interface Prompter {
   spin(msg: string): Spin;
 }
 
+function validator(
+  validate: ((v: string) => string | undefined) | undefined,
+): { validate?: (v: string | undefined) => string | undefined } {
+  return validate ? { validate: (v) => validate(v ?? "") } : {};
+}
+
 function ask<T>(v: T): Exclude<T, symbol> {
   if (clack.isCancel(v)) throw new Cancelled();
   return v as Exclude<T, symbol>;
@@ -52,7 +58,7 @@ export const clackPrompter: Prompter = {
         message: o.message,
         ...(o.initial !== undefined ? { initialValue: o.initial, defaultValue: o.initial } : {}),
         ...(o.placeholder !== undefined ? { placeholder: o.placeholder } : {}),
-        ...(o.validate ? { validate: (v) => o.validate!(v ?? "") } : {}),
+        ...validator(o.validate),
       }),
     ),
   secret: async (o) =>
@@ -60,7 +66,7 @@ export const clackPrompter: Prompter = {
       await clack.password({
         message: o.message,
         mask: "•",
-        ...(o.validate ? { validate: (v) => o.validate!(v ?? "") } : {}),
+        ...validator(o.validate),
       }),
     ),
   confirm: async (o) =>
