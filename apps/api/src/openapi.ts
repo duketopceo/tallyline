@@ -852,6 +852,14 @@ const basePaths = {
         responses: { "200": { description: "Revoked" }, "404": { description: "Not your device" } },
       },
     },
+    "/v1/workspaces/{ws}/system/status": {
+      get: {
+        summary:
+          "Install health in one call for the first-run checklist: database, last backup age, sign-in methods, AI provider, email, public addresses and workspace counts. Yes/no state and public addresses only, never a secret; admin",
+        parameters: [wsParam],
+        responses: { "200": { description: "{version, revision, checkedAt, database, backup, signIn, ai, email, publicUrl, workspace}" } },
+      },
+    },
     "/v1/workspaces/{ws}/ai/provider": {
       get: {
         summary:

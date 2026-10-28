@@ -67,6 +67,7 @@ Set these in `.env` next to the compose file (it reads `.env` automatically):
 | `OIDC_ISSUER`/`_CLIENT_ID`/`_CLIENT_SECRET`/`_DISPLAY_NAME`/`_SCOPES` | no | — | Generic OIDC via discovery — `{issuer}/.well-known/openid-configuration` |
 | `SLACK_*` | no | — | Slack intake/mirroring — see [slack.md](./slack.md); empty tokens = off |
 | `TALLYLINE_LLM_*` | no | — | LLM assist (OpenRouter or any OpenAI-compatible endpoint) — see [llm-assist.md](./llm-assist.md); empty key = off |
+| `TALLYLINE_VERSION` / `TALLYLINE_REVISION` / `TALLYLINE_BACKUP_MARKER` | no | — | Shown to admins by the first-run checklist (`GET /v1/workspaces/{ws}/system/status`). Version and commit are labels only; `TALLYLINE_BACKUP_MARKER` is the path (inside the api container) of a file `ops/backup.sh` touches on success (`BACKUP_MARKER_FILE`), so the checklist can show backup age. Unset = backups show as "not set up". `ops/deploy.sh` supplies the commit |
 | `COMPOSIO_API_KEY`, `LINEAR_API_KEY` | no | — | Optional integration credentials |
 | `AUTH_SECRET` | — | — | **removed** — legacy var older `.env` files may still carry; nothing reads it. `JWT_SECRET` is the live secret |
 

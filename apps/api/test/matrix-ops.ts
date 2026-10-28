@@ -427,6 +427,7 @@ export const OPERATIONS: Record<string, Builder> = {
   "DELETE /v1/workspaces/{ws}/ai/provider": simple("DELETE", (t) => `${base(t)}/ai/provider`),
   "POST /v1/workspaces/{ws}/ai/provider/test": simple("POST", (t) => `${base(t)}/ai/provider/test`),
   "GET /v1/workspaces/{ws}/ai/usage": get((t) => `${base(t)}/ai/usage`),
+  "GET /v1/workspaces/{ws}/system/status": get((t) => `${base(t)}/system/status`),
   "DELETE /v1/workspaces/{ws}/tokens/{id}": async (t, who) => {
     const tok = await mkToken(t, who.userId ?? t.people.owner.id);
     return { method: "DELETE", path: `${base(t)}/tokens/${tok.id}` };

@@ -17,6 +17,8 @@
 # Local
 #   [BACKUP_OUT_DIR=/var/backups/tallyline]  encrypted file is kept here (default: mktemp, removed after upload)
 #   [BACKUP_HEALTHCHECK_URL]  pinged on success (healthchecks.io); `/fail` appended on failure
+#   [BACKUP_MARKER_FILE]      touched after a successful run; mount it read-only into the api container and
+#                             set TALLYLINE_BACKUP_MARKER to its path so the setup checklist can show backup age
 set -Eeuo pipefail
 
 log() { printf '%s backup: %s\n' "$(date -u +%FT%TZ)" "$*" >&2; }
@@ -76,6 +78,7 @@ else
 fi
 
 [ "$keep" = 1 ] || rm -rf "$out_dir"
+if [ -n "${BACKUP_MARKER_FILE:-}" ]; then mkdir -p "$(dirname "$BACKUP_MARKER_FILE")" && touch "$BACKUP_MARKER_FILE"; fi
 trap - ERR
 ping_hc
 log "ok"
