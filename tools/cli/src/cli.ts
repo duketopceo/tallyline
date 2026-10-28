@@ -3,6 +3,15 @@ import { ApiClient, ApiError } from "./client.js";
 import { commands, CliError, type CliIo, type CmdCtx } from "./commands.js";
 import { resolveConfig } from "./config.js";
 import { banner, mut, setColor, versionTag } from "./pretty.js";
+import {
+  friendlyApiError,
+  friendlyMissingConfig,
+  friendlyUsage,
+  type Friendly,
+} from "./ui/errors.js";
+import { prettyHelp } from "./ui/help.js";
+import { hostOf, loadHome, renderHome } from "./ui/home.js";
+import { errorBlock } from "./ui/render.js";
 
 export const VERSION = "2.0.0";
 
@@ -98,14 +107,25 @@ function wantsColor(argv: string[], io: CliIo): boolean {
 
 export async function run(argv: string[], io: CliIo): Promise<number> {
   setColor(wantsColor(argv, io));
+  // Decoration and friendly language are for people at a terminal only. Pipes,
+  // CI and --json keep the stable plain output (golden.test.ts pins it).
+  const interactive =
+    io.isTTY === true && !argv.includes("--json") && !argv.includes("--format");
   const name = argv[0];
   try {
     if (name === undefined) {
+      if (interactive) return await runHome(io);
       io.err(`${banner(VERSION)}\n\n${HELP}`);
       return 2;
     }
     if (name === "help" || name === "--help" || name === "-h") {
-      io.out(argv[1] ? commandHelp(argv[1]) : `${banner(VERSION)}\n\n${HELP}`);
+      if (argv[1] && argv[1] !== "all") {
+        io.out(commandHelp(argv[1]));
+      } else if (interactive && argv[1] !== "all") {
+        io.out(prettyHelp(VERSION));
+      } else {
+        io.out(`${banner(VERSION)}\n\n${HELP}`);
+      }
       return 0;
     }
     if (name === "--version") {
@@ -165,6 +185,10 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     let client: ApiClient | undefined;
     if (cmd.needsApi) {
       if (!config.workspace) {
+        if (interactive) {
+          io.err(errorBlock(friendlyMissingConfig("workspace")));
+          return 2;
+        }
         throw new CliError(
           2,
           "no workspace configured — set TALLYLINE_WORKSPACE or run " +
@@ -172,6 +196,10 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
         );
       }
       if (!config.token) {
+        if (interactive) {
+          io.err(errorBlock(friendlyMissingConfig("token")));
+          return 2;
+        }
         throw new CliError(
           2,
           "no token configured — set TALLYLINE_TOKEN (tly_agt_* agent key, " +
@@ -198,10 +226,22 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     return 0;
   } catch (err) {
     if (err instanceof ApiError) {
-      io.err(`${err.code}: ${err.message}`);
+      if (interactive) {
+        io.err(errorBlock(friendlyApiError(err.status, err.code, err.message)));
+      } else {
+        io.err(`${err.code}: ${err.message}`);
+      }
       return apiExitCode(err.status);
     }
     if (err instanceof CliError) {
+      if (interactive) {
+        const f: Friendly =
+          err.exitCode === 2
+            ? friendlyUsage(err.message, name)
+            : { title: err.message, fix: "tallyline doctor", ref: "TLY-ERROR" };
+        io.err(errorBlock(f));
+        return err.exitCode;
+      }
       io.err(err.message);
       if (name !== undefined && err.exitCode === 2) {
         io.err(`see 'tallyline ${name} --help'`);
@@ -211,5 +251,44 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     const msg = err instanceof Error ? err.message : String(err);
     io.err(`INTERNAL: ${msg}`);
     return 1;
+  }
+}
+
+// `tallyline` with no arguments on a terminal: where things stand, and what to
+// do next. Never throws; a server that is slow or away just shows "not connected".
+async function runHome(io: CliIo): Promise<number> {
+  const { config } = await resolveConfig({ env: io.env, cwd: io.cwd });
+  const base = {
+    version: VERSION,
+    server: config.apiUrl,
+    workspace: config.workspace ?? "",
+  };
+  const hour = new Date().getHours();
+  if (!config.token || !config.workspace) {
+    io.out(renderHome({ ...base, connected: false, inReview: 0, inTriage: 0, working: [] }, hour));
+    return 0;
+  }
+  const client = new ApiClient({
+    apiUrl: config.apiUrl,
+    token: config.token,
+    workspace: config.workspace,
+    fetch: io.fetch,
+  });
+  const names = new Map<string, string>();
+  try {
+    for (const a of (await client.listAgents()).agents) names.set(a.id, a.name);
+  } catch {
+    // names are decoration; carry on without them
+  }
+  try {
+    const data = await loadHome(client, base, (id) =>
+      id ? (names.get(id) ?? "someone") : "unassigned",
+    );
+    io.out(renderHome(data, hour));
+    return 0;
+  } catch {
+    io.out(renderHome({ ...base, connected: false, inReview: 0, inTriage: 0, working: [] }, hour));
+    io.err(`Couldn't reach ${hostOf(config.apiUrl)} just now. Run tallyline doctor to check.`);
+    return 0;
   }
 }
