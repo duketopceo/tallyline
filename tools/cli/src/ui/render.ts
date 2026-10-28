@@ -41,7 +41,7 @@ export function errorBlock(f: Friendly): string {
     const isCmd = /^tallyline\b/.test(f.fix);
     lines.push("", `  ${dim("Try")}      ${isCmd ? accent(f.fix) : f.fix}`);
   }
-  lines.push(`  ${dim("Details")}  ${dim(f.ref)}`);
+  if (f.ref) lines.push(`  ${dim("Details")}  ${dim(f.ref)}`);
   return lines.join("\n");
 }
 
