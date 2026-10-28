@@ -18,8 +18,9 @@ EnvironmentFile=/srv/tallyline/.backup.env
 Environment=BACKUP_OUT_DIR=/var/backups/tallyline
 ExecStartPre=/usr/bin/install -d -m 0700 /var/backups/tallyline
 ExecStart=/srv/tallyline/ops/backup.sh
+# ExecStopPost runs after success and failure, so failed uploads cannot fill the disk.
 # Local copies are a convenience; off-host retention is the bucket lifecycle rule's job.
-ExecStartPost=/usr/bin/find /var/backups/tallyline -maxdepth 1 -name 'tallyline-*.dump.gz.age*' -mtime +14 -delete
+ExecStopPost=-/usr/bin/find /var/backups/tallyline -maxdepth 1 -name 'tallyline-*.dump.gz.age*' -mtime +14 -delete
 TimeoutStartSec=1h
 Nice=10
 IOSchedulingClass=idle

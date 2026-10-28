@@ -204,11 +204,18 @@ age-keygen -o tallyline-backup.key      # prints the PUBLIC key (age1...)
 # store tallyline-backup.key in your password manager / second machine; NOT on the server
 ```
 
-Create an R2 bucket (enable object versioning or Object Lock, because a write-only token
-cannot delete but can still overwrite a dump) with a **scoped API token** (object write on that bucket only —
-no delete or list, so a compromised host cannot erase the off-host copies) and a
-lifecycle rule that keeps the newest 14 daily files (and, if you want, 8 weekly
-copies under a separate prefix). Retention lives in the bucket, not in the timer.
+Create an R2 bucket for the dumps and turn on a **bucket lock** rule with a retention
+period (for example 14 days) so uploaded objects cannot be deleted or overwritten while
+they are locked, even by a compromised host. R2 API tokens are not write-only: a bucket-scoped
+`Object Read & Write` token can also list and delete, and the bucket lock is what protects the
+copies. Keep the restore credential (read) separate from the upload credential, and store it
+with the age private key, not on the server.
+
+R2 lifecycle rules expire objects by age or date; they do not keep "the newest N files". Set
+the expiry longer than the bucket lock (for example 30 days) and watch the healthcheck: if uploads
+stop for longer than the expiry, the rule would eventually remove every off-host dump. Keep one
+independent recovery point that does not expire, such as a monthly copy to a second location
+you control. Retention lives in the bucket, not in the timer.
 
 #### Scheduled backups (systemd timer)
 
@@ -218,7 +225,9 @@ copies under a separate prefix). Retention lives in the bucket, not in the timer
 ```bash
 # 1. secrets file, root-owned, chmod 600 (see below). Plain KEY=value lines; systemd does
 #    not understand `export` or shell expansion.
-sudo install -m 0600 -o root -g root /dev/null /srv/tallyline/.backup.env
+#    (an existing file, for example from the cron setup, is kept as is)
+sudo test -e /srv/tallyline/.backup.env || sudo touch /srv/tallyline/.backup.env
+sudo chown root:root /srv/tallyline/.backup.env && sudo chmod 0600 /srv/tallyline/.backup.env
 sudoedit /srv/tallyline/.backup.env
 # 2. install and start the timer (edit WorkingDirectory/paths in the unit if the checkout is not /srv/tallyline)
 sudo cp ops/systemd/tallyline-backup.service ops/systemd/tallyline-backup.timer /etc/systemd/system/
