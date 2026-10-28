@@ -1,10 +1,11 @@
 // Issue create, list, detail and patch — the core CRUD surface.
 import { zValidator } from "@hono/zod-validator";
-import { and, desc, eq, exists, ilike, inArray, lt, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, exists, ilike, inArray, lt, not, notInArray, or, type SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { Hono } from "hono";
 import type { IssueState } from "@tallyline/types";
 import { db } from "../../db/client.js";
-import { comments, events, issueLabels, issues, labels, projects, teams } from "../../db/schema.js";
+import { comments, events, issueLabels, issueRelations, issues, labels, projects, teams } from "../../db/schema.js";
 import { actorFromHeaders } from "../../lib/actor.js";
 import { apiError, HttpError } from "../../lib/errors.js";
 import { llmEnabled } from "../../services/llm.js";
@@ -234,6 +235,29 @@ export const coreIssueRoutes = new Hono()
       if (q.priority?.length)
         filters.push(inArray(issues.priority, q.priority));
       if (q.assignee) filters.push(eq(issues.assigneeId, q.assignee));
+      if (q.delegate) filters.push(eq(issues.delegateId, q.delegate));
+      if (q.unblocked) {
+        // blocked = some "blocks" edge points here from an issue that is not finished
+        const blocker = alias(issues, "blocker");
+        filters.push(
+          not(
+            exists(
+              db
+                .select({ one: issueRelations.id })
+                .from(issueRelations)
+                .innerJoin(blocker, eq(blocker.id, issueRelations.sourceIssueId))
+                .where(
+                  and(
+                    eq(issueRelations.workspaceId, ws.id),
+                    eq(issueRelations.targetIssueId, issues.id),
+                    eq(issueRelations.relationType, "blocks"),
+                    notInArray(blocker.state, ["done", "canceled", "duplicate"]),
+                  ),
+                ),
+            ),
+          ),
+        );
+      }
       if (q.cycle) filters.push(eq(issues.cycleId, q.cycle));
       if (q.project) filters.push(eq(issues.projectId, q.project));
       if (q.milestone) filters.push(eq(issues.milestoneId, q.milestone));
