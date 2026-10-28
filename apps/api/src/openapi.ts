@@ -1,6 +1,15 @@
 import { readFileSync } from "node:fs";
 import { extraPaths } from "./openapi-extra.js";
 
+const idempotencyHeader = {
+  name: "Idempotency-Key",
+  in: "header",
+  required: false,
+  description:
+    "8-128 characters of letters, digits and . _ ~ : -. Same key and request returns the first stored response; same key with a different request is 422 IDEMPOTENCY_KEY_REUSED; a retry while the first is running is 409 IDEMPOTENCY_IN_PROGRESS.",
+  schema: { type: "string" },
+};
+
 const wsParam = {
   name: "ws",
   in: "path",
@@ -154,6 +163,13 @@ const basePaths = {
           { name: "search", in: "query", schema: { type: "string" } },
           { name: "cursor", in: "query", schema: { type: "string" } },
           {
+            name: "updatedSince",
+            in: "query",
+            description:
+              "Delta sync: issues changed at or after this ISO instant, oldest change first (inclusive; clients dedupe by id). Cursors from this mode only work in this mode.",
+            schema: { type: "string", format: "date-time" },
+          },
+          {
             name: "limit",
             in: "query",
             schema: { type: "integer", default: 50, maximum: 200 },
@@ -167,8 +183,9 @@ const basePaths = {
         },
       },
       post: {
-        summary: "Create issue (mints TEAM-n key; lands in backlog or triage)",
-        parameters: [wsParam],
+        summary:
+          "Create issue (mints TEAM-n key; lands in backlog or triage). Honors `Idempotency-Key`: a retry with the same key and body returns the first response (Idempotent-Replayed: true) instead of creating a second issue",
+        parameters: [wsParam, idempotencyHeader],
         requestBody: jsonBody({
           type: "object",
           required: ["teamKey", "title"],
@@ -212,8 +229,8 @@ const basePaths = {
       },
       patch: {
         summary:
-          "Update issue fields; `state` changes route through the lifecycle state machine (409 on illegal transition)",
-        parameters: [wsParam, keyParam],
+          "Update issue fields; `state` changes route through the lifecycle state machine (409 on illegal transition). Honors `Idempotency-Key`",
+        parameters: [wsParam, keyParam, idempotencyHeader],
         requestBody: jsonBody({
           type: "object",
           properties: {
@@ -265,8 +282,8 @@ const basePaths = {
         responses: { "200": { description: "Comments" } },
       },
       post: {
-        summary: "Comment on an issue (writes a `commented` event)",
-        parameters: [wsParam, keyParam],
+        summary: "Comment on an issue (writes a `commented` event). Honors `Idempotency-Key`",
+        parameters: [wsParam, keyParam, idempotencyHeader],
         requestBody: jsonBody({
           type: "object",
           required: ["body"],

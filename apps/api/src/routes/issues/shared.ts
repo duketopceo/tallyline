@@ -76,6 +76,11 @@ export const listQuerySchema = z.object({
   source: z.enum(ISSUE_SOURCES).optional(),
   search: z.string().max(200).optional(),
   cursor: z.string().optional(),
+  // delta sync for offline clients: issues changed at or after this instant,
+  // oldest change first, so a client can page forward and remember the last
+  // updatedAt it saw. Inclusive on purpose (clients dedupe by id), because two
+  // changes can share a millisecond.
+  updatedSince: z.iso.datetime({ offset: true }).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 

@@ -1,6 +1,6 @@
 // Issue create, list, detail and patch — the core CRUD surface.
 import { zValidator } from "@hono/zod-validator";
-import { and, asc, desc, eq, exists, ilike, inArray, lt, not, notInArray, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gt, ilike, inArray, lt, not, notInArray, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Hono } from "hono";
 import type { IssueState } from "@tallyline/types";
@@ -9,6 +9,7 @@ import { comments, events, issueExternalRefs, issueLabels, issueRelations, issue
 import { actorFromHeaders } from "../../lib/actor.js";
 import { apiError, HttpError } from "../../lib/errors.js";
 import { llmEnabled } from "../../services/llm.js";
+import { idempotent } from "../../lib/idempotency.js";
 import { decodeCursor, encodeCursor } from "../../lib/pagination.js";
 import { createDispatch } from "../../services/dispatch.js";
 import { assertWithinLimit } from "../../services/entitlements.js";
@@ -78,6 +79,7 @@ export const coreIssueRoutes = new Hono()
   )
   .post(
     "/workspaces/:ws/issues",
+    idempotent,
     zValidator("json", createSchema),
     async (c) => {
       const ws = await requireWorkspace(c);
@@ -307,19 +309,29 @@ export const coreIssueRoutes = new Hono()
           ),
         );
       }
+      // delta mode orders by the change time, truncated to the milliseconds a JS
+      // Date can carry, so a cursor built from a returned row never lands
+      // before that row's own microseconds and loops
+      const changedAt = sql`date_trunc('milliseconds', ${issues.updatedAt})`;
+      const DELTA = "d.";
+      if (q.updatedSince) filters.push(sql`${changedAt} >= ${new Date(q.updatedSince)}`);
       if (q.cursor) {
-        const cur = decodeCursor(q.cursor);
-        if (!cur) {
+        const delta = q.cursor.startsWith(DELTA);
+        if (delta !== Boolean(q.updatedSince)) {
+          return apiError(c, 400, "BAD_CURSOR", "cursor does not belong to this kind of listing");
+        }
+        const cur = decodeCursor(delta ? q.cursor.slice(DELTA.length) : q.cursor);
+        if (!cur || Number.isNaN(Date.parse(cur.createdAt))) {
           return apiError(c, 400, "BAD_CURSOR", "invalid cursor");
         }
+        const at = new Date(cur.createdAt);
         filters.push(
-          or(
-            lt(issues.createdAt, new Date(cur.createdAt)),
-            and(
-              eq(issues.createdAt, new Date(cur.createdAt)),
-              lt(issues.id, cur.id),
-            ),
-          )!,
+          delta
+            ? or(
+                sql`${changedAt} > ${at}`,
+                and(sql`${changedAt} = ${at}`, gt(issues.id, cur.id)),
+              )!
+            : or(lt(issues.createdAt, at), and(eq(issues.createdAt, at), lt(issues.id, cur.id)))!,
         );
       }
 
@@ -327,7 +339,7 @@ export const coreIssueRoutes = new Hono()
         .select()
         .from(issues)
         .where(and(...filters))
-        .orderBy(desc(issues.createdAt), desc(issues.id))
+        .orderBy(...(q.updatedSince ? [asc(changedAt), asc(issues.id)] : [desc(issues.createdAt), desc(issues.id)]))
         .limit(q.limit + 1);
 
       const hasMore = rows.length > q.limit;
@@ -363,10 +375,9 @@ export const coreIssueRoutes = new Hono()
         })),
         nextCursor:
           hasMore && last
-            ? encodeCursor({
-                createdAt: last.createdAt.toISOString(),
-                id: last.id,
-              })
+            ? q.updatedSince
+              ? DELTA + encodeCursor({ createdAt: last.updatedAt.toISOString(), id: last.id })
+              : encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id })
             : null,
       });
     },
@@ -415,6 +426,7 @@ export const coreIssueRoutes = new Hono()
   })
   .patch(
     "/workspaces/:ws/issues/:key",
+    idempotent,
     zValidator("json", patchSchema),
     async (c) => {
       const ws = await requireWorkspace(c);
