@@ -26,7 +26,6 @@ import {
 import { createIssue, transitionIssue, type Actor } from "./issues.js";
 import { queueDeliveries } from "./outbound.js";
 import { clock } from "./clock.js";
-import { issueKeyFromTitle } from "./roadmap-summary.js";
 import { parsePrReferences, prLinkState } from "./pr-links.js";
 
 const SYSTEM: Actor = { type: "system", id: null };
