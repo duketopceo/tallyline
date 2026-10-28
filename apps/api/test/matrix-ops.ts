@@ -408,6 +408,15 @@ export const OPERATIONS: Record<string, Builder> = {
     path: `${base(t)}/device/${(await mkDeviceRequest()).userCode}`,
     body: { decision: "deny" },
   }),
+  "POST /v1/workspaces/{ws}/devices/pairing": simple("POST", (t) => `${base(t)}/devices/pairing`, {}),
+  "GET /v1/workspaces/{ws}/devices": get((t) => `${base(t)}/devices`),
+  "DELETE /v1/workspaces/{ws}/devices/{id}": simple("DELETE", (t) => `${base(t)}/devices/00000000-0000-4000-8000-000000000000`),
+  "DELETE /v1/workspaces/{ws}/devices/current": simple("DELETE", (t) => `${base(t)}/devices/current`),
+  "POST /v1/workspaces/{ws}/devices/current/rotate": simple("POST", (t) => `${base(t)}/devices/current/rotate`, {}),
+  "POST /v1/auth/pair/redeem": simple("POST", () => "/v1/auth/pair/redeem", {
+    code: "tlpair_no-such-code-0000000000",
+    deviceName: "matrix",
+  }),
   "DELETE /v1/workspaces/{ws}/tokens/{id}": async (t, who) => {
     const tok = await mkToken(t, who.userId ?? t.people.owner.id);
     return { method: "DELETE", path: `${base(t)}/tokens/${tok.id}` };

@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { db } from "../src/db/client.js";
 import {
+  devices,
+  pairingCodes,
   agents,
   authProviders,
   comments,
@@ -113,6 +115,18 @@ export async function seedTenant(label: string, teamKey: string): Promise<Tenant
       endpointSecret: `endpoint-secret-${sentinel}`,
     })
     .returning();
+  await db.insert(devices).values({
+    workspaceId: ws!.id,
+    userId: people.owner.id,
+    name: `Phone ${sentinel}`,
+    platform: "ios",
+  });
+  await db.insert(pairingCodes).values({
+    workspaceId: ws!.id,
+    userId: people.owner.id,
+    codeHash: `seeded-${sentinel}`,
+    expiresAt: new Date(Date.now() + 60_000),
+  });
   const kr = await createAgentKey(agent!.id, ws!.id, "read", ["read"]);
   const kw = await createAgentKey(agent!.id, ws!.id, "write", ["read", "write"]);
   const pr = await createUserToken(people.owner.id, ws!.id, "read", ["read"]);
