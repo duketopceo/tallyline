@@ -285,9 +285,9 @@ Status of the one-time operator steps. Update this table when a step changes.
 
 | Step | State | Notes |
 |---|---|---|
-| age key pair | done 2026-10-28 | Public key (safe to share, goes in `BACKUP_AGE_RECIPIENT`): `age1kg9z7kas8gsqc46vqc6zwcj8eqpnz6zs4805d3tqq2f4y6uanulszmqnek`. The private key was generated off cluster2 and must be copied into the password manager plus one offline copy. It never goes on cluster2. |
-| R2 bucket, bucket lock, upload token | open | Needs a Cloudflare dashboard session: create the bucket, add a lock rule (retention 14 days, per the plan), create an upload token scoped to that bucket and a separate read token for restores. |
-| Timer on cluster2 | open | Needs shell on cluster2: follow "Scheduled backups (systemd timer)" above with the public key and the bucket values. |
+| age key pair | done 2026-10-28 | Public key (safe to share, goes in `BACKUP_AGE_RECIPIENT`): `age1kg9z7kas8gsqc46vqc6zwcj8eqpnz6zs4805d3tqq2f4y6uanulszmqnek`. The private key was generated off cluster2 and never goes on cluster2. Copies live at `~/.config/tallyline-backup/tallyline-backup.key` (mode 600, directory 700) on omarchy-max and the Mac mini, checksums verified equal. Still to do: store it in OmaSeal (store was locked, needs Luke's unlock) or 1Password as `tallyline-backup age key`, plus one offline copy. |
+| R2 bucket, bucket lock, upload token | open | Bucket name `tallyline-backups`, in the duketopceo Cloudflare account: retention (lock) 14 days, lifecycle expiry 30 days, a write token (put only) and a separate read token, both scoped to that bucket. Blocked 2026-10-28: the Cloudflare credential sits in OmaSeal, which needs Luke's unlock; the API token available to agents cannot manage R2. |
+| Timer on cluster2 | open | Needs shell on cluster2: follow "Scheduled backups (systemd timer)" above with the public key and the bucket values. cluster2 was unreachable over Tailscale on 2026-10-28 (about 02:00 MDT), so the `.backup.env` staging was not applied. |
 | Restore drill against prod data | open | Run after the first real backup lands. Compare row counts of `projects`, `issues` and `github_webhook_events` against prod, and check that the Kate project is present. |
 | Script rehearsal | done 2026-10-28 | Off-host rehearsal with a throwaway Postgres 18: `backup.sh` (local-only mode) then `restore.sh` into an empty scratch database, checksum verified, row counts matched, and a private key in `BACKUP_AGE_RECIPIENT` was refused. This proves the scripts and the key, not prod data. |
 
