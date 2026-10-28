@@ -68,7 +68,7 @@ export default async function ProjectsPage() {
                 <dl className="grid grid-cols-3 gap-2 text-center">
                   {([["open", counts.open], ["in progress", counts.inProgress], ["done", counts.done]] as const).map(([label, n]) => (
                     <div key={label} className="rounded border border-lining-faint py-2">
-                      <dd className="text-lg font-semibold tabular-nums">{n}</dd>
+                      <dd className="text-[17px] font-semibold tabular-nums">{n}</dd>
                       <dt className="text-[11px] text-ink-subtle">{label}</dt>
                     </div>
                   ))}
