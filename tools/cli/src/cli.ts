@@ -4,7 +4,7 @@ import { commands, CliError, type CliIo, type CmdCtx } from "./commands.js";
 import { resolveConfig } from "./config.js";
 import { banner, mut, setColor, versionTag } from "./pretty.js";
 
-export const VERSION = "0.1.0";
+export const VERSION = "2.0.0";
 
 const GLOBAL_OPTIONS: ParseArgsOptionsConfig = {
   json: { type: "boolean" },

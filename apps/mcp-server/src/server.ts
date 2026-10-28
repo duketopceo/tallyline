@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { TallylineClient } from "./client.js";
 import { executeTool, toolDefs } from "./tools.js";
 
-export const SERVER_INFO = { name: "tallyline", version: "0.1.0" } as const;
+export const SERVER_INFO = { name: "tallyline", version: "2.0.0" } as const;
 
 /**
  * Build an McpServer with the full tallyline tool surface registered against

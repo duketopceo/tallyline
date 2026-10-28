@@ -1,12 +1,47 @@
 # Changelog
 
 All notable changes to Tallyline (formerly docketry). Format loosely follows
-[Keep a Changelog](https://keepachangelog.com); this project is pre-1.x
-semver until stated otherwise.
+[Keep a Changelog](https://keepachangelog.com); versions follow semver.
 
-## [Unreleased] — GlitchTip integration
+## [2.0.0] — 2026-10-26
 
-### Added
+Major release: breaking ops, authorization, and naming changes (all listed
+below), a Postgres-only stack, and the agent protocol. The npm packages
+`@tallyline/mcp-server` and `@tallyline/cli` jump from 0.1.0 to 2.0.0 so
+their versions match the product.
+
+### Added (since 1.0.0, not itemised below)
+
+- **Agent protocol** (#133, #155): typed agent sessions with ack and idle
+  sweeps, and the complete Linear-teardown agent protocol (L1–L8) over the
+  API and MCP.
+- **Automated intake** (#149): fingerprinted ingest into ranked triage;
+  duplicates fold into the newest live issue.
+- **Plan import** (#140, #143, #150): core import with dry-run diff and
+  layered dedupe, `import-plan` CLI, MCP tools, and the skill step.
+- **Accounts and identity** (#90, #111): OAuth and org identity (global
+  users, memberships, SSO, invites, admin surfaces); mailer, password reset,
+  email verification, account deletion, and data export.
+- **Usage metering and entitlements** (#108): `402 PLAN_LIMIT`, plus legal
+  and trust pages.
+- **Agent keys** (#141): revoke, rotate, and default expiry.
+- **Projects, milestones, cycles** (#145, #146, #147): repos bound to
+  projects with synced-issue backfill, issues linked to milestones, seeded
+  `hitl` and `launch-blocker` labels, and weekly cycle auto-scheduling.
+- **Webhook-event retention sweep** (#142) and a shared SSE event poller
+  (#125).
+- **Web**: core UI/UX overhaul (#103, #106, #109, #112), Silver Lining
+  tokens and Appearance settings (#101), edge-state contract and typography
+  (#135), DOM-rendered landing loop (#152), GitHub repo sync settings
+  (#105), CSRF guard on every web write route (#144).
+
+### Changed
+
+- **License is now AGPL-3.0-only** (#114; was MIT).
+
+### GlitchTip integration
+
+#### Added
 
 - **Native GlitchTip webhook** (`POST /webhooks/glitchtip/:token`): GlitchTip's
   own alert payload becomes triage issues through the existing intake pipe,
@@ -16,16 +51,16 @@ semver until stated otherwise.
   Pace/Wisp onboarding. See [docs/glitchtip.md](./docs/glitchtip.md). Needs
   migration `0033`.
 
-### Fixed
+#### Fixed
 
 - Issue relation and suggestion routes were never mounted and returned 404.
 - Workspace export and purge now cover `agent_activities`, `agent_sessions`,
   `intake_events`, `issue_relations`, `issue_suggestions`, `notifications`,
   `usage_daily` and `workflow_definitions`.
 
-## [Unreleased] — Postgres-only stack
+### Postgres-only stack
 
-### Changed (breaking — ops)
+#### Changed (breaking — ops)
 
 - **Redis removed.** Nothing consumed it (health ping only). The dev and
   self-host compose files, the e2e stack, CI service containers, and the
@@ -35,9 +70,9 @@ semver until stated otherwise.
   `redis` field is gone. Update any external healthcheck parsers.
 - **Test guard**: `assertSafeTestEnv` now requires only `DATABASE_URL`.
 
-## [Unreleased] — go-live security hardening
+### Go-live security hardening
 
-### Changed (breaking — authorization fixes from the permission matrix)
+#### Changed (breaking — authorization fixes from the permission matrix)
 
 - **Agent keys can no longer approve or send back review items** (PLAN-056):
   `POST /issues/:key/review` and `PATCH` state `in_review → done|in_progress`
@@ -50,7 +85,7 @@ semver until stated otherwise.
   `POST /v1/workspaces/:ws/github/setup`** with body `{"installationId": n}`,
   owner/admin only. GitHub's Setup URL must be a web page that POSTs it.
 
-### Changed (defaults — review before upgrading an internet-facing install)
+#### Changed (defaults — review before upgrading an internet-facing install)
 
 - **`AUTH_AUTO_JOIN_SINGLE_WORKSPACE` now defaults to off** (was on). Set `1`
   to keep the old open-membership behaviour.
@@ -69,7 +104,7 @@ semver until stated otherwise.
   so the real client IP is read from `CF-Connecting-IP` / last
   `X-Forwarded-For` hop.
 
-### Fixed
+#### Fixed
 
 - **Web app redirects no longer leak the upstream Host**: login/OAuth
   callback, logout, and the middleware login redirect previously built
@@ -87,7 +122,7 @@ semver until stated otherwise.
   and project, plus the rendered description body and a "filed by" agent
   attribution with the provenance glint on agent-created ids.
 
-### Added
+#### Added
 
 - **Review-queue nav badge**: `GET /v1/workspaces/:ws/review-queue/count`
   returns the number of `in_review` issues carrying at least one dispatch —
@@ -151,52 +186,52 @@ semver until stated otherwise.
   stay full-size; any column can be pinned collapsed/expanded and the choice
   persists per device (`localStorage`).
 
-## [Unreleased] — renamed: docketry → Tallyline
+### Renamed: docketry → Tallyline
 
-The project is now **Tallyline**. Existing local instances keep working;
-nothing below requires a database migration or re-issuing credentials.
+The project is now **Tallyline**. In 2.0.0 the docketry compatibility layer
+is gone: old env names, headers, token prefixes, cookies and config paths
+are rejected. The notes below describe what 2.0.0 accepts and the upgrade
+steps.
 
-### Migration notes
+#### Migration notes
+
+On upgrade from any docketry-named install:
+
+1. Rename every `DOCKETRY_*` environment variable to `TALLYLINE_*`.
+   **Old names are ignored, not warned about: a variable left as
+   `DOCKETRY_*` behaves as if it were unset.**
+2. Re-mint `dok_agt_*` agent keys and `dok_pat_*` PATs; they no longer
+   validate. New credentials use `tly_agt_` / `tly_pat_` / `tly_wh_` /
+   `tly_inv_`.
+3. Expect every web session to sign out once (`dok_*` cookies are not read).
+4. With the app stopped and while connected to another database (for
+   example `postgres`; Postgres cannot rename the database you are
+   connected to), rename it: `ALTER DATABASE docketry RENAME TO tallyline`. Then
+   copy or re-point the old `docketry_*` Postgres volume to
+   `tallyline-postgres`.
+
+Details:
 
 - **Packages and binaries** — `@docketry/*` → `@tallyline/*`; `docketry` →
   `tallyline`; `docketry-mcp` → `tallyline-mcp`; short alias `dok` → `tly`.
   `dok` remains as a deprecated bin that prints a one-line notice on stderr
   and then runs `tly`. Update agent/MCP configs to the new names.
-- **Environment variables** — `DOCKETRY_*` → `TALLYLINE_*`. The old names
-  are still read as a fallback when the new one is unset or empty (one
-  helper, `readEnv` in `@tallyline/types`; the compose files forward the
-  old names the same way). The new name always wins. The fallback will be
-  removed in a future release.
-- **Token prefixes** — newly issued agent keys, PATs, webhook secrets
-  (n8n) and invites use `tly_agt_` / `tly_pat_` / `tly_wh_` / `tly_inv_`.
-  Existing `dok_agt_*` and `dok_pat_*` credentials keep working
-  (validation is hash-based and accepts both prefixes); no need to rotate.
-- **HTTP headers** — outbound webhooks now send
-  `X-Tallyline-Signature`, `-Event`, `-Delivery`; passthrough MCP uses
-  `x-tallyline-workspace` / `x-tallyline-api-url`. Inbound handling
-  (MCP passthrough, the n8n trigger) accepts both the new names and the old
-  `X-Docketry-*` ones. Consumers verifying webhook signatures should read
-  `X-Tallyline-Signature` (old header is no longer sent).
+- **HTTP headers** — outbound webhooks send `X-Tallyline-Signature`,
+  `-Event`, `-Delivery`; passthrough MCP uses `x-tallyline-workspace` /
+  `x-tallyline-api-url`. `X-Docketry-*` headers are neither sent nor
+  accepted.
 - **CLI config files** — `.tallyline.json`, `.tallyline/config.json` and
-  `~/.config/tallyline/config.json` are the new locations; the old
-  `docketry` paths are still read at lower precedence. `tallyline init` and
-  `tallyline work` write `.tallyline/` going forward.
+  `~/.config/tallyline/config.json`. `.docketry` paths are not read.
 - **n8n / Composio** — node and credential types are now `Tallyline*`,
   Composio tool slugs `TALLYLINE_*`; workflows using the old node types need
   to be re-pointed.
-- **Repo/database rename (follow-up)** — the GitHub repository moved to
-  `duketopceo/tallyline`, the default Postgres database is now `tallyline`,
-  and compose volumes are pinned as `tallyline-postgres` / `tallyline-redis`.
-  Existing deployments keep their data by renaming the database
-  (`ALTER DATABASE docketry RENAME TO tallyline`) and copying or
-  re-pointing the old `docketry_*` volumes.
-- **Compat layer retired** — `DOCKETRY_*` env fallbacks, `x-docketry-*`
-  headers, `dok_agt_`/`dok_pat_` tokens, `dok_*` cookies, and `.docketry`
-  CLI paths are no longer accepted anywhere. On upgrade: rename env vars
-  to `TALLYLINE_*`, re-mint `dok_` API keys as `tly_`, and expect all
-  sessions to sign out once.
+- **Repository and storage** — the GitHub repository is
+  `duketopceo/tallyline`, the default Postgres database is `tallyline`, and
+  the only compose volume is `tallyline-postgres` (Redis was removed; see
+  above). A leftover `docketry_redis` or `tallyline-redis` volume can be
+  deleted.
 
-### Brand
+#### Brand
 
 - New mark and lockup in `assets/brand/` (four tally strokes struck by an
   azure line, with a dedicated 16px variant); the old docketry card logo
