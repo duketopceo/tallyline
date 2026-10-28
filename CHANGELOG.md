@@ -3,6 +3,12 @@
 All notable changes to Tallyline (formerly docketry). Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); versions follow semver.
 
+## [Unreleased]
+
+### Added
+
+- **Native app redirect schemes** (OAuth for `/mcp`): `redirect_uris` may now be an RFC 8252 §7.1 private-use scheme (reverse-domain, for example `app.tallyline.ios:/oauth/callback`). Matched by exact string, PKCE only; schemes without a dot (`javascript:`, `data:`, `file:`) stay rejected. Groundwork for the iOS client.
+
 ## [2.0.0] — 2026-10-26
 
 Major release: breaking ops, authorization, and naming changes (all listed
