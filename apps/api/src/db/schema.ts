@@ -935,6 +935,9 @@ export const issueExternalRefs = pgTable(
     // plan import: hash of the title and description it last wrote, so a
     // later run only overwrites text nobody has edited
     contentHash: text("content_hash"),
+    // system data about the reference; for github_pr rows: repo, number,
+    // title and state (draft, open, merged, closed)
+    meta: jsonb("meta"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

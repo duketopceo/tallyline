@@ -15,6 +15,7 @@ import { actorFromHeaders } from "../lib/actor.js";
 import { apiError, HttpError } from "../lib/errors.js";
 import { completeCycle } from "../services/cycles.js";
 import { computeInsights } from "../services/insights.js";
+import { computeRoadmapSummary, resolveSince } from "../services/roadmap-summary.js";
 import { requireWorkspace } from "./workspaces.js";
 import { clock } from "../services/clock.js";
 
@@ -625,4 +626,10 @@ export const resourceRoutes = new Hono()
   .get("/workspaces/:ws/insights", async (c) => {
     const ws = await requireWorkspace(c);
     return c.json(await computeInsights(ws.id));
+  })
+  // ── Roadmap summary: exact counts + done-since + merge ticker ──────
+  .get("/workspaces/:ws/roadmap/summary", async (c) => {
+    const ws = await requireWorkspace(c);
+    const since = resolveSince(c.req.query("since"), clock.ms());
+    return c.json(await computeRoadmapSummary(ws.id, since));
   });

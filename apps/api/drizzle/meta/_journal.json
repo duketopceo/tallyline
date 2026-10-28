@@ -246,6 +246,13 @@
       "when": 1793166247664,
       "tag": "0034_project_updates",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793167837791,
+      "tag": "0035_issue_external_refs_meta",
+      "breakpoints": true
     }
   ]
 }

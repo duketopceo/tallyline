@@ -1023,6 +1023,17 @@ const basePaths = {
         responses: { "200": { description: "Insights payload" } },
       },
     },
+    "/v1/workspaces/{ws}/roadmap/summary": {
+      get: {
+        summary:
+          "Roadmap at-a-glance — exact per-project and per-milestone issue counts (no row cap), issues moved to done since ?since=<ISO> (default 24h, max 31d), and a merge ticker folding GitHub PR merges (linked by branch key or a (KEY-123) in the PR title) with done moves",
+        parameters: [
+          wsParam,
+          { name: "since", in: "query", schema: { type: "string", format: "date-time" } },
+        ],
+        responses: { "200": { description: "Roadmap summary payload" } },
+      },
+    },
     "/v1/workspaces/{ws}/events": {
       get: {
         summary:
