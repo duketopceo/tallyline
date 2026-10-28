@@ -1,0 +1,29 @@
+# Nightly encrypted Postgres backup (ops/backup.sh). Triggered by tallyline-backup.timer.
+# Install: see docs/deploy.md "Scheduled backups (systemd timer)".
+[Unit]
+Description=Tallyline encrypted Postgres backup
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+# A failed unit shows up in `systemctl --failed`; the script itself also pings
+# BACKUP_HEALTHCHECK_URL/fail on error.
+
+[Service]
+Type=oneshot
+# Adjust if the checkout lives elsewhere.
+WorkingDirectory=/srv/tallyline
+# Secrets (BACKUP_AGE_RECIPIENT = PUBLIC key only, S3 token, healthcheck URL). chmod 600, root-owned.
+# Never put the age private key on this host.
+EnvironmentFile=/srv/tallyline/.backup.env
+# Keep a local encrypted copy as well as the off-host upload (override in .backup.env if needed).
+Environment=BACKUP_OUT_DIR=/var/backups/tallyline
+ExecStartPre=/usr/bin/install -d -m 0700 /var/backups/tallyline
+ExecStart=/srv/tallyline/ops/backup.sh
+# ExecStopPost runs after success and failure, so failed uploads cannot fill the disk.
+# Local copies are a convenience; off-host retention is the bucket lifecycle rule's job.
+ExecStopPost=-/usr/bin/find /var/backups/tallyline -maxdepth 1 -name 'tallyline-*.dump.gz.age*' -mtime +14 -delete
+TimeoutStartSec=1h
+Nice=10
+IOSchedulingClass=idle
+# Light hardening only: the script needs docker, the network and the host's tools.
+PrivateTmp=true
+NoNewPrivileges=true

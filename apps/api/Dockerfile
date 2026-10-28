@@ -2,7 +2,7 @@
 # tallyline API — Hono + Drizzle + Postgres. Migrations run on boot, so
 # `docker compose up` on a fresh volume lands at a ready database.
 
-FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS build
+FROM node:22-alpine@sha256:ea11b74b986d520137cdef9a5346e447a00f275ecc4abc0055b7151226231e09 AS build
 RUN corepack enable
 WORKDIR /repo
 
@@ -19,7 +19,7 @@ COPY apps/api apps/api
 RUN pnpm --filter @tallyline/types build && pnpm --filter @tallyline/mcp-server build && pnpm --filter @tallyline/api build
 RUN pnpm deploy --legacy --filter @tallyline/api --prod /out
 
-FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS run
+FROM node:22-alpine@sha256:ea11b74b986d520137cdef9a5346e447a00f275ecc4abc0055b7151226231e09 AS run
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./

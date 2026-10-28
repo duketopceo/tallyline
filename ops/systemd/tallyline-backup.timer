@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the Tallyline backup nightly
+
+[Timer]
+OnCalendar=*-*-* 03:17:00
+# Run once at boot if the host was off at 03:17, so a missed night is not silently skipped.
+Persistent=true
+RandomizedDelaySec=5min
+Unit=tallyline-backup.service
+
+[Install]
+WantedBy=timers.target

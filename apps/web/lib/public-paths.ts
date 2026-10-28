@@ -1,6 +1,6 @@
 // Paths the middleware lets through without a session. "/" is matched exactly:
 // a prefix match on "/" would make every route public.
-const EXACT = new Set(["/", "/favicon.ico", "/icon.svg", "/apple-icon.png"]);
+const EXACT = new Set(["/", "/favicon.ico", "/icon.svg", "/apple-icon.png", "/manifest.webmanifest"]);
 const PREFIXES = [
   "/login",
   "/bootstrap",
