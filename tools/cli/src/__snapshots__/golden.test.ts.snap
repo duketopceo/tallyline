@@ -1,0 +1,225 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`non-TTY output is pinned > --json and text list output 1`] = `
+{
+  "code": 0,
+  "err": [],
+  "out": [
+    "{"issues":[],"nextCursor":null}",
+  ],
+}
+`;
+
+exports[`non-TTY output is pinned > --json and text list output 2`] = `
+{
+  "code": 0,
+  "err": [],
+  "out": [
+    "no issues",
+  ],
+}
+`;
+
+exports[`non-TTY output is pinned > API errors keep CODE: message and their exit code 1`] = `
+{
+  "code": 4,
+  "err": [
+    "NOT_FOUND: issue not found",
+  ],
+  "out": [],
+}
+`;
+
+exports[`non-TTY output is pinned > API errors keep CODE: message and their exit code 2`] = `
+{
+  "code": 3,
+  "err": [
+    "UNAUTHORIZED: bad token",
+  ],
+  "out": [],
+}
+`;
+
+exports[`non-TTY output is pinned > help <command> 1`] = `
+{
+  "code": 0,
+  "err": [],
+  "out": [
+    "usage: tallyline ready [--state todo[,…]] [--limit N] [--all]
+
+issues ready to work — todo (by default), unassigned or mine, priority-ordered",
+  ],
+}
+`;
+
+exports[`non-TTY output is pinned > help 1`] = `
+{
+  "code": 0,
+  "err": [],
+  "out": [
+    "✦ ▀█▀ ▄▀█ █   █   █ █ █ █▄ █ ██▀
+   █  █▀█ █▄▄ █▄▄ █▄█ █ █ ▀█ █▄▄
+|||| issue tracking for humans + agents  v2.0.0
+
+tallyline — work the board from a shell (alias: tly)
+
+usage: tallyline <command> [args] [flags]
+
+work loop:
+  ready       issues ready to work — todo, unassigned-or-mine, by priority
+  next        your in_progress issue, else the top of ready
+  claim       claim <KEY> [--as name|uuid] [--type agent|human]
+  start       start <KEY>   — move to in_progress
+  done        done <KEY>    — move to done (steps through in_review)
+  state       state <KEY> <state> — arbitrary legal transition
+
+issues:
+  create      create --title T [--team K] [--state backlog|triage]
+              [--priority p] [--description d] [--assignee a] [--parent KEY]
+  list        list [--state s] [--assignee me|none|name|uuid] [--search q]
+  search      search <query>
+  show        show <KEY> — detail + comments
+  comment     comment <KEY> [body] [--body b]  (or stdin)
+  triage      triage <KEY> accept|decline
+  teams       teams [list] | teams create --key K --name N [--rollover r]
+
+plans:
+  import-plan import-plan <path|https-url> --project P --scope KP
+              dry run by default: prints the diff + a diffHash, writes nothing
+              then: --apply --diff-hash <hash>  (needs write scope)
+              [--team K] [--repo o/r --source-path p --sha s] [--resolutions f]
+              [--evidence f --historical]  (human owner/admin token only)
+
+feed:
+  events      events [--limit N] [--after id] [--follow]
+
+setup:
+  init        init --workspace <slug> [--api-url u] [--agent-id id]
+              writes ./.tallyline/config.json + agent.md
+
+global flags:
+  --json / --format json   machine-readable output (agent chaining)
+  --format text            human output (default)
+  -w, --workspace <slug>   workspace override
+  --api-url <url>          API base (default http://localhost:4000)
+  --token <tok>            bearer token override
+  -h, --help               command help
+  --version                print version
+
+environment:
+  TALLYLINE_API_URL    api base url
+  TALLYLINE_TOKEN      tly_agt_* agent key, tly_pat_* PAT, or access JWT
+  TALLYLINE_WORKSPACE  workspace slug
+  TALLYLINE_AGENT_ID   your agent uuid/name — claim/next/ready "mine"
+  TALLYLINE_USER_ID    your user uuid — human identity
+  config files        ~/.config/tallyline/config.json, ./.tallyline/config.json,
+                      ./.tallyline.json (env and flags override)
+
+exit codes:
+  0 ok · 1 error · 2 usage/config · 3 unauthorized/forbidden ·
+  4 not found · 5 conflict — API errors print "CODE: message" on stderr",
+  ],
+}
+`;
+
+exports[`non-TTY output is pinned > missing workspace and token 1`] = `
+{
+  "code": 2,
+  "err": [
+    "no workspace configured — set TALLYLINE_WORKSPACE or run \`tallyline init --workspace <slug>\`",
+    "see 'tallyline list --help'",
+  ],
+  "out": [],
+}
+`;
+
+exports[`non-TTY output is pinned > missing workspace and token 2`] = `
+{
+  "code": 2,
+  "err": [
+    "no token configured — set TALLYLINE_TOKEN (tly_agt_* agent key, tly_pat_* PAT, or access JWT)",
+    "see 'tallyline list --help'",
+  ],
+  "out": [],
+}
+`;
+
+exports[`non-TTY output is pinned > no arguments prints banner and help on stderr, exit 2 1`] = `
+{
+  "code": 2,
+  "err": [
+    "✦ ▀█▀ ▄▀█ █   █   █ █ █ █▄ █ ██▀
+   █  █▀█ █▄▄ █▄▄ █▄█ █ █ ▀█ █▄▄
+|||| issue tracking for humans + agents  v2.0.0
+
+tallyline — work the board from a shell (alias: tly)
+
+usage: tallyline <command> [args] [flags]
+
+work loop:
+  ready       issues ready to work — todo, unassigned-or-mine, by priority
+  next        your in_progress issue, else the top of ready
+  claim       claim <KEY> [--as name|uuid] [--type agent|human]
+  start       start <KEY>   — move to in_progress
+  done        done <KEY>    — move to done (steps through in_review)
+  state       state <KEY> <state> — arbitrary legal transition
+
+issues:
+  create      create --title T [--team K] [--state backlog|triage]
+              [--priority p] [--description d] [--assignee a] [--parent KEY]
+  list        list [--state s] [--assignee me|none|name|uuid] [--search q]
+  search      search <query>
+  show        show <KEY> — detail + comments
+  comment     comment <KEY> [body] [--body b]  (or stdin)
+  triage      triage <KEY> accept|decline
+  teams       teams [list] | teams create --key K --name N [--rollover r]
+
+plans:
+  import-plan import-plan <path|https-url> --project P --scope KP
+              dry run by default: prints the diff + a diffHash, writes nothing
+              then: --apply --diff-hash <hash>  (needs write scope)
+              [--team K] [--repo o/r --source-path p --sha s] [--resolutions f]
+              [--evidence f --historical]  (human owner/admin token only)
+
+feed:
+  events      events [--limit N] [--after id] [--follow]
+
+setup:
+  init        init --workspace <slug> [--api-url u] [--agent-id id]
+              writes ./.tallyline/config.json + agent.md
+
+global flags:
+  --json / --format json   machine-readable output (agent chaining)
+  --format text            human output (default)
+  -w, --workspace <slug>   workspace override
+  --api-url <url>          API base (default http://localhost:4000)
+  --token <tok>            bearer token override
+  -h, --help               command help
+  --version                print version
+
+environment:
+  TALLYLINE_API_URL    api base url
+  TALLYLINE_TOKEN      tly_agt_* agent key, tly_pat_* PAT, or access JWT
+  TALLYLINE_WORKSPACE  workspace slug
+  TALLYLINE_AGENT_ID   your agent uuid/name — claim/next/ready "mine"
+  TALLYLINE_USER_ID    your user uuid — human identity
+  config files        ~/.config/tallyline/config.json, ./.tallyline/config.json,
+                      ./.tallyline.json (env and flags override)
+
+exit codes:
+  0 ok · 1 error · 2 usage/config · 3 unauthorized/forbidden ·
+  4 not found · 5 conflict — API errors print "CODE: message" on stderr",
+  ],
+  "out": [],
+}
+`;
+
+exports[`non-TTY output is pinned > unknown command 1`] = `
+{
+  "code": 2,
+  "err": [
+    "unknown command 'frobnicate' — run 'tallyline help'",
+  ],
+  "out": [],
+}
+`;

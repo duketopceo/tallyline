@@ -39,6 +39,12 @@ export function stateGlyph(state: string): string {
   return enabled ? c(g) : "";
 }
 
+// Like stateGlyph, but the shape survives NO_COLOR (interactive screens only).
+export function stateMark(state: string): string {
+  const [g, c] = STATE_STYLE[state] ?? ["·", mut];
+  return c(g);
+}
+
 export function stateText(state: string): string {
   const [, c] = STATE_STYLE[state] ?? ["", mut];
   return enabled ? c(state) : state;
