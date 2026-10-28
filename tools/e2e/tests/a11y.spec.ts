@@ -16,6 +16,7 @@ const APP_PAGES = [
   "/issues/:key",
   "/insights",
   "/roadmap",
+  "/roadmap?push=1",
   "/activity",
   "/settings",
   "/settings/members",

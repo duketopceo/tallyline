@@ -27,6 +27,7 @@ import { createIssue, transitionIssue, type Actor } from "./issues.js";
 import { queueDeliveries } from "./outbound.js";
 import { clock } from "./clock.js";
 import { parsePrReferences, prLinkState } from "./pr-links.js";
+import { recordPrMerge } from "./pr-merge-events.js";
 
 const SYSTEM: Actor = { type: "system", id: null };
 const KEY_PREFIX = /^([A-Za-z][A-Za-z0-9]*-\d+)/;
@@ -863,7 +864,10 @@ export async function processGithubEvent(
   if (!(await workspaceIsLive(repo.workspaceId))) return true; // pending deletion
 
   if (eventType === "push") await onPush(repo, payload);
-  else if (eventType === "pull_request") await onPullRequest(repo, payload);
+  else if (eventType === "pull_request") {
+    await recordPrMerge(repo, payload); // ticker event first, then lifecycle moves
+    await onPullRequest(repo, payload);
+  }
   else if (eventType === "pull_request_review") {
     await onPullRequestReview(repo, payload);
   } else if (eventType === "issues") {

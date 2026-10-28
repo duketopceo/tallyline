@@ -76,3 +76,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* roadmap pulse: a new merge slides in on a green wash; a ring's +N chip pops */
+.ship-in { animation: ship-in 600ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes ship-in {
+  from { opacity: 0; transform: translateY(-8px); background: color-mix(in srgb, var(--color-healthy) 22%, transparent); }
+  to { opacity: 1; transform: none; background: transparent; }
+}
+.chip-pop { animation: chip-pop 500ms ease-out; }
+@keyframes chip-pop { 0% { transform: scale(1); } 35% { transform: scale(1.25); } 100% { transform: scale(1); } }

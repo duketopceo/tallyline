@@ -137,6 +137,10 @@ export const eventRoutes = new Hono()
         void write(row).catch(() => undefined);
       });
 
+      // flush the headers now: a resume with nothing to replay would otherwise
+      // sit silent until the first heartbeat and EventSource.onopen would lag
+      await stream.write(`: open\n\n`);
+
       // backlog drain — this connection's only polling work
       for (;;) {
         const rows = await feedEventsQuery(
