@@ -404,7 +404,7 @@ export const toolDefs: ToolDef[] = [
   defineTool({
     name: "ready",
     description:
-      "List issues ready to work — state 'todo', ordered by priority (urgent first, then oldest). `mine` restricts to issues assigned to you.",
+      "List issues ready to work — state 'todo', not blocked by an unfinished issue, ordered by priority (urgent first, then oldest). `mine` restricts to issues assigned to you.",
     inputSchema: {
       mine: z.boolean().optional(),
       team: z.string().optional(),
@@ -420,6 +420,7 @@ export const toolDefs: ToolDef[] = [
         state: "todo",
         team: args.team,
         assignee,
+        unblocked: "true",
         limit: 200,
       });
       const ordered = res.issues
@@ -431,6 +432,52 @@ export const toolDefs: ToolDef[] = [
         )
         .slice(0, args.limit ?? 20);
       return { issues: ordered.map(slimIssue) };
+    },
+  }),
+
+  defineTool({
+    name: "inbox",
+    description:
+      "What is waiting for you in one call: open issues assigned to you or delegated to you ('todo' or 'in_progress'), not blocked by an unfinished issue, urgent first. Mentions and answered questions are not included yet.",
+    inputSchema: { limit: z.number().int().min(1).max(200).optional() },
+    readOnly: true,
+    handler: async (args, client) => {
+      const me = await client.whoami();
+      const base = { state: "todo,in_progress", unblocked: "true", limit: 200 };
+      const [assigned, delegated] = await Promise.all([
+        client.apiGet<{ issues: IssueRow[] }>("/issues", { ...base, assignee: me.id }),
+        me.type === "agent"
+          ? client.apiGet<{ issues: IssueRow[] }>("/issues", { ...base, delegate: me.id })
+          : Promise.resolve({ issues: [] as IssueRow[] }),
+      ]);
+      const byKey = new Map<string, IssueRow>();
+      for (const i of [...assigned.issues, ...delegated.issues]) byKey.set(i.key, i);
+      const waiting = [...byKey.values()]
+        .sort(
+          (a, b) =>
+            PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
+            Date.parse(a.createdAt) - Date.parse(b.createdAt),
+        )
+        .slice(0, args.limit ?? 20);
+      return { waiting: waiting.map(slimIssue) };
+    },
+  }),
+
+  defineTool({
+    name: "relate_issues",
+    description:
+      "Link two issues. relationType 'blocks' means `key` blocks `targetKey` (the target leaves 'ready' and 'inbox' until `key` is done or canceled); 'related' and 'duplicate' are the other types. Cycles in blocks are refused.",
+    inputSchema: {
+      key: z.string(),
+      targetKey: z.string(),
+      relationType: z.enum(["blocks", "related", "duplicate"]),
+    },
+    handler: async (args, client) => {
+      const res = await client.apiPost<{ relation?: unknown }>(
+        `/issues/${encodeURIComponent(args.key)}/relations`,
+        { targetKey: args.targetKey, relationType: args.relationType },
+      );
+      return res;
     },
   }),
 
