@@ -184,3 +184,9 @@ export function lazyTokenStore(env: EnvLike): TokenStore & { open(): Promise<Tok
     remove: async (s) => (await open()).remove(s),
   };
 }
+
+/** The kind of store behind a lazy wrapper (the wrapper itself can't know before first use). */
+export async function realKind(store: TokenStore): Promise<TokenStore["kind"]> {
+  const open = (store as TokenStore & { open?: () => Promise<TokenStore> }).open;
+  return open ? (await open.call(store)).kind : store.kind;
+}

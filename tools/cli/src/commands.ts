@@ -1,3 +1,4 @@
+import { doctorCmd } from "./doctor.js";
 import { configCmd, connectCmd, disconnectCmd, statusCmd } from "./connect.js";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -1053,6 +1054,7 @@ export const commands: Record<string, Command> = {
   "import-plan": importPlanCmd,
   init: initCmd,
   connect: connectCmd,
+  doctor: doctorCmd,
   disconnect: disconnectCmd,
   status: statusCmd,
   config: configCmd,

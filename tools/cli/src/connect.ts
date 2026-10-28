@@ -2,7 +2,7 @@ import { ApiError, whoami, type FetchLike, type Whoami } from "./client.js";
 import { CliError } from "./cli-error.js";
 import type { CliIo, Command, CmdCtx } from "./commands.js";
 import { globalConfigPath, resolveConfig, saveProfile, type EnvLike } from "./config.js";
-import type { TokenStore } from "./secrets.js";
+import { realKind, type TokenStore } from "./secrets.js";
 import { friendlyApiError } from "./ui/errors.js";
 import { Cancelled, type Prompter } from "./ui/prompt.js";
 import { errorBlock, nextRows, nextSteps } from "./ui/render.js";
@@ -67,9 +67,7 @@ export async function connectWith(opts: {
   }
   await opts.tokens.set(server, token);
   await saveProfile(opts.env, { apiUrl: server, workspace });
-  const real = opts.tokens as TokenStore & { open?: () => Promise<TokenStore> };
-  const kind = real.open ? (await real.open()).kind : opts.tokens.kind;
-  return { server, who, workspace, keptIn: kind };
+  return { server, who, workspace, keptIn: await realKind(opts.tokens) };
 }
 
 function tokensOf(io: CliIo): TokenStore {
