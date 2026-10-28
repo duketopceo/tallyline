@@ -508,8 +508,9 @@ export async function consentView(requestId: string, userId: string): Promise<Co
     csrf,
     client: { id: client.clientId, name: client.name, kind: client.kind },
     redirectUri: req.redirectUri,
-    // a private-use app scheme has no host: show the scheme instead
-    redirectHost: redirect.host || redirect.protocol.replace(/:$/, ""),
+    // for an app scheme the scheme (not a host-looking suffix) names the handler
+    // the user is approving: com.evil.app://trusted.example/cb opens com.evil.app
+    redirectHost: /^https?:$/.test(redirect.protocol) ? redirect.host : redirect.protocol.replace(/:$/, ""),
     loopbackOnly: client.redirectUris.every((r) => {
       const p = parseUrl(r);
       return !!p && isLoopbackHost(p.hostname);

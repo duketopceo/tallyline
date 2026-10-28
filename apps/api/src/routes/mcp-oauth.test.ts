@@ -404,6 +404,16 @@ describe("oauth authorize endpoint", () => {
     }
   });
 
+  it("consent names the app scheme, not a host-looking suffix a malicious app could choose", async () => {
+    const sneaky = "com.attacker.app://trusted.example/cb";
+    const clientId = await register([sneaky, "app.tallyline.ios:/oauth/callback"]);
+    const { challenge } = pkce();
+    const a = await view(await startRequest(clientId, challenge, { redirect_uri: sneaky }));
+    expect(a.body.redirectHost).toBe("com.attacker.app");
+    const b = await view(await startRequest(clientId, challenge, { redirect_uri: "app.tallyline.ios:/oauth/callback" }));
+    expect(b.body.redirectHost).toBe("app.tallyline.ios");
+  });
+
   it("recognises reverse-domain private-use schemes only", async () => {
     expect(isPrivateUseScheme("app.tallyline.ios:")).toBe(true);
     expect(isPrivateUseScheme("javascript:")).toBe(false);
