@@ -139,7 +139,7 @@ Behaviour:
   secrets. Clients register by Client ID Metadata Document (an https
   `client_id` URL, fetched through the SSRF guard, 5 KB cap, cached) or by
   dynamic registration (`/oauth/register`).
-- `redirect_uri` must exactly match a registered URI (https, or http loopback;
+- `redirect_uri` must exactly match a registered URI (https, http loopback, or an RFC 8252 private-use app scheme such as `app.example.ios:/cb`, which must contain a dot and is matched exactly;
   a registered loopback URI without a port matches any port, RFC 8252). A bad
   client or redirect URI is never redirected to.
 - The `resource` parameter must be the MCP URL; tokens are bound to it.

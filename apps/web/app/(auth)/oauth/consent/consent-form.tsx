@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { isNavigableRedirect } from "@/lib/consent-redirect";
 
 export interface ConsentView {
   requestId: string;
@@ -15,15 +16,11 @@ export interface ConsentView {
   unavailableReason?: string | null;
 }
 
-// only http(s) URLs are ever navigated to; the API already pinned this to the
-// client's registered redirect URI
+// only web URLs and private-use app schemes are ever navigated to (see
+// lib/consent-redirect.ts); the API already pinned this to the client's
+// registered redirect URI
 function safeNavigate(url: string): boolean {
-  try {
-    const u = new URL(url);
-    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
-  } catch {
-    return false;
-  }
+  if (!isNavigableRedirect(url)) return false;
   window.location.assign(url);
   return true;
 }

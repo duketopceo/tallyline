@@ -151,13 +151,30 @@ function isLoopbackHost(host: string): boolean {
   return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
 }
 
-/** https, or http on a loopback host (RFC 8252 native apps). No fragments or userinfo. */
+/**
+ * RFC 8252 §7.1 private-use URI scheme: a reverse-domain-name scheme (it must
+ * contain a dot, like `app.tallyline.ios`). Requiring the dot rules out every
+ * browser and OS built-in scheme (`javascript:`, `data:`, `file:`, `blob:`,
+ * `about:`, `vbscript:`...) without keeping a denylist that goes stale.
+ */
+export function isPrivateUseScheme(protocol: string): boolean {
+  const scheme = protocol.replace(/:$/, "");
+  return /^[a-z][a-z0-9+-]*(\.[a-z0-9+-]+)+$/.test(scheme) && scheme.length <= 128;
+}
+
+/**
+ * https, http on a loopback host, or a private-use scheme (RFC 8252 native
+ * apps). No fragments or userinfo. A private-use scheme is only ever matched
+ * by exact string (see redirectUriAllowed) and the flow is PKCE-only, so
+ * another app claiming the scheme cannot redeem the code.
+ */
 export function validRedirectUri(raw: string): boolean {
   if (raw.length > 2048 || raw.includes("#")) return false;
   const u = parseUrl(raw);
   if (!u || u.username || u.password) return false;
   if (u.protocol === "https:") return true;
-  return u.protocol === "http:" && isLoopbackHost(u.hostname);
+  if (u.protocol === "http:") return isLoopbackHost(u.hostname);
+  return isPrivateUseScheme(u.protocol);
 }
 
 /**
@@ -217,7 +234,7 @@ function validateRedirectList(v: unknown): string[] {
   }
   for (const u of v) {
     if (typeof u !== "string" || !validRedirectUri(u)) {
-      metaError("redirect_uris must be https URIs or http loopback URIs without fragments");
+      metaError("redirect_uris must be https URIs, http loopback URIs or private-use app schemes (like app.example.ios:/cb) without fragments");
     }
   }
   return [...new Set(v as string[])];
@@ -491,7 +508,9 @@ export async function consentView(requestId: string, userId: string): Promise<Co
     csrf,
     client: { id: client.clientId, name: client.name, kind: client.kind },
     redirectUri: req.redirectUri,
-    redirectHost: redirect.host,
+    // for an app scheme the scheme (not a host-looking suffix) names the handler
+    // the user is approving: com.evil.app://trusted.example/cb opens com.evil.app
+    redirectHost: /^https?:$/.test(redirect.protocol) ? redirect.host : redirect.protocol.replace(/:$/, ""),
     loopbackOnly: client.redirectUris.every((r) => {
       const p = parseUrl(r);
       return !!p && isLoopbackHost(p.hostname);

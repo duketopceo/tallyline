@@ -26,7 +26,9 @@ import {
   RESOURCE,
   hashSecret,
   internalHeaderValue,
+  isPrivateUseScheme,
   setClientMetadataFetcher,
+  validRedirectUri,
 } from "../services/mcp-oauth.js";
 import { NOW, useFrozenClock } from "../../test/clock.js";
 import { buildMcpOAuthRoutes, PRM_URL } from "./mcp-oauth.js";
@@ -295,6 +297,12 @@ describe("oauth dynamic client registration", () => {
       { redirect_uris: ["http://evil.example/cb"] },
       { redirect_uris: ["https://ok.example/cb#frag"] },
       { redirect_uris: ["javascript:alert(1)"] },
+      { redirect_uris: ["data:text/html,hi"] },
+      { redirect_uris: ["file:///etc/passwd"] },
+      { redirect_uris: ["vbscript:x"] },
+      { redirect_uris: ["myapp:/cb"] }, // no dot: not a reverse-domain scheme
+      { redirect_uris: ["app.example.ios:/cb#frag"] },
+      { redirect_uris: ["app.example.ios://user:pw@host/cb"] },
       { redirect_uris: [] },
       { redirect_uris: [REDIRECT], token_endpoint_auth_method: "client_secret_basic" },
       { redirect_uris: [REDIRECT], grant_types: ["password"] },
@@ -378,6 +386,40 @@ describe("oauth authorize endpoint", () => {
     expect(new URL(scope.headers.get("location")!).searchParams.get("error")).toBe("invalid_scope");
     const type = await get(authorizeUrl(clientId, challenge, { response_type: "token" }));
     expect(new URL(type.headers.get("location")!).searchParams.get("error")).toBe("unsupported_response_type");
+  });
+
+  it("accepts RFC 8252 private-use schemes, matched exactly, and never loosens them", async () => {
+    const native = "app.tallyline.ios:/oauth/callback";
+    const clientId = await register([native]);
+    const { challenge } = pkce();
+    const ok = await get(authorizeUrl(clientId, challenge, { redirect_uri: native }));
+    expect(ok.status).toBe(302);
+    expect(ok.headers.get("location")).toContain("/oauth/consent");
+    for (const other of [
+      "app.tallyline.ios:/oauth/other",
+      "app.tallyline.ios:/oauth/callback?x=1",
+      "app.evil.ios:/oauth/callback",
+    ]) {
+      expect((await get(authorizeUrl(clientId, challenge, { redirect_uri: other }))).status, other).toBe(400);
+    }
+  });
+
+  it("consent names the app scheme, not a host-looking suffix a malicious app could choose", async () => {
+    const sneaky = "com.attacker.app://trusted.example/cb";
+    const clientId = await register([sneaky, "app.tallyline.ios:/oauth/callback"]);
+    const { challenge } = pkce();
+    const a = await view(await startRequest(clientId, challenge, { redirect_uri: sneaky }));
+    expect(a.body.redirectHost).toBe("com.attacker.app");
+    const b = await view(await startRequest(clientId, challenge, { redirect_uri: "app.tallyline.ios:/oauth/callback" }));
+    expect(b.body.redirectHost).toBe("app.tallyline.ios");
+  });
+
+  it("recognises reverse-domain private-use schemes only", async () => {
+    expect(isPrivateUseScheme("app.tallyline.ios:")).toBe(true);
+    expect(isPrivateUseScheme("javascript:")).toBe(false);
+    expect(isPrivateUseScheme("http:")).toBe(false);
+    expect(isPrivateUseScheme("com.example.app")).toBe(true);
+    expect(validRedirectUri("com.example.app://callback")).toBe(true);
   });
 
   it("matches RFC 8252 loopback redirects without a registered port", async () => {
