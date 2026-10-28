@@ -12,6 +12,8 @@ All notable changes to Tallyline (formerly docketry). Format loosely follows
 - **QR pairing and a device registry for the mobile app** (see `docs/auth.md`): members mint a five-minute single-use pairing code, the phone redeems it for a 90-day device credential, rotates it, and people list and revoke their devices (`/devices/pairing`, `/auth/pair/redeem`, `/devices`; migration `0039_device_pairing`).
 - **Bring your own AI provider** (see `docs/llm-assist.md`): admins connect OpenRouter or any OpenAI-compatible endpoint per workspace (`/ai/provider`, `/ai/provider/test`, `/ai/usage`). Keys are sealed at rest and never returned, a monthly spend limit stops calls before they happen, and the endpoint obeys the webhook SSRF policy (migration `0040_ai_providers`).
 
+- **Deploy lock and provenance** (`ops/deploy.sh`, U3): one deployer under `flock`, refuses a dirty tree, a target off `origin/main` or older than the running commit, runs the backup, builds api, web and mcp-server with `--profile mcp` and an `org.opencontainers.image.revision` label, health-checks all three, reads the labels back and logs commit, time and actor. See `docs/deploy.md`.
+
 ### Fixed
 
 - Oversized AI provider responses are rejected instead of resolving with an empty body.

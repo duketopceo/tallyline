@@ -133,6 +133,53 @@ A Railway project maps cleanly onto three services:
 A `railway.json`/template button lands when the Dockerfile paths stabilize;
 until then the three-service manual setup is the documented route (~10 min).
 
+## Deploying a production host (`ops/deploy.sh`)
+
+On a host that serves real users, deploy only through the script. It is the one deployer: nobody
+builds or restarts containers by hand.
+
+```bash
+ops/deploy.sh --dry-run            # show running commit, target, and the plan; change nothing
+ops/deploy.sh                      # deploy origin/main
+ops/deploy.sh <sha>                # deploy a specific commit on origin/main
+ops/deploy.sh --rollback <sha>     # after a failed deploy: redeploy the last healthy commit
+```
+
+What it does, in order:
+
+1. Takes an exclusive `flock` on `.deploy.lock` in the app directory. A second run exits at once and
+   names the holder (`actor=… since=…`).
+2. Refuses if tracked files have uncommitted changes (untracked files such as `.env` are fine).
+3. Fetches `origin/main` and refuses a target that is not on it, or that is older than (or diverges
+   from) the commit now running. The running commit is the `org.opencontainers.image.revision`
+   label on the api image.
+4. Runs `ops/backup.sh` (loading `DEPLOY_BACKUP_ENV` first, if set). A failed backup stops the deploy
+   before anything changes. `--skip-backup` exists for hosts with no backup configured yet and logs a warning.
+5. Checks out the target, then builds **api, web and mcp-server** with `--profile mcp` and
+   `GIT_SHA=<target>`, so all three images carry the revision label and the mcp image can no longer
+   lag silently. Migrations run at API boot.
+6. Polls `/health` on the api, web and mcp ports (`DEPLOY_HEALTH_TIMEOUT`, default 180 s), then reads
+   the revision label back from all three containers and fails if any differs from the target.
+7. Appends one tab-separated line to `deploy.log`: time, actor (`$SUDO_USER` when run through sudo),
+   from, to, `ok` or `failed`.
+
+**First run on a host.** Images built before this script have no revision label, so the script cannot
+know what is running. Pass the commit from your deploy record: `ops/deploy.sh --assume-running <sha>`.
+
+**When a deploy fails.** The script exits non-zero and prints the previous commit and the command to go
+back. Migrations are additive and the single-replica api has already applied them, so the old code runs
+against the new schema. `--rollback <sha>` is accepted only for the last commit logged `ok`; any other
+older target is refused.
+
+**Restricting who can deploy.** Convention is not the control. Give an automation user (for example the
+Devin session) no docker group membership and a sudoers entry that allows only
+`/opt/tallyline/ops/deploy.sh`, with that path and the backup environment file owned by root and not
+writable or readable by that user. The script then owns the docker calls and the backup credentials.
+Creating that user is an operator step on the host, not part of this repository.
+
+Tests: `bash ops/deploy.test.sh` runs the script against a throwaway repo with stub `docker` and `curl`
+(lock, ordering, dirty tree, health failure, rollback, label read-back).
+
 ## Upgrading
 
 ```bash
