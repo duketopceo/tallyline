@@ -82,6 +82,7 @@ export function renderHome(d: HomeData, hour: number, width = 78): string {
     nextSteps([
       ["tallyline ready", "pick something to work on"],
       ["tallyline list", "browse the board"],
+      ["tallyline doctor", "check that everything is healthy"],
     ]),
   );
   return out.join("\n");
