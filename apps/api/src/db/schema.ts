@@ -173,6 +173,32 @@ export const projects = pgTable(
   (t) => [index().on(t.workspaceId)],
 );
 
+// Dated health notes on a project (U14). Drafted from the event log (KTD9),
+// edited and posted by a human or an agent; agent-authored rows say so.
+export const projectUpdateHealth = ["on_track", "at_risk", "off_track"] as const;
+export type ProjectUpdateHealth = (typeof projectUpdateHealth)[number];
+
+export const projectUpdates = pgTable(
+  "project_updates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    health: text("health", { enum: projectUpdateHealth }).notNull(),
+    body: text("body").notNull(),
+    authorType: actorTypeEnum("author_type").notNull(),
+    authorId: uuid("author_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.workspaceId), index().on(t.projectId, t.createdAt)],
+);
+
 // Date markers on a project's roadmap span — undated milestones are
 // checklist items that never render on the axis. Cascade on project delete.
 // Issues link through issues.milestone_id (U16); progress counts linked issues.

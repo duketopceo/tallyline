@@ -809,6 +809,31 @@ export const toolDefs: ToolDef[] = [
   }),
 
   defineTool({
+    name: "draft_project_update",
+    description:
+      "Draft the next status update for a project from the event log since its last update: issues done, opened, blocked, milestone progress and a suggested health (on_track, at_risk, off_track). Read-only and model-free: nothing is saved. Edit it, then post it with post_project_update (a human approves the real one).",
+    inputSchema: { projectId: uuid },
+    readOnly: true,
+    handler: async (args, client) =>
+      client.apiGet(`/projects/${encodeURIComponent(args.projectId)}/update-draft`),
+  }),
+
+  defineTool({
+    name: "post_project_update",
+    description:
+      "Post a dated status update on a project: health (on_track, at_risk, off_track) and a markdown body. The update is recorded as authored by your credential. Needs write scope.",
+    inputSchema: {
+      projectId: uuid,
+      health: z.enum(["on_track", "at_risk", "off_track"]),
+      body: z.string().min(1).max(20_000),
+    },
+    handler: async (args, client) => {
+      const { projectId, ...fields } = args;
+      return client.apiPost(`/projects/${encodeURIComponent(projectId)}/updates`, fields);
+    },
+  }),
+
+  defineTool({
     name: "import_plan",
     description:
       "Import a ce-plan markdown file as issues in a project. mode defaults to 'dry_run': nothing is written and the result is a diff (counts, per-unit create/update/unchanged/ambiguous/invalid, warnings) plus a diffHash. Show the diff to the human. To write, call again with the same inputs, mode 'apply' and that diffHash; a diff that changed since returns STALE_DIFF with the new diff (review it, then apply with its hash). Fix 'ambiguous' units by passing resolutions {\"KP-U12\": \"TLY-34\"}. Needs write scope. Agents cannot write historical done/in-progress state, so there is no evidence input here.",
