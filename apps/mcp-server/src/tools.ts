@@ -362,7 +362,7 @@ export const toolDefs: ToolDef[] = [
   defineTool({
     name: "list_issues",
     description:
-      "List issues in the workspace. Filters: state/priority (arrays), team key, assignee id, cycle id, milestone id, label id (the `hitl` label marks work only Luke can do; find its id with list_labels), source, title search. Cursor-paginated.",
+      "List issues in the workspace. Filters: state/priority (arrays), team key, assignee id, cycle id, milestone id, label id (the `hitl` label marks work only Luke can do; find its id with list_labels), source, text search over title, description, key and comments. Cursor-paginated.",
     inputSchema: {
       state: z.array(z.enum(ISSUE_STATES)).optional(),
       priority: z.array(z.enum(PRIORITIES)).optional(),

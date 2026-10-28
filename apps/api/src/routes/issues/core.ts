@@ -1,10 +1,10 @@
 // Issue create, list, detail and patch — the core CRUD surface.
 import { zValidator } from "@hono/zod-validator";
-import { and, desc, eq, ilike, inArray, lt, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, exists, ilike, inArray, lt, or, type SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import type { IssueState } from "@tallyline/types";
 import { db } from "../../db/client.js";
-import { events, issueLabels, issues, labels, projects, teams } from "../../db/schema.js";
+import { comments, events, issueLabels, issues, labels, projects, teams } from "../../db/schema.js";
 import { actorFromHeaders } from "../../lib/actor.js";
 import { apiError, HttpError } from "../../lib/errors.js";
 import { llmEnabled } from "../../services/llm.js";
@@ -238,7 +238,30 @@ export const coreIssueRoutes = new Hono()
       if (q.project) filters.push(eq(issues.projectId, q.project));
       if (q.milestone) filters.push(eq(issues.milestoneId, q.milestone));
       if (q.source) filters.push(eq(issues.source, q.source));
-      if (q.search) filters.push(ilike(issues.title, `%${q.search}%`));
+      if (q.search) {
+        // title, description, issue key and comment bodies; the term is literal
+        // text, so LIKE wildcards in it are escaped
+        const term = `%${q.search.replace(/[\\%_]/g, "\\$&")}%`;
+        filters.push(
+          or(
+            ilike(issues.title, term),
+            ilike(issues.description, term),
+            ilike(issues.key, term),
+            exists(
+              db
+                .select({ one: comments.id })
+                .from(comments)
+                .where(
+                  and(
+                    eq(comments.issueId, issues.id),
+                    eq(comments.workspaceId, ws.id),
+                    ilike(comments.body, term),
+                  ),
+                ),
+            ),
+          )!,
+        );
+      }
       if (q.team) {
         const [team] = await db
           .select({ id: teams.id })
