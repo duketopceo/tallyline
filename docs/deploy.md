@@ -204,7 +204,8 @@ age-keygen -o tallyline-backup.key      # prints the PUBLIC key (age1...)
 # store tallyline-backup.key in your password manager / second machine; NOT on the server
 ```
 
-Create an R2 bucket with a **scoped API token** (object write on that bucket only —
+Create an R2 bucket (enable object versioning or Object Lock, because a write-only token
+cannot delete but can still overwrite a dump) with a **scoped API token** (object write on that bucket only —
 no delete or list, so a compromised host cannot erase the off-host copies) and a
 lifecycle rule that keeps the newest 14 daily files (and, if you want, 8 weekly
 copies under a separate prefix). Retention lives in the bucket, not in the timer.
