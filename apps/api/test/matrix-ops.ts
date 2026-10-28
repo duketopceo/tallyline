@@ -417,6 +417,16 @@ export const OPERATIONS: Record<string, Builder> = {
     code: "tlpair_no-such-code-0000000000",
     deviceName: "matrix",
   }),
+  "GET /v1/workspaces/{ws}/ai/provider": get((t) => `${base(t)}/ai/provider`),
+  "PUT /v1/workspaces/{ws}/ai/provider": simple("PUT", (t) => `${base(t)}/ai/provider`, {
+    kind: "openrouter",
+    label: "Matrix OpenRouter",
+    model: "openai/gpt-4o-mini",
+    apiKey: "matrix-fake-credential-0000",
+  }),
+  "DELETE /v1/workspaces/{ws}/ai/provider": simple("DELETE", (t) => `${base(t)}/ai/provider`),
+  "POST /v1/workspaces/{ws}/ai/provider/test": simple("POST", (t) => `${base(t)}/ai/provider/test`),
+  "GET /v1/workspaces/{ws}/ai/usage": get((t) => `${base(t)}/ai/usage`),
   "DELETE /v1/workspaces/{ws}/tokens/{id}": async (t, who) => {
     const tok = await mkToken(t, who.userId ?? t.people.owner.id);
     return { method: "DELETE", path: `${base(t)}/tokens/${tok.id}` };

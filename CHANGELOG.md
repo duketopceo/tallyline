@@ -10,6 +10,11 @@ All notable changes to Tallyline (formerly docketry). Format loosely follows
 - **Native app redirect schemes** (OAuth for `/mcp`): `redirect_uris` may now be an RFC 8252 §7.1 private-use scheme (reverse-domain, for example `app.tallyline.ios:/oauth/callback`). Matched by exact string, PKCE only; schemes without a dot (`javascript:`, `data:`, `file:`) stay rejected. Groundwork for the iOS client.
 - **Offline-client groundwork** (see `docs/offline-sync.md`): `GET /issues?updatedSince=` delta reads with stable keyset paging, and `Idempotency-Key` on issue create, issue update and comment create (migration `0038_idempotency_keys`).
 - **QR pairing and a device registry for the mobile app** (see `docs/auth.md`): members mint a five-minute single-use pairing code, the phone redeems it for a 90-day device credential, rotates it, and people list and revoke their devices (`/devices/pairing`, `/auth/pair/redeem`, `/devices`; migration `0039_device_pairing`).
+- **Bring your own AI provider** (see `docs/llm-assist.md`): admins connect OpenRouter or any OpenAI-compatible endpoint per workspace (`/ai/provider`, `/ai/provider/test`, `/ai/usage`). Keys are sealed at rest and never returned, a monthly spend limit stops calls before they happen, and the endpoint obeys the webhook SSRF policy (migration `0040_ai_providers`).
+
+### Fixed
+
+- Oversized AI provider responses are rejected instead of resolving with an empty body.
 
 ## [2.0.0] — 2026-10-26
 

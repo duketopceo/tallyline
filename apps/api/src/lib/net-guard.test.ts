@@ -3,6 +3,7 @@ import { afterEach, beforeAll, afterAll, describe, expect, it } from "vitest";
 import {
   assertSafeOutboundUrl,
   isPrivateAddress,
+  safeFetchText,
   safePost,
   webhookAllowPrivate,
 } from "./net-guard.js";
@@ -104,5 +105,49 @@ describe("safePost", () => {
     await expect(safePost(`http://127.0.0.1:${port}/ok`, init)).resolves.toBe(204);
     await expect(safePost(`http://127.0.0.1:${port}/redirect`, init)).rejects.toThrow(/redirect/);
     expect(hits).toEqual(["/ok", "/redirect"]);
+  });
+});
+
+describe("safeFetchText", () => {
+  let server: Server;
+  let port = 0;
+  const hits: string[] = [];
+  beforeAll(async () => {
+    server = createServer((rq, rs) => {
+      hits.push(rq.url ?? "");
+      if (rq.url === "/redirect") rs.writeHead(302, { location: "http://169.254.169.254/" }).end();
+      else if (rq.url === "/big") rs.writeHead(200).end("x".repeat(5000));
+      else if (rq.url === "/slow") setTimeout(() => rs.writeHead(200).end("late"), 500);
+      else {
+        let b = "";
+        rq.on("data", (d) => (b += d));
+        rq.on("end", () => rs.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ got: b, auth: rq.headers.authorization })));
+      }
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    port = (server.address() as { port: number }).port;
+  });
+  afterAll(() => server.close());
+
+  const init = { method: "POST" as const, headers: { authorization: "Bearer k" }, body: "hi", timeoutMs: 2000, maxBytes: 1000 };
+
+  it("never dials a private address or plain http to a public host with the guard on", async () => {
+    guardOn();
+    hits.length = 0;
+    await expect(safeFetchText(`http://127.0.0.1:${port}/x`, init)).rejects.toThrow(/https/);
+    await expect(safeFetchText(`https://127.0.0.1:${port}/x`, init)).rejects.toThrow(/non-public/);
+    await expect(safeFetchText("https://localhost/x", init)).rejects.toThrow(/not public/);
+    await expect(safeFetchText("http://example.com/x", init)).rejects.toThrow(/https/);
+    expect(hits).toEqual([]);
+  });
+
+  it("returns status and body with the opt-out, refuses redirects, caps size and time", async () => {
+    process.env.TALLYLINE_WEBHOOK_ALLOW_PRIVATE = "1";
+    const ok = await safeFetchText(`http://127.0.0.1:${port}/ok`, init);
+    expect(ok.status).toBe(200);
+    expect(JSON.parse(ok.body)).toEqual({ got: "hi", auth: "Bearer k" });
+    await expect(safeFetchText(`http://127.0.0.1:${port}/redirect`, init)).rejects.toThrow(/redirect/);
+    await expect(safeFetchText(`http://127.0.0.1:${port}/big`, init)).rejects.toThrow();
+    await expect(safeFetchText(`http://127.0.0.1:${port}/slow`, { ...init, timeoutMs: 100 })).rejects.toThrow(/timed out/);
   });
 });
