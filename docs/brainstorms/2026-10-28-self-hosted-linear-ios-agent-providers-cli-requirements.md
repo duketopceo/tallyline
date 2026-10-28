@@ -130,7 +130,7 @@ serious in the room.
   roadmap, search, inbox, **review queue** (approve or send back as a human).
 - **R12.** **Offline**: the last-seen board is readable with no connection;
   comments, state changes and new issues made offline go to a visible outbox,
-  retry automatically, and show failures with a Retry or Discard choice. Server
+  retry automatically with backoff (up to 8 attempts), and show failures with a Retry or Discard choice. Server
   state-machine rules always win.
 - **R13.** **Push**: notifications for assignment, mention, review requested,
   agent question answered, with quiet-hours and per-kind toggles. Payloads carry

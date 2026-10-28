@@ -139,7 +139,7 @@ does not restate them. Where a unit below names `R#` or `D#`, it means those.
 - **KTD12 — Sync is delta-based.** Server adds `updatedSince` cursors to the list
   endpoints the app caches, rather than the app refetching everything. The roadmap
   defers "delta sync" with a revisit trigger; this plan is that trigger firing.
-- **KTD13 — Build and sign on the Mac mini; develop with xtool.** Shipping builds
+- **KTD13 — Build and sign on the Mac mini with xcodegen; develop with xtool on omarchy-max.** Shipping builds
   come from the mini over `ssh mini` (macOS Xcode, `xcodegen`, App Store Connect
   API key already on the mini). `xtool` on omarchy-max stays the fast inner-loop
   install to a registered phone (xtool 1.21.0 verified on omarchy-max, not present
@@ -268,14 +268,14 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 #### S2-U1. `tallyline setup` (local wizard)
 - **Requirements:** R1, R3, R20; KTD5.
 - **Files:** `tools/cli/src/setup/` (new), `tools/cli/src/setup/compose.template.yml`, `tools/cli/src/setup/preflight.ts`, tests.
-- **Approach:** Preflight (OS, memory, disk, ports, Docker presence and running); plain-language offer to install Docker Desktop via Homebrew or the official installer link (never silently); generate secrets; write `~/.tallyline/`; `docker compose up -d`; wait on `/health` with a spinner and a friendly timeout; open the browser to `/bootstrap`; print the ready screen with QR (S4-U2 when available) and next steps. Re-runnable and idempotent: detects an existing install and offers repair or upgrade instead of reinstalling. Never deletes volumes without a typed confirmation.
-- **Test scenarios:** Docker missing, Docker installed but stopped, port 3100 in use, low disk, interrupted mid-run then resumed, second run on an existing install; secrets never printed except the backup key screen.
+- **Approach:** Preflight (OS, memory, disk, ports, Docker presence and running); plain-language offer to install Docker Desktop via Homebrew or the official installer link (never silently); generate secrets; write `~/.tallyline/`; `docker compose up -d`; wait on `/health` with a spinner and a friendly timeout; open the browser to `/bootstrap`; print the ready screen with QR (only when S4-U2 has shipped; before then the screen shows the plain address, so S2 does not depend on S4) and next steps. Re-runnable and idempotent: detects an existing install and offers repair or upgrade instead of reinstalling. Never deletes volumes without a typed confirmation.
+- **Test scenarios:** Docker missing, Docker installed but stopped, port 3100 in use, low disk, interrupted mid-run then resumed, second run on an existing install; secrets never printed except the backup-key screen, which cannot be dismissed until the user confirms it is saved (copy to clipboard, save to a file with 0600, or print) and re-asks at `backup` and `doctor` while no confirmation is recorded.
 - **Verification:** AE1 on clean machines.
 
 #### S2-U2. Installer, Homebrew, npx, binaries
 - **Requirements:** R25.
 - **Files:** `tools/install/install.sh` (new, pinned version plus embedded checksum per OmaSeal), `.github/workflows/publish.yml` (extend), packaging notes in `docs/releasing.md`.
-- **Approach:** One-line installer that verifies a pinned checksum, never follows "latest". Single-file binaries via Node single-executable or bun compile (spike one day, keep whichever passes smoke on macOS arm64 and x64, Linux x64 and arm64). Homebrew tap formula. `npx @tallyline/cli setup` documented as the alternate. Windows: WSL guidance page.
+- **Approach:** One-line installer that verifies a pinned checksum, never follows "latest". Single-file binaries via Node single-executable or bun compile (spike one day, keep whichever passes smoke on macOS arm64 and x64, Linux x64 and arm64). Homebrew tap formula. `npx @tallyline/cli setup` documented as the alternate; first verify `@tallyline/cli` is published on npm at the current version (the 2.0.0 publish is tracked separately) and do not ship `install.sh` before it is. Windows: WSL guidance page.
 - **Test scenarios:** checksum mismatch aborts; dry run; upgrade in place; PATH advice printed in plain words.
 - **Verification:** install smoke in a clean container and on a Mac.
 
@@ -295,7 +295,7 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 #### S2-U5. `start`, `stop`, `status`, `update`, `backup`
 - **Requirements:** R20.
 - **Files:** `tools/cli/src/ops/`.
-- **Approach:** Thin guided wrappers over compose and the existing backup scripts (`ops/`, U2). `backup` shows last backup, runs one now, explains the key. `update` pulls the pinned release, backs up first, migrates, health-checks, rolls back on failure with a plain message. Depends on U2 backups being operational for the restore-test claim in `doctor`.
+- **Approach:** Thin guided wrappers over compose and the existing backup scripts (`ops/`, U2). `backup` shows last backup, runs one now, explains the key. `update` pulls the pinned release, backs up first, migrates, health-checks, rolls back on failure with a plain message. Depends on the U2 backup operator steps being done for the restore-test claim in `doctor`.
 - **Verification:** update from 2.0.0 to the next tag on a scratch install; forced failure rolls back.
 
 #### S2-U6. Reachability guide (spike)
@@ -311,7 +311,7 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 **Stage verification:** end-to-end against a real OpenRouter test key with a low cap; agent write boundaries unchanged (existing agent-scope tests stay green).
 
 #### S3-U1. Provider spike (read and prototype only)
-- **Approach:** (1) OpenRouter PKCE flow including the headless paste-code mode, against a throwaway account. (2) Hermes: what interface it exposes (confirm with Luke which Hermes). (3) ChatGPT plan: read OpenAI's current "Sign in with ChatGPT" token-sharing docs end to end, list partner prerequisites, record whether Tallyline qualifies. Output: `docs/research/2026-10-ai-providers-spike.md`, decision on S3-U5. No production calls, no forms submitted.
+- **Approach:** (1) OpenRouter PKCE flow including the headless paste-code mode, against a throwaway account. (2) Hermes: what interface it exposes (confirm with Luke which Hermes). (3) ChatGPT plan: read OpenAI's current "Sign in with ChatGPT" token-sharing docs end to end, list partner prerequisites, record whether Tallyline qualifies. Time-box: 5 days. Hermes defaults to "any OpenAI-compatible URL" if Luke has not answered by then. Output: `docs/research/2026-10-ai-providers-spike.md`, decision on S3-U5. No production calls, no forms submitted.
 - **Verification:** doc merged; Luke answers open questions 4 and 5 or defaults apply.
 
 #### S3-U2. AI provider model, storage, ledger
@@ -325,13 +325,13 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 - **Requirements:** R5, AE2.
 - **Files:** `apps/web/app/(app)/settings/ai/`, `apps/api/src/services/openrouter-oauth.ts`, `tools/cli/src/agent/connect-provider.ts`.
 - **Approach:** Web: Connect OpenRouter does PKCE with the API as the redirect target (HTTPS callback; documented port rules), stores the returned key sealed, asks for the cap, runs a test call. CLI: browser flow, or headless paste-code mode. Compatible endpoint form: base URL, optional key, test button; covers Hermes and local models. Model picker with a safe default.
-- **Test scenarios:** denied authorization; expired code; callback state mismatch; test call failure shows reason; private-address endpoints follow the same SSRF rules as sign-in providers (https and public DNS, with an explicit opt-in flag for home servers).
+- **Test scenarios:** denied authorization; expired code; callback state mismatch; test call failure shows reason; provider URLs get an SSRF check modelled on the sign-in provider endpoint validation (`apps/api/src/auth/providers/types.ts`, `routes/providers.ts`): https and public DNS by default, private addresses only behind an explicit admin opt-in for home servers.
 - **Verification:** live OpenRouter connect on a scratch workspace; screenshots.
 
 #### S3-U4. Agent actions v1
 - **Requirements:** R8, D7; KTD7.
 - **Files:** `apps/api/src/services/assist.ts` (move onto providers), new actions in `apps/api/src/services/agent-actions/`, web buttons, MCP tools.
-- **Approach:** Re-home summarize, triage-suggest and dup-check onto the provider seam. Add break-down into sub-issues, status-update draft (extends `project-update-draft.ts` with an optional model polish), PR-brief draft, inbox answer. All return suggestions with agent identity and model recorded. Per-action ceiling and cap enforced. Confirm during this unit that the suggestions mechanism from U25 is present and fit; if not, the unit adds the minimum.
+- **Approach:** Re-home summarize, triage-suggest and dup-check onto the provider seam. Add break-down into sub-issues, status-update draft (extends `project-update-draft.ts` with an optional model polish), PR-brief draft, inbox answer. All return suggestions with agent identity and model recorded. Per-action ceiling and cap enforced. Before coding, confirm the suggestions mechanism from U25 (landed in #155) exists: `rg -n suggestion apps/api/src` and read its routes and tests; if it is missing or unfit, the unit adds the minimum.
 - **Test scenarios:** nothing is written until accepted; agent identity shown on the glint; cap pauses actions; provider failure degrades to a plain message without breaking the page.
 - **Verification:** API tests with a stub provider; live test with a capped key.
 
@@ -343,7 +343,7 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 #### S3-U6. Connect a coding agent (one flow)
 - **Requirements:** R9, R10; D5.
 - **Files:** `apps/web/app/(app)/settings/agents/connect/`, `tools/cli/src/agent/connect-agent.ts`, `docs/agents.md`.
-- **Approach:** Pick Claude Code, Codex, Cursor or opencode. Detect installed harnesses on the machine for the CLI path, write or merge the MCP entry (preserve other servers, like OmaSeal's `mcp install`), using the OAuth `/mcp` endpoint so no key is pasted; verify the agent appears (or a test call succeeds). Config paths and formats per harness are verified at build time, not assumed now (the existing `docs/agents.md` lists Claude Code `.mcp.json`, Cursor `~/.cursor/mcp.json`, Codex `~/.codex/config.toml`, opencode `opencode.json`).
+- **Approach:** Pick Claude Code, Codex, Cursor or opencode. Detect installed harnesses on the machine for the CLI path, add or replace only the `tallyline` entry by JSON/TOML merge, preserving every other server and unknown key (OmaSeal's `mcp install` does the same for its own entry; back up the file first and offer undo), using the OAuth `/mcp` endpoint so no key is pasted; verify the agent appears (or a test call succeeds). Config paths and formats per harness are verified at build time, not assumed now (the existing `docs/agents.md` lists Claude Code `.mcp.json`, Cursor `~/.cursor/mcp.json`, Codex `~/.codex/config.toml`, opencode `opencode.json`).
 - **Test scenarios:** existing config preserved; undo removes only our entry; harness not installed gives plain instructions; scopes default read plus write, review never granted.
 - **Verification:** each harness on omarchy-max against a scratch workspace.
 
@@ -396,8 +396,8 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 - **Verification:** a trivial build processed by TestFlight and installable. **Stop:** upload only with Luke's explicit go.
 
 #### S5-U2. Scaffold `apps/ios`
-- **Files:** `apps/ios/` (SwiftPM package, `project.yml`, `scripts/testflight.sh`, `Resources/`, `PrivacyInfo.xcprivacy`, README), `.gitignore`, repo README line.
-- **Approach:** Mirror `kate-ios`. iOS 17, Swift 6, zero UI dependencies; only `swift-openapi-generator` and runtime if it resolves. Not part of the pnpm workspace.
+- **Files:** `pnpm-workspace.yaml` (exclusion), `apps/ios/` (SwiftPM package, `project.yml`, `scripts/testflight.sh`, `Resources/`, `PrivacyInfo.xcprivacy`, README), `.gitignore`, repo README line.
+- **Approach:** Mirror `kate-ios`. iOS 17, Swift 6, zero UI dependencies; only `swift-openapi-generator` and runtime if it resolves. Not part of the pnpm workspace: `apps/ios` has no `package.json`, so pnpm ignores it, and the unit still adds `!apps/ios` to `pnpm-workspace.yaml` so a stray `package.json` can never join it.
 - **Verification:** builds on the mini; `swift test` runs.
 
 #### S5-U3. Auth and pairing
@@ -428,7 +428,7 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 **Stage verification:** AE3 and AE4 pass on a device; Accessibility Inspector pass; launch time, scroll and memory budgets recorded in `docs/perf-budgets.md`.
 
 #### S6-U1. Offline cache and outbox
-- One-day store spike (SwiftData default, GRDB fallback). Repository reads local first and revalidates by delta. Outbox with idempotency keys, ordered per issue, retry with backoff, visible Outbox screen with Retry and Discard. Conflict rule: server state machine decides; failed writes explain why.
+- One-day store spike (SwiftData default, GRDB fallback). Repository reads local first and revalidates by delta. Outbox with idempotency keys, ordered per issue, retry with exponential backoff (1 s doubling to 5 min) up to 8 attempts, then parked as failed for Retry or Discard, visible Outbox screen with Retry and Discard. Conflict rule: server state machine decides; failed writes explain why.
 - **Tests:** airplane-mode matrix, duplicate-send safety via idempotency, cancelled-issue conflict (AE3), sign-out wipes store.
 
 #### S6-U2. Push notifications
@@ -442,7 +442,7 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 - Accepts URL, text, image; picks workspace and team (remembers last); writes to triage through the outbox so it works offline.
 
 #### S6-U5. App Intents and Shortcuts
-- Create issue, open my issues, open an issue by key. No Siri voice work beyond what intents give for free.
+- Create issue, open my issues, open an issue by key. App Shortcuts only; Siri voice invocation is a future enhancement.
 
 #### S6-U6. Accessibility, performance, polish
 - Dynamic Type through the largest sizes, VoiceOver labels and rotor, reduced motion, contrast against DESIGN.md floors, haptics sparingly, empty and error states per the UX rules, localization-ready strings (English only shipped).
@@ -467,7 +467,7 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 | Old unit | New home | Change |
 |---|---|---|
 | U1 redirect schemes | S4-U1 | none |
-| U2 scaffold | S5-U2 | build on the mini, xcodegen, not xtool-only |
+| U2 scaffold | S5-U2 | build on the mini with `project.yml` (xcodegen) and `scripts/testflight.sh`, not xtool-only; both files are in S5-U2's file list |
 | U3 auth | S5-U3 | adds QR pairing |
 | U4 client | S5-U4 | adds delta and idempotency |
 | U5 issue loop | S5-U5 | outbox arrives in S6 |
