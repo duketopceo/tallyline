@@ -692,6 +692,49 @@ describe("issue suggestions (plan L4)", () => {
   });
 });
 
+describe("list filters for ready work (U20)", () => {
+  it("unblocked hides issues blocked by an unfinished issue and delegate filters by delegate", async () => {
+    const mkIss = async (title: string) => {
+      const r = await req(`/v1/workspaces/${SLUG}/issues`, {
+        method: "POST",
+        body: JSON.stringify({ title }),
+      });
+      expect(r.status).toBe(201);
+      return r.body as { id: string; key: string };
+    };
+    const blocker = await mkIss("U20 blocker");
+    const blocked = await mkIss("U20 blocked");
+    const free = await mkIss("U20 free");
+    const rel = await req(`/v1/workspaces/${SLUG}/issues/${blocker.key}/relations`, {
+      method: "POST",
+      body: JSON.stringify({ targetIssueId: blocked.id, relationType: "blocks" }),
+    });
+    expect(rel.status).toBe(201);
+
+    const keys = async (qs: string): Promise<string[]> => {
+      const r = await req(`/v1/workspaces/${SLUG}/issues?search=U20&${qs}`);
+      expect(r.status, JSON.stringify(r.body)).toBe(200);
+      return (r.body.issues as { key: string }[]).map((i) => i.key);
+    };
+
+    expect(await keys("")).toEqual(expect.arrayContaining([blocker.key, blocked.key, free.key]));
+    const open = await keys("unblocked=true");
+    expect(open).toEqual(expect.arrayContaining([blocker.key, free.key]));
+    expect(open).not.toContain(blocked.key);
+
+    // once the blocker is canceled the blocked issue is ready again
+    const done = await req(`/v1/workspaces/${SLUG}/issues/${blocker.key}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "canceled" }),
+    });
+    expect(done.status).toBe(200);
+    expect(await keys("unblocked=true")).toContain(blocked.key);
+
+    // delegate filter: nobody is delegated this issue, so a random id matches nothing
+    expect(await keys("delegate=00000000-0000-4000-8000-000000000000")).toEqual([]);
+  });
+});
+
 describe("issue relations (plan L5)", () => {
   it("rejects self-relation and blocks cycles with 409, transitions duplicate source, and deletes relations", async () => {
     const mkIss = async (title: string) => {

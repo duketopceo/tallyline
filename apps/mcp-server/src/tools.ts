@@ -362,7 +362,7 @@ export const toolDefs: ToolDef[] = [
   defineTool({
     name: "list_issues",
     description:
-      "List issues in the workspace. Filters: state/priority (arrays), team key, assignee id, cycle id, milestone id, label id (the `hitl` label marks work only Luke can do; find its id with list_labels), source, title search. Cursor-paginated.",
+      "List issues in the workspace. Filters: state/priority (arrays), team key, assignee id, cycle id, milestone id, label id (the `hitl` label marks work only Luke can do; find its id with list_labels), source, text search over title, description, key and comments. Cursor-paginated.",
     inputSchema: {
       state: z.array(z.enum(ISSUE_STATES)).optional(),
       priority: z.array(z.enum(PRIORITIES)).optional(),
@@ -404,7 +404,7 @@ export const toolDefs: ToolDef[] = [
   defineTool({
     name: "ready",
     description:
-      "List issues ready to work — state 'todo', ordered by priority (urgent first, then oldest). `mine` restricts to issues assigned to you.",
+      "List issues ready to work — state 'todo', not blocked by an unfinished issue, ordered by priority (urgent first, then oldest). `mine` restricts to issues assigned to you.",
     inputSchema: {
       mine: z.boolean().optional(),
       team: z.string().optional(),
@@ -420,6 +420,7 @@ export const toolDefs: ToolDef[] = [
         state: "todo",
         team: args.team,
         assignee,
+        unblocked: "true",
         limit: 200,
       });
       const ordered = res.issues
@@ -431,6 +432,52 @@ export const toolDefs: ToolDef[] = [
         )
         .slice(0, args.limit ?? 20);
       return { issues: ordered.map(slimIssue) };
+    },
+  }),
+
+  defineTool({
+    name: "inbox",
+    description:
+      "What is waiting for you in one call: open issues assigned to you or delegated to you ('todo' or 'in_progress'), not blocked by an unfinished issue, urgent first. Mentions and answered questions are not included yet.",
+    inputSchema: { limit: z.number().int().min(1).max(200).optional() },
+    readOnly: true,
+    handler: async (args, client) => {
+      const me = await client.whoami();
+      const base = { state: "todo,in_progress", unblocked: "true", limit: 200 };
+      const [assigned, delegated] = await Promise.all([
+        client.apiGet<{ issues: IssueRow[] }>("/issues", { ...base, assignee: me.id }),
+        me.type === "agent"
+          ? client.apiGet<{ issues: IssueRow[] }>("/issues", { ...base, delegate: me.id })
+          : Promise.resolve({ issues: [] as IssueRow[] }),
+      ]);
+      const byKey = new Map<string, IssueRow>();
+      for (const i of [...assigned.issues, ...delegated.issues]) byKey.set(i.key, i);
+      const waiting = [...byKey.values()]
+        .sort(
+          (a, b) =>
+            PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
+            Date.parse(a.createdAt) - Date.parse(b.createdAt),
+        )
+        .slice(0, args.limit ?? 20);
+      return { waiting: waiting.map(slimIssue) };
+    },
+  }),
+
+  defineTool({
+    name: "relate_issues",
+    description:
+      "Link two issues. relationType 'blocks' means `key` blocks `targetKey` (the target leaves 'ready' and 'inbox' until `key` is done or canceled); 'related' and 'duplicate' are the other types. Cycles in blocks are refused.",
+    inputSchema: {
+      key: z.string(),
+      targetKey: z.string(),
+      relationType: z.enum(["blocks", "related", "duplicate"]),
+    },
+    handler: async (args, client) => {
+      const res = await client.apiPost<{ relation?: unknown }>(
+        `/issues/${encodeURIComponent(args.key)}/relations`,
+        { targetKey: args.targetKey, relationType: args.relationType },
+      );
+      return res;
     },
   }),
 
@@ -663,6 +710,25 @@ export const toolDefs: ToolDef[] = [
   }),
 
   defineTool({
+    name: "create_team",
+    description:
+      "Create a team. key is 1-6 chars, uppercase letters/digits starting with a letter (it prefixes issue keys, e.g. KATE-12); a duplicate key is refused with CONFLICT. Needs write scope.",
+    inputSchema: {
+      key: z
+        .string()
+        .min(1)
+        .max(6)
+        .regex(/^[A-Z][A-Z0-9]*$/),
+      name: z.string().min(1).max(120),
+      rolloverBehavior: z.enum(["next_cycle", "backlog"]).optional(),
+    },
+    handler: async (args, client) => {
+      const t = await client.apiPost<TeamRow>("/teams", args);
+      return { id: t.id, key: t.key, name: t.name };
+    },
+  }),
+
+  defineTool({
     name: "list_members",
     description:
       "List human members of the workspace (name, email, role) — assignee resolution for issues.",
@@ -758,6 +824,31 @@ export const toolDefs: ToolDef[] = [
           fields,
         ),
       );
+    },
+  }),
+
+  defineTool({
+    name: "draft_project_update",
+    description:
+      "Draft the next status update for a project from the event log since its last update: issues done, opened, blocked, milestone progress and a suggested health (on_track, at_risk, off_track). Read-only and model-free: nothing is saved. Edit it, then post it with post_project_update (a human approves the real one).",
+    inputSchema: { projectId: uuid },
+    readOnly: true,
+    handler: async (args, client) =>
+      client.apiGet(`/projects/${encodeURIComponent(args.projectId)}/update-draft`),
+  }),
+
+  defineTool({
+    name: "post_project_update",
+    description:
+      "Post a dated status update on a project: health (on_track, at_risk, off_track) and a markdown body. The update is recorded as authored by your credential. Needs write scope.",
+    inputSchema: {
+      projectId: uuid,
+      health: z.enum(["on_track", "at_risk", "off_track"]),
+      body: z.string().min(1).max(20_000),
+    },
+    handler: async (args, client) => {
+      const { projectId, ...fields } = args;
+      return client.apiPost(`/projects/${encodeURIComponent(projectId)}/updates`, fields);
     },
   }),
 

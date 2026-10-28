@@ -23,9 +23,10 @@ import { useRegisterActions } from "@/components/app/actions";
 import { useIssueEdit, useOverrides } from "@/components/app/issue-store";
 import { NewPill, useLiveCount } from "@/components/app/live";
 import { type IssueLike, useIssueEditors } from "@/components/app/pickers";
-import { useNames, usePeek } from "@/components/app/providers";
+import { useMeta, useNames, usePeek } from "@/components/app/providers";
 import { Assignee, Glint, Kbd, PriorityGlyph, StateGlyph } from "@/components/app/ui";
 import type { ListIssue } from "@/components/issue-list-client";
+import { ProjectIcon } from "@/components/project-icon";
 import { STATE_LABEL } from "@/lib/format";
 
 type BoardState = (typeof ACTIVE_STATES)[number];
@@ -45,11 +46,13 @@ function isTypingTarget(el: EventTarget | null): boolean {
 function CardFace({ issue, names }: { issue: ListIssue; names: ReturnType<typeof useNames> }) {
   const assignee = names.assignee(issue.assigneeType, issue.assigneeId);
   const filedBy = issue.creatorType === "agent" ? names.actor("agent", issue.creatorId) : null;
+  const project = useMeta().projects.find((p) => p.id === issue.projectId);
   return (
     <>
       <span className="flex items-center gap-2">
         <PriorityGlyph priority={issue.priority} />
         <span className="font-mono text-[12px] text-ink-subtle">{issue.key}</span>
+        {project && <span title={`Project: ${project.name}`} className="flex"><ProjectIcon name={project.name} iconUrl={project.iconUrl} /></span>}
         {filedBy && <span title={`Filed by ${filedBy}`}><Glint size={12} label={`Filed by agent ${filedBy}`} /></span>}
         <span className="ml-auto"><Assignee type={issue.assigneeType} name={assignee} /></span>
       </span>

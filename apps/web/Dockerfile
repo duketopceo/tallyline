@@ -3,7 +3,7 @@
 # service; it proxies the API server-side via API_INTERNAL_URL (service
 # name inside the compose network) so the API port never needs exposing.
 
-FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS build
+FROM node:22-alpine@sha256:ea11b74b986d520137cdef9a5346e447a00f275ecc4abc0055b7151226231e09 AS build
 RUN corepack enable
 WORKDIR /repo
 
@@ -24,7 +24,7 @@ COPY apps/web apps/web
 RUN pnpm --filter @tallyline/types build && pnpm --filter @tallyline/silver-lining build && pnpm --filter @tallyline/web build
 RUN pnpm deploy --legacy --filter @tallyline/web --prod /out
 
-FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS run
+FROM node:22-alpine@sha256:ea11b74b986d520137cdef9a5346e447a00f275ecc4abc0055b7151226231e09 AS run
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./

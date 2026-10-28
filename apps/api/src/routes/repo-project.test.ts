@@ -159,6 +159,14 @@ describe("repo-to-project binding", () => {
     await post("/github/repos/project", { fullName: KATE, projectId: kateProject });
   });
 
+  it("binding a repo fills a missing project icon from the owner avatar, never overwriting", async () => {
+    const icon = async (id: string) => (await db.select().from(projects).where(eq(projects.id, id)))[0]!.iconUrl;
+    expect(await icon(kateProject)).toBe("https://github.com/duketopceo.png?size=64");
+    await db.update(projects).set({ iconUrl: "https://example.com/own.png" }).where(eq(projects.id, kateProject));
+    await post("/github/repos/project", { fullName: KATE_IOS, projectId: kateProject });
+    expect(await icon(kateProject)).toBe("https://example.com/own.png");
+  });
+
   it("refuses another workspace's project and unknown repos", async () => {
     expect((await post("/github/repos/project", { fullName: KATE, projectId: otherProject })).status).toBe(422);
     expect((await post("/github/repos/project", { fullName: "x/none", projectId: kateProject })).status).toBe(404);

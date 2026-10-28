@@ -27,6 +27,7 @@ import {
   oauthCodes,
   oauthGrants,
   projectMilestones,
+  projectUpdates,
   projects,
   slackLinks,
   teams,
@@ -172,6 +173,20 @@ export async function mkMilestone(t: Tenant, projectId: string) {
   const [row] = await db
     .insert(projectMilestones)
     .values({ workspaceId: t.ws.id, projectId, title: `Milestone ${t.sentinel}` })
+    .returning();
+  return row!;
+}
+
+export async function mkProjectUpdate(t: Tenant, projectId: string) {
+  const [row] = await db
+    .insert(projectUpdates)
+    .values({
+      workspaceId: t.ws.id,
+      projectId,
+      health: "on_track",
+      body: `Update ${t.sentinel}`,
+      authorType: "system",
+    })
     .returning();
   return row!;
 }
@@ -557,6 +572,7 @@ export interface Entities {
   reviewIssue: Awaited<ReturnType<typeof mkIssue>>;
   project: Awaited<ReturnType<typeof mkProject>>;
   milestone: Awaited<ReturnType<typeof mkMilestone>>;
+  projectUpdate: Awaited<ReturnType<typeof mkProjectUpdate>>;
   cycle: Awaited<ReturnType<typeof mkCycle>>;
   label: Awaited<ReturnType<typeof mkLabel>>;
   comment: Awaited<ReturnType<typeof mkComment>>;
@@ -614,6 +630,7 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
     reviewIssue,
     project,
     milestone: await mkMilestone(t, project.id),
+    projectUpdate: await mkProjectUpdate(t, project.id),
     cycle,
     label,
     comment: await mkComment(t, issue.id),

@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import {
   findPath,
   type IssueState,
@@ -10,6 +10,7 @@ import {
   githubIssueLinks,
   githubInstallations,
   githubRepos,
+  issueExternalRefs,
   issueLabels,
   issues,
   labels,
@@ -25,9 +26,10 @@ import {
 import { createIssue, transitionIssue, type Actor } from "./issues.js";
 import { queueDeliveries } from "./outbound.js";
 import { clock } from "./clock.js";
+import { parsePrReferences, prLinkState } from "./pr-links.js";
 
 const SYSTEM: Actor = { type: "system", id: null };
-const KEY_PREFIX = /^([A-Z][A-Z0-9]*-\d+)/;
+const KEY_PREFIX = /^([A-Za-z][A-Za-z0-9]*-\d+)/;
 
 interface GhRepoRef {
   id?: number;
@@ -53,7 +55,9 @@ interface GhPullRequest {
   draft?: boolean;
   title: string;
   html_url: string;
+  body?: string | null;
   head: { ref: string };
+  base?: { ref: string };
   user?: { login: string };
 }
 
@@ -139,7 +143,7 @@ async function issueForBranch(workspaceId: string, branch: string) {
   const [issue] = await db
     .select()
     .from(issues)
-    .where(and(eq(issues.workspaceId, workspaceId), eq(issues.key, m[1]!)))
+    .where(and(eq(issues.workspaceId, workspaceId), eq(issues.key, m[1]!.toUpperCase())))
     .limit(1);
   return issue ?? null;
 }
@@ -177,24 +181,82 @@ async function onPush(repo: { workspaceId: string }, payload: Payload) {
 }
 
 async function onPullRequest(
-  repo: { workspaceId: string },
+  repo: { workspaceId: string; fullName: string; projectId: string | null },
   payload: Payload,
 ) {
   const pr = payload.pull_request as GhPullRequest | undefined;
   const action = payload.action as string | undefined;
-  if (!pr?.head?.ref || !action) return;
-  const issue = await issueForBranch(repo.workspaceId, pr.head.ref);
-  if (!issue) return;
-  const meta = { github: { pr: pr.number, url: pr.html_url } };
+  if (!pr?.number || !action) return;
+  const found = parsePrReferences({
+    branch: pr.head?.ref ?? null,
+    title: pr.title ?? null,
+    body: pr.body ?? null,
+  });
+  const keys = [
+    ...(found.branchKey ? [found.branchKey] : []),
+    ...found.closes,
+    ...found.refs,
+  ];
+  if (keys.length === 0) return;
 
-  if (action === "opened" || action === "reopened" || action === "ready_for_review") {
-    await transitionTo(repo.workspaceId, issue.key, issue.state, "in_progress", meta);
-  } else if (action === "review_requested") {
-    await transitionTo(repo.workspaceId, issue.key, issue.state, "in_review", meta);
-  } else if (action === "closed" && pr.merged) {
-    await transitionTo(repo.workspaceId, issue.key, issue.state, "done", meta);
+  // keys that are not in this workspace are ignored, never created or guessed
+  const linked = await db
+    .select()
+    .from(issues)
+    .where(and(eq(issues.workspaceId, repo.workspaceId), inArray(issues.key, keys)));
+  if (linked.length === 0) return;
+
+  const state = prLinkState(pr, action);
+  const meta = { repo: repo.fullName, number: pr.number, title: pr.title, state };
+  for (const issue of linked) {
+    // redelivery updates the same row: one ref per (repo, PR, issue)
+    await db
+      .insert(issueExternalRefs)
+      .values({
+        workspaceId: repo.workspaceId,
+        issueId: issue.id,
+        system: "github_pr",
+        externalId: `${repo.fullName}#${pr.number}:${issue.key}`,
+        url: pr.html_url,
+        meta,
+      })
+      .onConflictDoUpdate({
+        target: [
+          issueExternalRefs.workspaceId,
+          issueExternalRefs.system,
+          issueExternalRefs.externalId,
+        ],
+        set: { url: pr.html_url, meta },
+      });
   }
-  // closed-unmerged and other actions: no movement
+
+  const transitionMeta = { github: { pr: pr.number, url: pr.html_url } };
+
+  // branch-named issue: the existing lifecycle automation
+  const branchIssue = linked.find((i) => i.key === found.branchKey);
+  if (branchIssue) {
+    if (action === "opened" || action === "reopened" || action === "ready_for_review") {
+      await transitionTo(repo.workspaceId, branchIssue.key, branchIssue.state, "in_progress", transitionMeta);
+    } else if (action === "review_requested") {
+      await transitionTo(repo.workspaceId, branchIssue.key, branchIssue.state, "in_review", transitionMeta);
+    } else if (action === "closed" && pr.merged) {
+      await transitionTo(repo.workspaceId, branchIssue.key, branchIssue.state, "done", transitionMeta);
+    }
+  }
+
+  // `Closes KEY` in the title or body: done only when merged into the repo's
+  // default branch and the issue belongs to the project bound to this repo.
+  // Everything else is link only (`Refs`, other branches, closed unmerged).
+  if (action === "closed" && pr.merged && repo.projectId) {
+    const defaultBranch = (payload.repository as { default_branch?: string } | undefined)?.default_branch;
+    if (defaultBranch && pr.base?.ref === defaultBranch) {
+      for (const issue of linked) {
+        if (issue.key === found.branchKey || !found.closes.includes(issue.key)) continue;
+        if (issue.projectId !== repo.projectId) continue;
+        await transitionTo(repo.workspaceId, issue.key, issue.state, "done", transitionMeta);
+      }
+    }
+  }
 }
 
 async function onPullRequestReview(

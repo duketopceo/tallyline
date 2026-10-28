@@ -2,12 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ProjectIcon } from "@/components/project-icon";
 
 export interface ProjectRow {
   id: string;
   name: string;
   status: string;
   description: string | null;
+  iconUrl?: string | null;
   startDate: string | null;
   targetDate: string | null;
 }
@@ -137,6 +139,7 @@ export function ProjectsSettings({ projects }: { projects: ProjectRow[] }) {
         <ul className="divide-y divide-lining-faint rounded-sm border border-lining">
           {projects.map((p) => (
             <li key={p.id} className="flex items-center gap-3 px-3 py-2">
+              <ProjectIcon name={p.name} iconUrl={p.iconUrl} size={20} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] text-ink">
                   {p.name}

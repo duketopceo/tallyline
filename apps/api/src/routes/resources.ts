@@ -13,6 +13,7 @@ import {
 } from "../db/schema.js";
 import { actorFromHeaders } from "../lib/actor.js";
 import { apiError, HttpError } from "../lib/errors.js";
+import { normalizeIconUrl } from "../lib/project-icon.js";
 import { completeCycle } from "../services/cycles.js";
 import { computeInsights } from "../services/insights.js";
 import { requireWorkspace } from "./workspaces.js";
@@ -27,12 +28,19 @@ const PROJECT_STATUSES = [
   "canceled",
 ] as const;
 
+const iconUrlSchema = z
+  .string()
+  .refine((v) => normalizeIconUrl(v) !== null, {
+    message: "iconUrl must be a public https URL (max 2048 chars)",
+  });
+
 const projectCreateSchema = z
   .object({
     name: z.string().min(1).max(200),
     description: z.string().max(10_000).optional(),
     status: z.enum(PROJECT_STATUSES).default("planned"),
     teamKey: z.string().min(1).max(6).optional(),
+    iconUrl: iconUrlSchema.optional(),
     startDate: z.iso.datetime().optional(),
     targetDate: z.iso.datetime().optional(),
   })
@@ -48,6 +56,7 @@ const projectPatchSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().max(10_000).nullable().optional(),
   status: z.enum(PROJECT_STATUSES).optional(),
+  iconUrl: iconUrlSchema.nullable().optional(),
   startDate: z.iso.datetime().nullable().optional(),
   targetDate: z.iso.datetime().nullable().optional(),
 });
@@ -252,6 +261,9 @@ export const resourceRoutes = new Hono()
           teamId,
           name: body.name,
           status: body.status,
+          ...(body.iconUrl !== undefined
+            ? { iconUrl: normalizeIconUrl(body.iconUrl) }
+            : {}),
           ...(body.description !== undefined
             ? { description: body.description }
             : {}),
@@ -301,6 +313,9 @@ export const resourceRoutes = new Hono()
             ? { description: body.description }
             : {}),
           ...(body.status !== undefined ? { status: body.status } : {}),
+          ...(body.iconUrl !== undefined
+            ? { iconUrl: body.iconUrl === null ? null : normalizeIconUrl(body.iconUrl) }
+            : {}),
           ...(body.startDate !== undefined ? { startDate } : {}),
           ...(body.targetDate !== undefined ? { targetDate } : {}),
         })

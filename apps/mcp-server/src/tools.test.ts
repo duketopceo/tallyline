@@ -386,6 +386,50 @@ describe("tool surface over the real API", () => {
     expect(mineKeys).toEqual([lowKey]);
   });
 
+  it("ready and inbox skip issues blocked by an unfinished issue", async () => {
+    await call("create_issue", { title: "blocker u20", priority: "high" });
+    await call("create_issue", { title: "blocked u20", priority: "urgent" });
+    const keyOf = async (title: string) =>
+      ((await call("list_issues", { search: title })).data.issues as { key: string }[])[0]!.key;
+    const blocker = await keyOf("blocker u20");
+    const blocked = await keyOf("blocked u20");
+    for (const key of [blocker, blocked]) {
+      await call("update_issue", { key, state: "todo", assigneeType: "agent", assigneeId: agentId });
+    }
+    const rel = await call("relate_issues", { key: blocker, targetKey: blocked, relationType: "blocks" });
+    expect(rel.res.isError).toBeFalsy();
+
+    const readyKeys = async () =>
+      ((await call("ready", { mine: true })).data.issues as { key: string }[]).map((i) => i.key);
+    const inboxKeys = async () =>
+      ((await call("inbox", {})).data.waiting as { key: string }[]).map((i) => i.key);
+
+    expect(await readyKeys()).toContain(blocker);
+    expect(await readyKeys()).not.toContain(blocked);
+    expect(await inboxKeys()).toContain(blocker);
+    expect(await inboxKeys()).not.toContain(blocked);
+
+    await call("update_issue", { key: blocker, state: "canceled" });
+    expect(await readyKeys()).toContain(blocked);
+    expect(await inboxKeys()).toContain(blocked);
+  });
+
+  it("draft_project_update reads the log and post_project_update records an agent-authored update", async () => {
+    const proj = await call("create_project", { name: "update-tool-project" });
+    const projectId = proj.data.id as string;
+    const draft = await call("draft_project_update", { projectId });
+    expect(draft.res.isError).toBeFalsy();
+    expect(draft.data.empty).toBe(true);
+    const posted = await call("post_project_update", {
+      projectId,
+      health: "at_risk",
+      body: "tool-posted",
+    });
+    expect(posted.res.isError).toBeFalsy();
+    expect(posted.data.authorType).toBe("agent");
+    expect(posted.data.health).toBe("at_risk");
+  });
+
   it("create_cycle and assign_cycle schedule work; a foreign-workspace cycle is refused", async () => {
     const day = 86_400_000;
     const created = await call("create_cycle", {
@@ -481,6 +525,13 @@ describe("tool surface over the real API", () => {
     expect(
       (teamsRes.data.teams as { key: string }[]).map((t) => t.key),
     ).toContain(teamKey);
+
+    const madeTeam = await call("create_team", { key: "MCPT", name: "Made by MCP" });
+    expect(madeTeam.res.isError).toBeFalsy();
+    expect(madeTeam.data.key).toBe("MCPT");
+    const dupTeam = await call("create_team", { key: "MCPT", name: "Again" });
+    expect(dupTeam.res.isError).toBe(true);
+    expect(dupTeam.data.error!.code).toBe("CONFLICT");
 
     const membersRes = await call("list_members", {});
     expect(
@@ -770,6 +821,8 @@ describe("MCP protocol end-to-end (InMemoryTransport)", () => {
       "comment",
       "claim",
       "ready",
+      "inbox",
+      "relate_issues",
       "list_agents",
       "list_members",
       "list_projects",
@@ -777,6 +830,7 @@ describe("MCP protocol end-to-end (InMemoryTransport)", () => {
       "create_cycle",
       "assign_cycle",
       "list_teams",
+      "create_team",
       "list_labels",
       "list_events",
       "session_get",
@@ -786,6 +840,8 @@ describe("MCP protocol end-to-end (InMemoryTransport)", () => {
       "whoami",
       "create_project",
       "update_project",
+      "draft_project_update",
+      "post_project_update",
       "import_plan",
     ]) {
       expect(names).toContain(t);

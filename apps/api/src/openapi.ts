@@ -803,6 +803,11 @@ const basePaths = {
               ],
             },
             teamKey: { type: "string" },
+            iconUrl: {
+              type: "string",
+              description:
+                "Public https logo URL; auto-filled from a bound GitHub repo owner avatar when unset",
+            },
             startDate: { type: "string", format: "date-time" },
             targetDate: { type: "string", format: "date-time" },
           },
@@ -823,6 +828,7 @@ const basePaths = {
           properties: {
             name: { type: "string" },
             description: { type: ["string", "null"] },
+            iconUrl: { type: ["string", "null"], description: "Public https logo URL; null clears" },
             status: {
               type: "string",
               enum: [
@@ -879,6 +885,35 @@ const basePaths = {
           },
         }),
         responses: { "201": { description: "Milestone created" } },
+      },
+    },
+    "/v1/workspaces/{ws}/projects/{id}/updates": {
+      get: {
+        summary: "List a project's status updates, newest first (limit 1-100, default 20)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Updates" } },
+      },
+      post: {
+        summary:
+          "Post a status update — health (on_track, at_risk, off_track) and a body; author is the calling human or agent",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["health", "body"],
+          properties: {
+            health: { type: "string", enum: ["on_track", "at_risk", "off_track"] },
+            body: { type: "string" },
+          },
+        }),
+        responses: { "201": { description: "Update posted" } },
+      },
+    },
+    "/v1/workspaces/{ws}/projects/{id}/update-draft": {
+      get: {
+        summary:
+          "Draft the next status update from the event log since the last one (done, opened, blocked, milestone progress, suggested health); nothing is saved",
+        parameters: [wsParam],
+        responses: { "200": { description: "Draft" } },
       },
     },
     "/v1/workspaces/{ws}/projects/{id}/milestones/{mid}": {

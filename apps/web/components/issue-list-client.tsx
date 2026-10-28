@@ -9,6 +9,7 @@ import { useMerged, useOverrides } from "./app/issue-store";
 import { NewPill, useLiveCount } from "./app/live";
 import { type IssueLike, useIssueEditors } from "./app/pickers";
 import { useMeta, useNames, usePeek } from "./app/providers";
+import { ProjectIcon } from "./project-icon";
 import { Assignee, Glint, Kbd, PriorityGlyph, StateGlyph } from "./app/ui";
 import { PRIORITY_LABEL, relTime, STATE_LABEL } from "@/lib/format";
 
@@ -407,6 +408,7 @@ function Row({
   names: ReturnType<typeof useNames>; editors: ReturnType<typeof useIssueEditors>; peekOpen: boolean; onPeek: () => void;
 }) {
   const m = useMerged(issue);
+  const project = useMeta().projects.find((p) => p.id === m.projectId);
   const like: IssueLike = { ...m, assigneeType: m.assigneeType ?? null, assigneeId: m.assigneeId ?? null };
   const assignee = names.assignee(m.assigneeType, m.assigneeId);
   const agentFiled = m.creatorType === "agent";
@@ -439,6 +441,7 @@ function Row({
       <button type="button" tabIndex={tab} className={ctl} onClick={(e) => editors.pickState(e.currentTarget, [like])} aria-label={`State ${STATE_LABEL[m.state]}, change`}>
         <StateGlyph state={m.state} labelled={false} />
       </button>
+      {project && <span title={`Project: ${project.name}`} className="flex shrink-0 items-center"><ProjectIcon name={project.name} iconUrl={project.iconUrl} /></span>}
       {editing ? (
         <input
           autoFocus defaultValue={m.title} aria-label={`Title of ${issue.key}`}

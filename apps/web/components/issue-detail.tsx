@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useIssueEdit, useMerged } from "@/components/app/issue-store";
 import { useIssueEditors } from "@/components/app/pickers";
 import { useMeta, useNames } from "@/components/app/providers";
+import { ProjectIcon } from "@/components/project-icon";
 import { useToast } from "@/components/app/toast";
 import { Assignee, Glint, Kbd, PriorityGlyph, StateGlyph } from "@/components/app/ui";
 import type { IssueDetail } from "@/components/app/peek-panel";
@@ -19,7 +20,8 @@ import { Markdown } from "@/lib/markdown";
 export interface DetailComment { id: string; body: string; actorType: string; actorId: string | null; createdAt: string; pending?: boolean }
 export interface DetailEvent { id: number; action: string; actorType: string; actorId: string | null; before: Record<string, unknown> | null; after: Record<string, unknown> | null; createdAt: string }
 type Child = { key: string; title: string };
-export type FullIssue = IssueDetail & { children: Child[]; parentId?: string | null };
+export interface PullRequestLink { repo: string; number: number; title: string; state: "draft" | "open" | "merged" | "closed"; url: string | null }
+export type FullIssue = IssueDetail & { children: Child[]; parentId?: string | null; pullRequests?: PullRequestLink[] };
 
 const abs = (iso: string) => new Date(iso).toLocaleString();
 
@@ -294,6 +296,7 @@ export function IssueDetailView({
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-lining-faint px-4">
         <Link href="/issues" className="text-[13px] text-ink-subtle hover:text-ink">Issues</Link>
         <span aria-hidden className="text-ink-tertiary">/</span>
+        {project && <span title={`Project: ${project.name}`} className="flex"><ProjectIcon name={project.name} iconUrl={project.iconUrl} size={20} /></span>}
         <span className="font-mono text-[12px] text-ink-muted">{issue.key}</span>
         <button type="button" onClick={() => { void navigator.clipboard?.writeText(window.location.href); toast.push({ message: `Link to ${issue.key} copied` }); }} className="h-7 rounded-sm px-2 text-[12px] text-ink-subtle hover:bg-surface-2 hover:text-ink">Copy link</button>
         <span className="ml-auto hidden items-center gap-2 text-[11px] text-ink-subtle md:flex"><span><Kbd>s</Kbd> state</span><span><Kbd>p</Kbd> priority</span><span><Kbd>a</Kbd> assign</span><span><Kbd>e</Kbd> title</span><span><Kbd>d</Kbd> description</span></span>
@@ -359,6 +362,23 @@ export function IssueDetailView({
                 <ul className="mt-2 divide-y divide-lining-faint rounded-md border border-lining bg-surface-1">
                   {serverIssue.children.map((c) => (
                     <li key={c.key}><Link href={`/issues/${c.key}`} className="flex h-9 items-center gap-3 px-3 text-[13px] text-ink-muted hover:bg-surface-2"><span className="font-mono text-[12px] text-ink-subtle">{c.key}</span><span className="truncate">{c.title}</span></Link></li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {(serverIssue.pullRequests?.length ?? 0) > 0 && (
+              <section aria-label="Pull requests" className="mt-8">
+                <h2 className="text-[13px] font-semibold">Pull requests <span className="font-normal tabular-nums text-ink-subtle">{serverIssue.pullRequests!.length}</span></h2>
+                <ul className="mt-2 divide-y divide-lining-faint rounded-md border border-lining bg-surface-1">
+                  {serverIssue.pullRequests!.map((p) => (
+                    <li key={`${p.repo}#${p.number}`}>
+                      <a href={p.url ?? undefined} target="_blank" rel="noreferrer noopener" className="flex h-9 items-center gap-3 px-3 text-[13px] text-ink-muted hover:bg-surface-2">
+                        <span className="font-mono text-[12px] text-ink-subtle">#{p.number}</span>
+                        <span className="truncate">{p.title}</span>
+                        <span className="ml-auto shrink-0 rounded-full border border-lining px-2 text-[12px] capitalize text-ink-subtle">{p.state}</span>
+                      </a>
+                    </li>
                   ))}
                 </ul>
               </section>
@@ -457,7 +477,7 @@ export function IssueDetailView({
               </div>
               <div>
                 <dt className="text-[12px] text-ink-subtle">Project</dt>
-                <dd><button type="button" className="-ml-2 mt-0.5 h-7 w-full rounded-sm px-2 text-left text-ink hover:bg-surface-2" aria-label={`Project: ${project?.name ?? "none"}. Change`} onClick={(e) => editors.pickProject(e.currentTarget, [like])}>{project?.name ?? <span className="text-ink-subtle">No project</span>}</button></dd>
+                <dd><button type="button" className="-ml-2 mt-0.5 h-7 w-full rounded-sm px-2 text-left text-ink hover:bg-surface-2" aria-label={`Project: ${project?.name ?? "none"}. Change`} onClick={(e) => editors.pickProject(e.currentTarget, [like])}>{project ? <span className="flex items-center gap-2"><ProjectIcon name={project.name} iconUrl={project.iconUrl} />{project.name}</span> : <span className="text-ink-subtle">No project</span>}</button></dd>
               </div>
               {project && (
               <div>

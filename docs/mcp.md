@@ -85,6 +85,7 @@ curl -X POST $API/v1/workspaces/$WS/agents/$AGENT_ID/keys \
 | `comment` | yes | Post a comment as the credential's identity |
 | `claim` | yes | Assign to yourself + move to `in_progress` (hops via `todo` from `backlog`) |
 | `list_agents` / `list_members` / `list_teams` / `list_labels` / `list_projects` / `list_cycles` | — | Workspace resources, slim views (`list_members` returns name/email/role — assignee resolution) |
+| `create_team` | yes | Create a team (`key` 1-6 chars `A-Z0-9`, `name`, optional `rolloverBehavior`). Humans need the admin role; agent keys pass on write scope |
 | `create_project` / `update_project` | yes | Create or patch a project. Names are unique case-insensitively (`DUPLICATE_NAME`), because plan import finds its project by name |
 | `import_plan` | yes | Import a ce-plan markdown file as issues. `mode` defaults to `dry_run` (returns the diff and a `diffHash`, writes nothing); `apply` needs that hash. `STALE_DIFF` carries the new diff. No `evidence` or `historical` input: agents cannot write done or in-progress state. See [import.md](import.md) |
 | `create_cycle` | yes | Create a dated cycle for a team (inactive unless `isActive`); teams with the weekly auto-schedule get theirs created for them |

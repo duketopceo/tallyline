@@ -234,6 +234,75 @@ describe("membership enforcement", () => {
   });
 });
 
+describe("team writes", () => {
+  it("POST teams: member 403, admin 201, agent key 201, duplicate 409, bad key 400", async () => {
+    const body = (key: string) => JSON.stringify({ key, name: `Team ${key}` });
+    const asMember = await req(`/v1/workspaces/u2-a/teams`, {
+      method: "POST",
+      cookie: memberCookie,
+      body: body("MEM"),
+    });
+    expect(asMember.status).toBe(403);
+    expect((asMember.body.error as { code: string }).code).toBe("FORBIDDEN_ROLE");
+
+    const asOwner = await req(`/v1/workspaces/u2-a/teams`, {
+      method: "POST",
+      cookie: ownerCookie,
+      body: body("OWN"),
+    });
+    expect(asOwner.status).toBe(201);
+
+    const agent = await req(`/v1/workspaces/u2-a/agents`, {
+      method: "POST",
+      cookie: ownerCookie,
+      body: JSON.stringify({ name: "team-maker", harness: "test" }),
+    });
+    const minted = await req(`/v1/workspaces/u2-a/agents/${agent.body.id}/keys`, {
+      method: "POST",
+      cookie: ownerCookie,
+      body: JSON.stringify({ scopes: ["write"] }),
+    });
+    const viaKey = await req(`/v1/workspaces/u2-a/teams`, {
+      method: "POST",
+      body: body("AGT"),
+      headers: { authorization: `Bearer ${minted.body.key}` },
+    });
+    expect(viaKey.status).toBe(201);
+    const roKey = await req(`/v1/workspaces/u2-a/agents/${agent.body.id}/keys`, {
+      method: "POST",
+      cookie: ownerCookie,
+      body: JSON.stringify({ scopes: ["read"] }),
+    });
+    const viaRead = await req(`/v1/workspaces/u2-a/teams`, {
+      method: "POST",
+      body: body("RDO"),
+      headers: { authorization: `Bearer ${roKey.body.key}` },
+    });
+    expect(viaRead.status).toBe(403);
+    const { createUserToken } = await import("../services/tokens.js");
+    const { token: memberWritePat } = await createUserToken(memberUserId, wsA, "team-pat", ["read", "write"]);
+    const viaPat = await req(`/v1/workspaces/u2-a/teams`, {
+      method: "POST",
+      body: body("PAT"),
+      headers: { authorization: `Bearer ${memberWritePat}` },
+    });
+    expect(viaPat.status).toBe(403);
+    expect((viaPat.body.error as { code: string }).code).toBe("FORBIDDEN_ROLE");
+    const dup = await req(`/v1/workspaces/u2-a/teams`, {
+      method: "POST",
+      body: body("AGT"),
+      headers: { authorization: `Bearer ${minted.body.key}` },
+    });
+    expect(dup.status).toBe(409);
+    const bad = await req(`/v1/workspaces/u2-a/teams`, {
+      method: "POST",
+      cookie: ownerCookie,
+      body: body("toolong7"),
+    });
+    expect(bad.status).toBe(400);
+  });
+});
+
 describe("role gates", () => {
   it("PAT mint: member → 403, admin → 201, PAT credential → 403", async () => {
     const asMember = await req(`/v1/workspaces/u2-a/tokens`, {

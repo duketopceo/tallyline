@@ -136,6 +136,12 @@ export interface Workspace {
   createdAt: string;
 }
 
+export interface Team {
+  id: string;
+  key: string;
+  name: string;
+}
+
 export interface CreateIssueInput {
   title: string;
   teamKey?: string;
@@ -263,6 +269,8 @@ export class ApiClient {
     team?: string;
     search?: string;
     source?: string;
+    /** hide issues blocked by an unfinished issue */
+    unblocked?: boolean;
     cursor?: string;
     limit?: number;
   }): Promise<IssueList> {
@@ -274,10 +282,23 @@ export class ApiClient {
         team: query.team,
         search: query.search,
         source: query.source,
+        unblocked: query.unblocked ? "true" : undefined,
         cursor: query.cursor,
         limit: query.limit,
       },
     });
+  }
+
+  listTeams(): Promise<{ teams: Team[] }> {
+    return this.req("GET", "/teams");
+  }
+
+  createTeam(body: {
+    key: string;
+    name: string;
+    rolloverBehavior?: "next_cycle" | "backlog";
+  }): Promise<Team> {
+    return this.req("POST", "/teams", { body });
   }
 
   getIssue(key: string): Promise<IssueDetail> {

@@ -63,6 +63,12 @@ export const listQuerySchema = z.object({
     .optional(),
   team: z.string().optional(),
   assignee: z.uuid().optional(),
+  delegate: z.uuid().optional(),
+  // "true": hide issues that an unfinished issue blocks (relation type "blocks")
+  unblocked: z
+    .enum(["true", "false"])
+    .transform((v) => v === "true")
+    .optional(),
   cycle: z.uuid().optional(),
   project: z.uuid().optional(),
   milestone: z.uuid().optional(),

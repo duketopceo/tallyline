@@ -273,6 +273,7 @@ const readyCmd: Command = {
     const me = await resolveIdentity(ctx, false);
     const { issues } = await ctx.client.listIssues({
       state: states.join(","),
+      unblocked: true,
       limit: 200,
     });
     const rows = issues
@@ -315,6 +316,7 @@ const nextCmd: Command = {
     if (!pick) {
       const { issues } = await ctx.client.listIssues({
         state: "todo",
+        unblocked: true,
         limit: 200,
       });
       pick = issues
@@ -590,6 +592,44 @@ const triageCmd: Command = {
       throw usage("triage action must be 'accept' or 'decline'");
     }
     emitIssue(ctx, await ctx.client.triage(key, action));
+  },
+};
+
+const teamsCmd: Command = {
+  usage: "tallyline teams [create --key K --name N [--rollover next_cycle|backlog]]",
+  summary: "list teams, or create one (key 1-6 chars A-Z0-9)",
+  options: {
+    key: { type: "string" },
+    name: { type: "string" },
+    rollover: { type: "string" },
+  },
+  needsApi: true,
+  async run(ctx) {
+    const sub = ctx.args[0];
+    if (sub === undefined || sub === "list") {
+      const { teams } = await ctx.client.listTeams();
+      if (ctx.json) emit(ctx, { teams });
+      else for (const t of teams) ctx.io.out(`${t.key}\t${t.name}`);
+      return;
+    }
+    if (sub !== "create") throw usage("teams subcommand must be 'list' or 'create'");
+    const key = strFlag(ctx.flags, "key")?.toUpperCase();
+    const name = strFlag(ctx.flags, "name");
+    if (!key || !name) throw usage("teams create requires --key and --name");
+    if (!/^[A-Z][A-Z0-9]{0,5}$/.test(key)) {
+      throw usage("--key must be 1-6 chars, A-Z0-9, starting with a letter");
+    }
+    const rollover = strFlag(ctx.flags, "rollover");
+    if (rollover !== undefined && rollover !== "next_cycle" && rollover !== "backlog") {
+      throw usage("--rollover must be 'next_cycle' or 'backlog'");
+    }
+    const team = await ctx.client.createTeam({
+      key,
+      name,
+      ...(rollover !== undefined ? { rolloverBehavior: rollover } : {}),
+    });
+    if (ctx.json) emit(ctx, team);
+    else ctx.io.out(`${team.key}\t${team.name}`);
   },
 };
 
@@ -1008,6 +1048,7 @@ export const commands: Record<string, Command> = {
   search: searchCmd,
   show: showCmd,
   triage: triageCmd,
+  teams: teamsCmd,
   events: eventsCmd,
   session: sessionCmd,
   work: workCmd,

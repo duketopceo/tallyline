@@ -77,7 +77,13 @@ function Row({ id, eyebrow, title, children, shot, flip }: { id?: string; eyebro
   );
 }
 
-export function LandingPage() {
+export function LandingPage({ signedIn = false }: { signedIn?: boolean }) {
+  const accountCta = (cls: string) =>
+    signedIn ? (
+      <Link href="/workspaces" className={cls}>Open app</Link>
+    ) : (
+      <Link href="/login" className={cls}>Sign in</Link>
+    );
   return (
     <div className="min-h-screen bg-canvas text-ink">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-3 focus:px-3 focus:py-2">Skip to content</a>
@@ -95,7 +101,7 @@ export function LandingPage() {
             <a href={REPO} className="hover:text-ink" target="_blank" rel="noreferrer">GitHub</a>
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            <Link href="/login" className="flex h-8 items-center rounded-sm border border-control px-3 text-[13px] text-ink-muted hover:bg-surface-2 hover:text-ink">Sign in</Link>
+            {accountCta("flex h-8 items-center rounded-sm border border-control px-3 text-[13px] text-ink-muted hover:bg-surface-2 hover:text-ink")}
             <a href={REPO} target="_blank" rel="noreferrer" className="flex h-8 items-center rounded-sm bg-accent px-3 text-[13px] font-medium text-on-accent hover:bg-accent-hover">Self-host free</a>
           </div>
         </div>
@@ -111,7 +117,7 @@ export function LandingPage() {
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <a href={REPO} target="_blank" rel="noreferrer" className="flex h-10 items-center rounded-sm bg-accent px-5 text-[14px] font-medium text-on-accent hover:bg-accent-hover">Self-host free</a>
-            <Link href="/login" className="flex h-10 items-center rounded-sm border border-control px-5 text-[14px] text-ink-muted hover:bg-surface-2 hover:text-ink">Sign in</Link>
+            {accountCta("flex h-10 items-center rounded-sm border border-control px-5 text-[14px] text-ink-muted hover:bg-surface-2 hover:text-ink")}
           </div>
           <div className="mx-auto mt-12 max-w-5xl text-left">
             <BoardLoop />

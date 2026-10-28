@@ -162,6 +162,9 @@ export const projects = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     status: text("status").notNull().default("planned"),
+    // https URL of the project's logo, stored once (explicit, or auto-filled from
+    // a bound GitHub repo's owner avatar); null = clients show a fallback
+    iconUrl: text("icon_url"),
     // startDate/targetDate are the roadmap span; either may be null — an
     // open project renders from createdAt to "now" (open-ended)
     startDate: timestamp("start_date", { withTimezone: true }),
@@ -171,6 +174,32 @@ export const projects = pgTable(
       .notNull(),
   },
   (t) => [index().on(t.workspaceId)],
+);
+
+// Dated health notes on a project (U14). Drafted from the event log (KTD9),
+// edited and posted by a human or an agent; agent-authored rows say so.
+export const projectUpdateHealth = ["on_track", "at_risk", "off_track"] as const;
+export type ProjectUpdateHealth = (typeof projectUpdateHealth)[number];
+
+export const projectUpdates = pgTable(
+  "project_updates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    health: text("health", { enum: projectUpdateHealth }).notNull(),
+    body: text("body").notNull(),
+    authorType: actorTypeEnum("author_type").notNull(),
+    authorId: uuid("author_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.workspaceId), index().on(t.projectId, t.createdAt)],
 );
 
 // Date markers on a project's roadmap span — undated milestones are
@@ -909,6 +938,9 @@ export const issueExternalRefs = pgTable(
     // plan import: hash of the title and description it last wrote, so a
     // later run only overwrites text nobody has edited
     contentHash: text("content_hash"),
+    // system data about the reference; for github_pr rows: repo, number,
+    // title and state (draft, open, merged, closed)
+    meta: jsonb("meta"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

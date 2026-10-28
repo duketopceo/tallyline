@@ -93,6 +93,7 @@ export function Shell({ children, peek }: { children: ReactNode; peek: ReactNode
     { href: "/issues", label: "Issues", hint: "g a", icon: "issues" },
     { href: "/cycle", label: "Cycles", hint: "g c", icon: "cycle" },
     { href: "/roadmap", label: "Roadmap", hint: "g p", icon: "roadmap" },
+    { href: "/projects", label: "Projects", hint: "g o", icon: "roadmap" },
   ];
   const more: Item[] = [
     { href: "/activity", label: "Activity", hint: "g e", icon: "activity" },
@@ -256,16 +257,16 @@ export function Shell({ children, peek }: { children: ReactNode; peek: ReactNode
       {drawer && <div className="fixed inset-0 z-40 bg-canvas/70 lg:hidden" onClick={() => setDrawer(false)} aria-hidden />}
       {sidebar}
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-lining-faint px-2 lg:hidden">
+        <div className="flex h-[calc(2.75rem+env(safe-area-inset-top))] shrink-0 items-center gap-2 border-b border-lining-faint px-2 pt-[env(safe-area-inset-top)] lg:hidden">
           <button type="button" onClick={() => setDrawer(true)} aria-label="Open menu" className="flex h-9 w-9 items-center justify-center rounded-sm text-ink-muted hover:bg-surface-2"><NavIcon name="menu" size={18} /></button>
           <TallyMark size={16} />
           <span className="text-[14px] font-semibold tracking-tight">tallyline</span>
           <button type="button" onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))} aria-label="Search and commands" className="ml-auto flex h-9 w-9 items-center justify-center rounded-sm text-ink-muted hover:bg-surface-2"><NavIcon name="search" size={18} /></button>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col max-sm:pb-14">{children}</div>
+        <div className="flex min-h-0 flex-1 flex-col max-sm:pb-[calc(3.5rem+env(safe-area-inset-bottom))]">{children}</div>
       </div>
       {peek}
-      <nav aria-label="Quick actions" className="fixed inset-x-0 bottom-0 z-30 flex h-14 items-stretch justify-around border-t border-lining bg-surface-1 sm:hidden">
+      <nav aria-label="Quick actions" className="fixed inset-x-0 bottom-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-bottom))] items-stretch justify-around border-t border-lining bg-surface-1 pb-[env(safe-area-inset-bottom)] sm:hidden">
         {[["/my-issues", "My issues", "my-issues"], ["/board", "Board", "board"], ["/review", "Review", "review"]].map(([href, label, icon]) => (
           <Link key={href} href={href!} className={`flex min-w-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] ${pathname.startsWith(href!) ? "text-ink" : "text-ink-subtle"}`}>
             <NavIcon name={icon!} size={18} />{label}
