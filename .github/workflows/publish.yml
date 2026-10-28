@@ -31,7 +31,6 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tallyline_test
-      JWT_SECRET: ci-only-not-a-secret-0123456789abcdef
     permissions:
       contents: read
       id-token: write # npm provenance / trusted publishing
@@ -46,6 +45,8 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
+      - name: Throwaway JWT secret for the test harness
+        run: echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
       - name: Tag must match package versions
         run: |
           tag="${GITHUB_REF_NAME#v}"
