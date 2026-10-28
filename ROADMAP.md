@@ -34,6 +34,22 @@ Goal: Tallyline is the tool Luke runs his projects on, Kate first, then Cairn an
 
 Also open: release PR #159 (v2.0.0).
 
-Deferred with revisit triggers: loops, delta sync, skills registry, native iOS app, WordInk intake, entitlements, account lifecycle, multi-workspace, integration trimming, templates, virtualization.
+Deferred with revisit triggers: loops, skills registry, WordInk intake, entitlements, account lifecycle, multi-workspace, integration trimming, templates, virtualization.
+
+## Next: self-hosted Linear program (planned 2026-10-28)
+
+Tallyline as a serious Linear replacement you host yourself, with a non-technical setup path, AI providers you bring, and a full-quality iPhone app. Requirements: [docs/brainstorms/2026-10-28-self-hosted-linear-ios-agent-providers-cli-requirements.md](./docs/brainstorms/2026-10-28-self-hosted-linear-ios-agent-providers-cli-requirements.md). Staged plan: [docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md](./docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md). It supersedes the iOS plan of 2026-10-12 in part; the native iOS app and delta sync leave the Deferred list and live in S4 to S7.
+
+| Stage | Ships | Status | Depends on |
+|---|---|---|---|
+| S1 Polished CLI | Branded home screen, `doctor`, `config`, `connect`, plain-language errors | planned | none |
+| S2 Zero-skill install and onboarding | `tallyline setup`, one-line installer, first-run checklist, one-click deploy | planned | S1 |
+| S3 AI providers and agent connection | OpenRouter and OpenAI-compatible providers, suggestions, one-flow coding-agent connect, ChatGPT plan if the spike passes | planned | S1, S2 |
+| S4 Mobile server groundwork | QR pairing, devices, push relay, delta sync, idempotent writes, native redirect schemes | planned | none |
+| S5 iOS v1 | TestFlight build with the core loop and review queue | planned; needs Luke for Apple setup | S4 |
+| S6 iOS full quality | Offline and outbox, push, widgets, share sheet, App Intents, accessibility | planned | S5 |
+| S7 App Store | External TestFlight and public listing | planned; Luke decides | S6 |
+
+Open questions that only Luke can answer are listed at the end of the requirements document.
 
 Earlier history is in [CHANGELOG.md](./CHANGELOG.md). The original product requirements (R1-R25) are in [plans/2026-10-08-1647-feat-docketry-plan.md](./plans/2026-10-08-1647-feat-docketry-plan.md). Research: [docs/research/2026-10-10-landscape.md](./docs/research/2026-10-10-landscape.md).

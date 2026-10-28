@@ -8,6 +8,8 @@ execution: code
 
 # iOS App — Tallyline companion
 
+> **Superseded in part (2026-10-28).** The staged program in [2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md](./2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md) carries these units forward (see its mapping table), builds on the Mac mini instead of xtool alone, and brings push, widgets, share sheet and offline writes into scope.
+
 ## Goal Capsule
 
 **Objective:** A Tallyline user can sign in on an iPhone and work the full tracker — triage, board, projects, cycles, issue create/edit/comment — against `api.tallyline.app` or any self-hosted instance, installed on their registered devices.
