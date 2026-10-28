@@ -23,8 +23,6 @@ export interface FeedEvent {
   actorName: string | null;
   issueKey: string | null;
   issueTitle: string | null;
-  /** the issue's project, so live clients can attribute a move without a lookup */
-  projectId: string | null;
   before: unknown;
   after: unknown;
   createdAt: string;
@@ -49,7 +47,6 @@ export function feedEventsQuery(
       createdAt: events.createdAt,
       issueKey: issues.key,
       issueTitle: issues.title,
-      projectId: issues.projectId,
       userName: users.name,
       agentName: agents.name,
     })
@@ -83,7 +80,6 @@ export function toFeedEvent(row: FeedRow): FeedEvent {
           : null,
     issueKey: row.issueKey,
     issueTitle: row.issueTitle,
-    projectId: row.projectId,
     before: row.before,
     after: row.after,
     createdAt: row.createdAt.toISOString(),
