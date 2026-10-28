@@ -252,6 +252,38 @@ describe("api routes (real postgres)", () => {
     expect(filtered.body.issues![0]!.title).toBe("alpha");
   });
 
+  it("search matches description, issue key and comments, and treats wildcards literally", async () => {
+    const mk = async (title: string, description?: string) =>
+      (
+        await req(`/v1/workspaces/${SLUG}/issues`, {
+          method: "POST",
+          body: JSON.stringify({ teamKey: "ENG", title, description }),
+        })
+      ).body;
+    const byDesc = await mk("search-a", "needle-in-description");
+    const byComment = await mk("search-b");
+    await mk("search-c", "100% done");
+    await mk("search-d", "1000 done");
+    const c = await req(`/v1/workspaces/${SLUG}/issues/${byComment.key}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body: "needle-in-comment" }),
+    });
+    expect(c.status).toBe(201);
+
+    const q = async (s: string) =>
+      (await req(`/v1/workspaces/${SLUG}/issues?search=${encodeURIComponent(s)}`)).body
+        .issues!.map((i: { key: string }) => i.key);
+
+    expect(await q("needle-in-description")).toEqual([byDesc.key]);
+    expect(await q("needle-in-comment")).toEqual([byComment.key]);
+    expect(await q(byDesc.key as string)).toContain(byDesc.key);
+    expect(await q("NEEDLE-IN-DESC")).toEqual([byDesc.key]);
+    // "%" is literal: "100% done" must not match "1000 done"
+    const pct = await q("100% done");
+    expect(pct).toHaveLength(1);
+    expect(await q("no-such-term-anywhere")).toEqual([]);
+  });
+
   it("enforces the state machine over HTTP", async () => {
     const bad = await req(`/v1/workspaces/${SLUG}/issues/ENG-1`, {
       method: "PATCH",
