@@ -1,11 +1,11 @@
 // Issue create, list, detail and patch — the core CRUD surface.
 import { zValidator } from "@hono/zod-validator";
-import { and, desc, eq, exists, ilike, inArray, lt, not, notInArray, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, exists, ilike, inArray, lt, not, notInArray, or, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Hono } from "hono";
 import type { IssueState } from "@tallyline/types";
 import { db } from "../../db/client.js";
-import { comments, events, issueLabels, issueRelations, issues, labels, projects, teams } from "../../db/schema.js";
+import { comments, events, issueExternalRefs, issueLabels, issueRelations, issues, labels, projects, teams } from "../../db/schema.js";
 import { actorFromHeaders } from "../../lib/actor.js";
 import { apiError, HttpError } from "../../lib/errors.js";
 import { llmEnabled } from "../../services/llm.js";
@@ -393,7 +393,25 @@ export const coreIssueRoutes = new Hono()
           eq(issueLabels.issueId, issue.id),
         ),
       );
-    return c.json({ ...issue, children, labels: issueLabelRows });
+    const prRows = await db
+      .select({
+        url: issueExternalRefs.url,
+        meta: issueExternalRefs.meta,
+      })
+      .from(issueExternalRefs)
+      .where(
+        and(
+          eq(issueExternalRefs.workspaceId, ws.id),
+          eq(issueExternalRefs.issueId, issue.id),
+          eq(issueExternalRefs.system, "github_pr"),
+        ),
+      )
+      .orderBy(asc(issueExternalRefs.createdAt));
+    const pullRequests = prRows.map((r) => ({
+      ...(r.meta as { repo: string; number: number; title: string; state: string }),
+      url: r.url,
+    }));
+    return c.json({ ...issue, children, labels: issueLabelRows, pullRequests });
   })
   .patch(
     "/workspaces/:ws/issues/:key",
