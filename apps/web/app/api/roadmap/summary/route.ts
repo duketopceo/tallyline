@@ -24,6 +24,12 @@ export async function GET(req: NextRequest) {
     headers: { cookie: `${SESSION_COOKIE}=${session}` },
     cache: "no-store",
   });
-  const data = (await upstream.json().catch(() => null)) as unknown;
+  const data = (await upstream.json().catch(() => undefined)) as unknown;
+  if (data === undefined) {
+    return NextResponse.json(
+      { error: { code: "BAD_UPSTREAM", message: "roadmap summary was not JSON" } },
+      { status: 502 },
+    );
+  }
   return NextResponse.json(data, { status: upstream.status });
 }

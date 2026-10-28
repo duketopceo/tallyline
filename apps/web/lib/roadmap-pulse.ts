@@ -162,7 +162,7 @@ export function applyLiveEvent(s: RoadmapSummary, e: LiveFeedEvent, sinceMs: num
   const url = str(e.after, "url");
   const prNum = e.action === "pr_merged" && e.after && typeof e.after === "object" ? (e.after as { pr?: unknown }).pr : null;
   const pr =
-    url && typeof prNum === "number"
+    url && typeof prNum === "number" && prNum > 0
       ? { number: prNum, url, title: str(e.after, "title"), repo: str(e.after, "repo") }
       : null;
   const author = e.action === "pr_merged" ? str(e.after, "author") : null;
@@ -176,7 +176,8 @@ export function applyLiveEvent(s: RoadmapSummary, e: LiveFeedEvent, sinceMs: num
       pr: pr ?? prev.pr,
       // a PR merge never displaces the person who moved the ticket
       actorName: e.action === "pr_merged" ? (prev.actorName ?? author) : (e.actorName ?? prev.actorName),
-      actorType: e.actorType === "system" ? prev.actorType : e.actorType,
+      // a PR merge is recorded by the system; only a move names who acted
+      actorType: e.action === "pr_merged" ? prev.actorType : e.actorType,
     });
   } else {
     merges.unshift({
