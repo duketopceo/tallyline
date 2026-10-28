@@ -207,3 +207,37 @@ so `verification_uri` currently points at a route the web app does not serve.
 | Provider button missing | Client id empty (env) or row disabled (DB); env rows shadow DB rows of the same key |
 | `BAD_ENDPOINT` on save/test | Endpoint failed the https+public-IP check — private IdPs are rejected |
 | Invite "already used" | Single-use claim raced or the link was forwarded after acceptance — mint a fresh invite |
+
+## Pairing a phone
+
+The Tallyline iOS app signs in by scanning a QR code, so nobody types a server
+address or a token.
+
+1. In the web app (Settings, Devices) a signed-in person with a verified email
+   asks for a pairing code: `POST /v1/workspaces/:ws/devices/pairing`. The answer
+   holds a single-use code that is good for **five minutes** and a
+   `tallyline://pair?server=…&code=…` URL to render as a QR code. Any workspace
+   member can do this for their own phone (unlike creating a personal access
+   token, which stays admin-only). At most five unused codes at a time, ten
+   per ten minutes.
+2. The phone scans it and calls `POST /v1/auth/pair/redeem` with the code, a
+   device name and a platform. This is unauthenticated and rate limited. A wrong,
+   expired, already-used or orphaned code (its minter left the workspace) all
+   answer the same `400 INVALID_PAIRING_CODE`.
+3. The answer carries a **device credential**: an ordinary `tly_pat_` token with
+   read and write scope that expires in **90 days**, plus the server address and
+   workspace. It acts as that person with that person's role, and nothing more:
+   it can't mint tokens, pairing codes or agent keys.
+
+A paired phone can swap its credential for a fresh one before it lapses
+(`POST /v1/workspaces/:ws/devices/current/rotate`). The old credential keeps
+working for ten more minutes so a response lost on a bad network can't lock the
+phone out; only the newest credential can rotate. A phone can sign itself out
+(`DELETE .../devices/current`).
+
+People list their devices (`GET .../devices`) and revoke any of them
+(`DELETE .../devices/:id`); revoking deletes the credential (and a grace
+credential from a recent rotation), so the phone gets `401` on its very next call.
+Only the hash of a pairing code or credential is ever stored, and every pairing,
+rotation and revocation is written to the audit trail.
+

@@ -44,6 +44,7 @@ import { projectUpdateRoutes } from "./routes/project-updates.js";
 import { resourceRoutes } from "./routes/resources.js";
 import { slackRoutes } from "./routes/slack.js";
 import { tokenRoutes } from "./routes/tokens.js";
+import { deviceRoutes, devicePublicRoutes } from "./routes/devices.js";
 import { usageRoutes } from "./routes/usage.js";
 import { webhookEndpointRoutes } from "./routes/webhook-endpoints.js";
 import { webhookRoutes } from "./routes/webhooks.js";
@@ -91,6 +92,7 @@ export const app = new Hono()
   .route("/v1/auth", deviceAuthPublicRoutes)
   .route("/v1/auth", providerRoutes)
   .route("/v1/auth", accountPublicRoutes)
+  .route("/v1/auth", devicePublicRoutes)
   .use("/v1/*", requireSession)
   .use("/v1/*", async (c, next) => {
     await next();
@@ -112,6 +114,7 @@ export const app = new Hono()
   .route("/v1", projectUpdateRoutes)
   .route("/v1", tokenRoutes)
   .route("/v1", deviceAuthWorkspaceRoutes)
+  .route("/v1", deviceRoutes)
   .route("/v1", memberRoutes)
   .route("/v1", inviteRoutes)
   .route("/v1", notificationRoutes)

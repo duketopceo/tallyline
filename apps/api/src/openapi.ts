@@ -793,6 +793,65 @@ const basePaths = {
         responses: { "200": { description: "Revoked" } },
       },
     },
+    "/v1/auth/pair/redeem": {
+      post: {
+        summary:
+          "Trade a one-time pairing code (scanned from a QR code) for a device credential: a 90-day `tly_pat_*` token plus the server and workspace to use. Unauthenticated, rate limited; every failure (wrong, expired, used) answers 400 INVALID_PAIRING_CODE",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["code", "deviceName"],
+          properties: {
+            code: { type: "string" },
+            deviceName: { type: "string" },
+            platform: { type: "string", enum: ["ios", "android", "other"] },
+          },
+        }),
+        responses: {
+          "200": { description: "{token, tokenType, expiresAt, scopes, deviceId, server, workspace}" },
+          "400": { description: "INVALID_PAIRING_CODE" },
+        },
+      },
+    },
+    "/v1/workspaces/{ws}/devices": {
+      get: {
+        summary: "List your paired devices (human session only)",
+        parameters: [wsParam],
+        responses: { "200": { description: "{devices: [{id, name, platform, pairedAt, lastUsedAt, expiresAt, expired, current}]}" } },
+      },
+    },
+    "/v1/workspaces/{ws}/devices/pairing": {
+      post: {
+        summary:
+          "Mint a five-minute, single-use pairing code and its `tallyline://pair` URL for a QR code (human session, verified email, any member)",
+        parameters: [wsParam],
+        responses: {
+          "201": { description: "{code, expiresAt, expiresIn, pairingUrl}" },
+          "429": { description: "Too many unused codes, or minting too fast" },
+        },
+      },
+    },
+    "/v1/workspaces/{ws}/devices/current": {
+      delete: {
+        summary: "A paired device signs itself out (its credential is deleted)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Signed out" }, "404": { description: "This credential isn't a paired device" } },
+      },
+    },
+    "/v1/workspaces/{ws}/devices/current/rotate": {
+      post: {
+        summary:
+          "A paired device swaps its credential for a fresh 90-day one; the old one works for ten more minutes so a lost response can't lock the phone out",
+        parameters: [wsParam],
+        responses: { "200": { description: "{token, tokenType, expiresAt, scopes}" }, "404": { description: "Not a paired device" } },
+      },
+    },
+    "/v1/workspaces/{ws}/devices/{id}": {
+      delete: {
+        summary: "Revoke one of your devices: its credential stops working on the next call (human session only)",
+        parameters: [wsParam, idParam],
+        responses: { "200": { description: "Revoked" }, "404": { description: "Not your device" } },
+      },
+    },
     "/v1/workspaces/{ws}/tokens": {
       get: {
         summary: "List your personal access tokens (human session only)",

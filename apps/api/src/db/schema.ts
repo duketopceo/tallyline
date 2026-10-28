@@ -1463,3 +1463,50 @@ export const workflowDefinitions = pgTable(
   (t) => [index().on(t.workspaceId, t.trigger)],
 );
 
+
+// A phone (or other native client) paired to one person in one workspace. The
+// credential itself is an ordinary expiring PAT (user_tokens); this row is the
+// device registry on top of it: a name to show, a platform, and a revoke handle.
+// Deleting or letting the token lapse leaves the row as history (token_id NULL).
+export const devices = pgTable(
+  "devices",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    platform: text("platform", { enum: ["ios", "android", "other"] }).notNull().default("other"),
+    tokenId: uuid("token_id").references(() => userTokens.id, { onDelete: "set null" }),
+    // the token just replaced by a rotation, kept alive for a short grace window
+    // so a lost response can't lock the phone out; revoking kills both
+    prevTokenId: uuid("prev_token_id").references(() => userTokens.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [index().on(t.workspaceId, t.userId), index().on(t.tokenId)],
+);
+
+// One-time codes that turn a signed-in browser session into a paired device
+// (scanned as a QR code). Only the hash is stored; a code is good for five
+// minutes and exactly one redemption.
+export const pairingCodes = pgTable(
+  "pairing_codes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    codeHash: text("code_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index().on(t.userId), index().on(t.expiresAt)],
+);

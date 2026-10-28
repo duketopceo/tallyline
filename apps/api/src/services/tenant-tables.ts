@@ -26,6 +26,7 @@ export const TENANT_TABLES: Record<string, TenantTablePolicy> = {
   comments: { export: true },
   cycle_velocity: { export: true },
   cycles: { export: true },
+  devices: { export: true },
   dispatch_events: { export: true },
   dispatches: { export: true },
   events: { export: true },
@@ -49,6 +50,10 @@ export const TENANT_TABLES: Record<string, TenantTablePolicy> = {
     reason: "one-minute sign-in handoff codes (hashes); transient auth state, not workspace content",
   },
   oauth_grants: { export: true },
+  pairing_codes: {
+    export: false,
+    reason: "five-minute one-time pairing codes (hashes only); transient auth state, not workspace content",
+  },
   project_milestones: { export: true },
   project_updates: { export: true },
   projects: { export: true },
