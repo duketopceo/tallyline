@@ -198,11 +198,15 @@ steps.
 On upgrade from any docketry-named install:
 
 1. Rename every `DOCKETRY_*` environment variable to `TALLYLINE_*`.
+   **Old names are ignored, not warned about: a variable left as
+   `DOCKETRY_*` behaves as if it were unset.**
 2. Re-mint `dok_agt_*` agent keys and `dok_pat_*` PATs; they no longer
    validate. New credentials use `tly_agt_` / `tly_pat_` / `tly_wh_` /
    `tly_inv_`.
 3. Expect every web session to sign out once (`dok_*` cookies are not read).
-4. Rename the database (`ALTER DATABASE docketry RENAME TO tallyline`) and
+4. With the app stopped and while connected to another database (for
+   example `postgres`; Postgres cannot rename the database you are
+   connected to), rename it: `ALTER DATABASE docketry RENAME TO tallyline`. Then
    copy or re-point the old `docketry_*` Postgres volume to
    `tallyline-postgres`.
 
