@@ -14,6 +14,8 @@ import {
 import { usePicker } from "@/components/app/picker";
 import { Kbd } from "@/components/app/ui";
 import { EmptyState, StateDot } from "@/components/primitives";
+import { PulseBand, useRoadmapPulse } from "@/components/roadmap-pulse";
+import type { RoadmapSummary } from "@/lib/roadmap-pulse";
 
 export interface RoadmapProject {
   id: string;
@@ -102,7 +104,6 @@ export function projectHealth(p: { startDate: string | null; targetDate: string 
   if (total > 0 && ratio + 0.15 < elapsed) return { label: "At risk", tone: "text-attention", glyph: "▲" };
   return { label: "On track", tone: "text-healthy", glyph: "●" };
 }
-const TERMINAL: ReadonlySet<string> = new Set(["done", "canceled", "duplicate"]);
 
 function fmtDay(t: number): string {
   return new Date(t).toLocaleDateString("en-US", {
@@ -158,13 +159,13 @@ export function RoadmapClient({
   projects,
   cycles,
   milestones,
-  issues,
+  summary,
   teams,
 }: {
   projects: RoadmapProject[];
   cycles: RoadmapCycle[];
   milestones: RoadmapMilestone[];
-  issues: RoadmapIssue[];
+  summary: RoadmapSummary;
   teams: RoadmapTeam[];
 }) {
   const router = useRouter();
@@ -178,16 +179,13 @@ export function RoadmapClient({
     () => new Map(teams.map((t) => [t.id, t.key])),
     [teams],
   );
-  const issuesByProject = useMemo(() => {
-    const m = new Map<string, RoadmapIssue[]>();
-    for (const i of issues) {
-      if (!i.projectId) continue;
-      const list = m.get(i.projectId) ?? [];
-      list.push(i);
-      m.set(i.projectId, list);
-    }
-    return m;
-  }, [issues]);
+  // exact counts come from the server aggregate (no row cap); the detail
+  // panel lists a bounded, open-first sample per project
+  const pulse = useRoadmapPulse(summary);
+  const statsByProject = useMemo(
+    () => new Map(pulse.summary.projects.map((p) => [p.projectId, p])),
+    [pulse.summary.projects],
+  );
   const milestonesByProject = useMemo(() => {
     const m = new Map<string, RoadmapMilestone[]>();
     for (const ms of milestones) {
@@ -299,6 +297,10 @@ export function RoadmapClient({
         case "Escape":
           setExpanded(null);
           break;
+        case "P":
+          e.preventDefault();
+          router.push("/roadmap?push=1");
+          break;
       }
     }
     document.addEventListener("keydown", onKey);
@@ -361,9 +363,11 @@ export function RoadmapClient({
     const open = expanded === p.id;
     const span = spanOf(p);
     const ms = milestonesByProject.get(p.id) ?? [];
-    const iss = issuesByProject.get(p.id) ?? [];
-    const done = iss.filter((x) => TERMINAL.has(x.state)).length;
-    const ratio = iss.length > 0 ? done / iss.length : 0;
+    const stats = statsByProject.get(p.id);
+    const iss: RoadmapIssue[] = (stats?.recent ?? []).map((r) => ({ key: r.key, title: r.title, state: r.state as IssueState, projectId: p.id }));
+    const total = stats?.total ?? 0;
+    const done = stats?.closed ?? 0;
+    const ratio = total > 0 ? done / total : 0;
     return (
       <li key={p.id}>
         <button
@@ -383,13 +387,13 @@ export function RoadmapClient({
             <span className="shrink-0 font-mono text-[11px] text-ink-tertiary max-sm:hidden">
               {p.teamId ? (teamById.get(p.teamId) ?? "?") : "ws"}
             </span>
-            {iss.length > 0 && (
+            {total > 0 && (
               <span className="shrink-0 font-mono text-[11px] text-ink-tertiary max-sm:hidden">
-                {done}/{iss.length}
+                {done}/{total}
               </span>
             )}
             {(() => {
-              const h = projectHealth(p, done, iss.length, now);
+              const h = projectHealth(p, done, total, now);
               return h ? <span className={`shrink-0 text-[11px] font-medium ${h.tone}`} title={h.label}><span aria-hidden>{h.glyph}</span><span className="max-sm:sr-only"> {h.label}</span></span> : null;
             })()}
           </span>
@@ -446,6 +450,7 @@ export function RoadmapClient({
             project={p}
             milestones={ms}
             issues={iss}
+            issueTotal={total}
             teamById={teamById}
             busy={busy}
             onCall={call}
@@ -503,6 +508,11 @@ export function RoadmapClient({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <PulseBand
+        pulse={pulse}
+        projects={projects}
+        milestones={milestones}
+      />
       {/* axis header — shares the same grid so ticks align with rows */}
       <div className="grid h-7 shrink-0 grid-cols-[8.5rem_1fr] sm:grid-cols-[16rem_1fr] items-end border-b border-lining-faint">
         <span className="px-4 text-[11px] font-medium uppercase tracking-[0.4px] text-ink-subtle">
@@ -578,6 +588,7 @@ export function RoadmapClient({
         <span><Kbd>j</Kbd> <Kbd>k</Kbd> move</span>
         <span><Kbd>Enter</Kbd> expand a project</span>
         <span><Kbd>Esc</Kbd> collapse</span>
+        <span><Kbd>Shift</Kbd> <Kbd>P</Kbd> push view</span>
         <span className="ml-auto">◆ milestone · bars fade where the end is open</span>
       </footer>
     </div>
@@ -593,6 +604,7 @@ function ProjectDetail({
   project,
   milestones,
   issues,
+  issueTotal,
   teamById,
   busy,
   onCall,
@@ -600,6 +612,7 @@ function ProjectDetail({
   project: RoadmapProject;
   milestones: RoadmapMilestone[];
   issues: RoadmapIssue[];
+  issueTotal: number;
   teamById: Map<string, string>;
   busy: string | null;
   onCall: (path: string, init: RequestInit, tag: string) => Promise<boolean>;
@@ -760,7 +773,7 @@ function ProjectDetail({
           </div>
           <div className="min-w-56 flex-1">
             <p className="text-[11px] font-medium uppercase tracking-[0.4px] text-ink-subtle">
-              Issues ({issues.length})
+              Issues ({issueTotal})
             </p>
             <ul className="mt-1.5 max-h-40 space-y-1 overflow-y-auto">
               {issues.map((i) => (
@@ -780,6 +793,12 @@ function ProjectDetail({
               {issues.length === 0 && (
                 <li className="text-[12px] text-ink-tertiary">
                   no issues linked — set a project on an issue to attach it
+                </li>
+              )}
+              {issueTotal > issues.length && (
+                <li className="text-[11px] text-ink-tertiary">
+                  open work first · {issueTotal - issues.length} more in{" "}
+                  <Link href={`/issues?project=${project.id}`} className="text-accent hover:underline">all issues</Link>
                 </li>
               )}
             </ul>

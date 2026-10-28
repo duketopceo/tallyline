@@ -104,8 +104,12 @@ async function readSSEFrame(
     ]);
     if (chunk.done) break;
     buf += decoder.decode(chunk.value, { stream: true });
-    const end = buf.indexOf("\n\n");
-    if (end >= 0) return buf.slice(0, end);
+    // comment frames (": open" on connect, ": hb" heartbeats) are not events
+    for (let end = buf.indexOf("\n\n"); end >= 0; end = buf.indexOf("\n\n")) {
+      const frame = buf.slice(0, end);
+      buf = buf.slice(end + 2);
+      if (!frame.startsWith(":")) return frame;
+    }
   }
   throw new Error("no SSE frame received");
 }
