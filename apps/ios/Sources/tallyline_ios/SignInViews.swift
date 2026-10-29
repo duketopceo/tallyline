@@ -126,47 +126,6 @@ struct PairView: View {
     }
 }
 
-/// Placeholder home until the issue loop lands (S5-U5): proves the credential
-/// works end-to-end via whoami, shows the bound workspace, offers sign-out.
-struct HomeView: View {
-    var session: SessionModel
-    let credential: DeviceCredential
-    @State private var whoami: Whoami?
-    @State private var loadError: String?
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("Workspace") {
-                    LabeledContent("Name", value: credential.workspaceName)
-                    LabeledContent("Slug", value: credential.workspaceSlug)
-                    LabeledContent("Server", value: credential.serverURL.host ?? credential.serverURL.absoluteString)
-                }
-                Section("Signed in") {
-                    if let whoami {
-                        LabeledContent("You", value: whoami.name ?? whoami.id ?? "—")
-                        LabeledContent("Type", value: whoami.type)
-                    } else if let loadError {
-                        Text(loadError).foregroundStyle(.red)
-                    } else {
-                        ProgressView()
-                    }
-                }
-                Section {
-                    Button("Sign out", role: .destructive) { session.signOut() }
-                }
-            }
-            .navigationTitle("Tallyline")
-            .task {
-                guard let client = session.client else { return }
-                do { whoami = try await client.whoami() }
-                catch let APIClientError.http(_, _, message) { loadError = message ?? "whoami failed" }
-                catch { loadError = "whoami failed" }
-            }
-        }
-    }
-}
-
 /// AVFoundation QR reader wrapped for SwiftUI. Emits the first `tlpair_` or
 /// `tallyline://pair` payload it sees, then closes.
 struct QRScannerView: UIViewControllerRepresentable {
