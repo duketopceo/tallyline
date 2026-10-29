@@ -260,7 +260,7 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 - **Files:** `apps/api/src/routes/device-auth.ts` (new), `apps/web` approval page, `tools/cli/src/connect.ts`.
 - **Approach:** RFC 8628. `POST /device/code` returns user code and polling interval; the approval page (signed-in session) mints a `tly_pat_` scoped to the chosen workspace; `POST /device/token` returns it once. Codes are single-use and expire in 10 minutes; polling is rate limited; the token never appears in a URL.
 - **Test scenarios:** approve, deny, expire, wrong code, slow-down, replay of a used code.
-- **Verification:** live run on the dev stack. Needs an API change, so it ships in its own PR with a changelog note.
+- **Shipped:** API half in #183; web `/device` approval page and the CLI half (`connect` offers the browser, `connect --browser` for headless, automatic fallback to pasting) in this PR. Verification still wanted: a live run against `api.tallyline.app` once reachable.
 
 #### S1-U6. Art, demo and CLI design doc
 - **Goal:** R24.

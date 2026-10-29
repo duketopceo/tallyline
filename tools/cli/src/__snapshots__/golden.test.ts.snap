@@ -100,7 +100,7 @@ setup:
 account:
   doctor      doctor [--fix] [--yes] — check server, sign-in and this computer
               exit 1 when a check fails; --json for scripts
-  connect     connect [--server URL] [--workspace slug] [--token-stdin]
+  connect     connect [--server URL] [--workspace slug] [--browser | --paste | --token-stdin]
               sign in; token goes to the keychain, never to a flag
   disconnect  disconnect [--yes] — forget the saved sign-in
   status      status [--json] — server, workspace and who you are
@@ -201,7 +201,7 @@ setup:
 account:
   doctor      doctor [--fix] [--yes] — check server, sign-in and this computer
               exit 1 when a check fails; --json for scripts
-  connect     connect [--server URL] [--workspace slug] [--token-stdin]
+  connect     connect [--server URL] [--workspace slug] [--browser | --paste | --token-stdin]
               sign in; token goes to the keychain, never to a flag
   disconnect  disconnect [--yes] — forget the saved sign-in
   status      status [--json] — server, workspace and who you are

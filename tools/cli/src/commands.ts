@@ -53,6 +53,12 @@ export interface CliIo {
   fetch: FetchLike;
   stdin?: () => Promise<string>;
   isTTY?: boolean | undefined;
+  /** opens a web address in the person's browser; resolves false when it could not */
+  openUrl?: (url: string) => Promise<boolean>;
+  /** timer for polling; tests replace it so they never wait */
+  sleep?: (ms: number) => Promise<void>;
+  /** shown to the server so the approval page can say which computer is asking */
+  hostname?: string;
 }
 
 // CLI-side failure carrying an exit code. API-side failures stay ApiError.

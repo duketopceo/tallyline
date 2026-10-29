@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { checkOrigin } from "@/lib/csrf";
 import { middlewareRedirect } from "@/lib/redirect";
+import { loginReturnQuery } from "@/lib/login-return";
 import { isPublicPath } from "@/lib/public-paths";
 import {
   buildCsp,
@@ -47,10 +48,8 @@ export function middleware(req: NextRequest) {
     return pass();
   }
   if (!req.cookies.get("tly_session")) {
-    // the MCP consent page round-trips through login (same-origin path only)
-    const returnTo = pathname.startsWith("/oauth/")
-      ? `?return_to=${encodeURIComponent(`${pathname}${req.nextUrl.search}`)}`
-      : "";
+    // the MCP consent page and the CLI device page round-trip through login (same-origin path only)
+    const returnTo = loginReturnQuery(pathname, req.nextUrl.search);
     return withSecurityHeaders(req, middlewareRedirect(req, `/login${returnTo}`));
   }
   return pass();

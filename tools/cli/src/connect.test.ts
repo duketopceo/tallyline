@@ -134,7 +134,7 @@ describe("connect in scripts", () => {
 
 describe("connect on a terminal", () => {
   it("walks through server, token, check and saves", async () => {
-    const p = scripted(["https://api.example.test", GOOD]);
+    const p = scripted(["https://api.example.test", "paste", GOOD]);
     const { io } = ioFor({ isTTY: true, prompter: p });
     const code = await run(["connect"], io);
     expect(code).toBe(0);
@@ -152,7 +152,7 @@ describe("connect on a terminal", () => {
     await expect(stat(join(home, ".config", "tallyline", "config.json"))).rejects.toThrow();
   });
   it("a wrong token ends with a plain-language message", async () => {
-    const p = scripted(["https://api.example.test", "tly_pat_nope"]);
+    const p = scripted(["https://api.example.test", "paste", "tly_pat_nope"]);
     const { io, err } = ioFor({ isTTY: true, prompter: p });
     const code = await run(["connect"], io);
     expect(code).toBe(3);
