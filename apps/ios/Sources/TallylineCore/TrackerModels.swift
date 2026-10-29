@@ -14,7 +14,7 @@ public enum IssuePriority: String, Codable, Sendable, CaseIterable {
     case none, urgent, high, medium, low
 }
 
-public struct Issue: Codable, Sendable, Identifiable {
+public struct Issue: Codable, Sendable, Identifiable, Hashable {
     public let id: String
     public let key: String
     public let number: Int

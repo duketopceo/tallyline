@@ -177,12 +177,12 @@ struct QRScannerView: UIViewControllerRepresentable {
         }
 
         nonisolated func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput objects: [AVMetadataObject], from connection: AVCaptureConnection) {
-            MainActor.assumeIsolated {
-            guard !fired,
-                  let payload = (objects.first as? AVMetadataMachineReadableCodeObject)?.stringValue,
+            guard let payload = (objects.first as? AVMetadataMachineReadableCodeObject)?.stringValue,
                   payload.hasPrefix("tlpair_") || payload.hasPrefix("tallyline://") else { return }
-            fired = true
-            onCode?(payload)
+            MainActor.assumeIsolated {
+                guard !fired else { return }
+                fired = true
+                onCode?(payload)
             }
         }
     }
