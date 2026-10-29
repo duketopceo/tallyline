@@ -43,7 +43,7 @@ Tallyline as a serious Linear replacement you host yourself, with a non-technica
 | Stage | Ships | Status | Depends on |
 |---|---|---|---|
 | S1 Polished CLI | Branded home screen, `doctor`, `config`, `connect` (browser sign-in via device authorization, or a pasted token), plain-language errors | built; live check against the hosted server pending | none |
-| S2 Zero-skill install and onboarding | `tallyline setup`, one-line installer, first-run checklist, one-click deploy | planned | S1 |
+| S2 Zero-skill install and onboarding | `tallyline setup`, one-line installer, first-run checklist (status endpoint and `/welcome` page built), one-click deploy | S2-U3 built; the rest planned | S1 |
 | S3 AI providers and agent connection | OpenRouter and OpenAI-compatible providers, suggestions, one-flow coding-agent connect, ChatGPT plan if the spike passes | planned | S1, S2 |
 | S4 Mobile server groundwork | QR pairing, devices, push relay, delta sync, idempotent writes, native redirect schemes | planned | none |
 | S5 iOS v1 | TestFlight build with the core loop and review queue | planned; needs Luke for Apple setup | S4 |

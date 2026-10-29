@@ -72,6 +72,10 @@ services:
       TALLYLINE_LLM_API_KEY: ${TALLYLINE_LLM_API_KEY:-}
       TALLYLINE_LLM_BASE_URL: ${TALLYLINE_LLM_BASE_URL:-https://openrouter.ai/api/v1}
       TALLYLINE_LLM_MODEL: ${TALLYLINE_LLM_MODEL:-google/gemini-2.5-flash-lite}
+      # shown on the first-run checklist (GET /v1/workspaces/:ws/system/status); all optional
+      TALLYLINE_VERSION: ${TALLYLINE_VERSION:-}
+      TALLYLINE_REVISION: ${GIT_SHA:-}
+      TALLYLINE_BACKUP_MARKER: ${TALLYLINE_BACKUP_MARKER:-}
     ports:
       - "${API_PUBLISH_PORT:-4000}:4000"
     depends_on:

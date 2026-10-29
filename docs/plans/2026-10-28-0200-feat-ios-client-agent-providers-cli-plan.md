@@ -295,6 +295,7 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 - **Files:** `apps/api/src/routes/system.ts` (new `GET /v1/workspaces/:ws/system/status`, admin only), `apps/web/app/(app)/welcome/`, `apps/web/components/welcome-checklist.tsx`, settings pages for domain, email, backups surfaced read-only first.
 - **Approach:** Status returns version, database health, last backup age (from the U2 backup marker, when configured), configured sign-in and AI providers, email configured, public URL sanity. Checklist reads it and the workspace state; steps link to the right setting. Skippable, resumable, dismissible, emits an event. Uses the existing UX rules (empty states with what, why, next).
 - **Test scenarios:** member without admin sees a reduced list; backups not configured shows an attention state, not a failure; status never leaks secrets.
+- **Shipped (first slice):** `GET /system/status` and the `/welcome` checklist (admin list, member list, optional steps, attention-not-failure states). Not yet: the "emits an event" on dismiss (dismissal is stored in the browser for now), settings pages for domain and email beyond links, and the CLI `doctor` reading the endpoint.
 - **Verification:** API and component tests; screenshot per DESIGN.md in the PR.
 
 #### S2-U4. One-click deploy template

@@ -44,6 +44,7 @@ import { providerRoutes } from "./routes/providers.js";
 import { projectUpdateRoutes } from "./routes/project-updates.js";
 import { resourceRoutes } from "./routes/resources.js";
 import { slackRoutes } from "./routes/slack.js";
+import { systemRoutes } from "./routes/system.js";
 import { tokenRoutes } from "./routes/tokens.js";
 import { deviceRoutes, devicePublicRoutes } from "./routes/devices.js";
 import { usageRoutes } from "./routes/usage.js";
@@ -117,6 +118,7 @@ export const app = new Hono()
   .route("/v1", deviceAuthWorkspaceRoutes)
   .route("/v1", deviceRoutes)
   .route("/v1", aiProviderRoutes)
+  .route("/v1", systemRoutes)
   .route("/v1", memberRoutes)
   .route("/v1", inviteRoutes)
   .route("/v1", notificationRoutes)
