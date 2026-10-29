@@ -66,9 +66,10 @@ public struct APIClient: Sendable {
         method: String,
         path: String,
         query: [String: String] = [:],
-        authorized: Bool = true
+        authorized: Bool = true,
+        idempotencyKey: String? = nil
     ) async throws -> Out {
-        try await sendRaw(method: method, path: path, query: query, body: nil as Data?, authorized: authorized)
+        try await sendRaw(method: method, path: path, query: query, body: nil as Data?, authorized: authorized, idempotencyKey: idempotencyKey)
     }
 
     public func send<In: Encodable, Out: Decodable>(
@@ -76,10 +77,11 @@ public struct APIClient: Sendable {
         path: String,
         query: [String: String] = [:],
         body: In,
-        authorized: Bool = true
+        authorized: Bool = true,
+        idempotencyKey: String? = nil
     ) async throws -> Out {
         let data = try JSONEncoder().encode(body)
-        return try await sendRaw(method: method, path: path, query: query, body: data, authorized: authorized)
+        return try await sendRaw(method: method, path: path, query: query, body: data, authorized: authorized, idempotencyKey: idempotencyKey)
     }
 
     private func sendRaw<Out: Decodable>(
@@ -87,11 +89,15 @@ public struct APIClient: Sendable {
         path: String,
         query: [String: String],
         body: Data?,
-        authorized: Bool
+        authorized: Bool,
+        idempotencyKey: String?
     ) async throws -> Out {
         var request = URLRequest(url: url(for: path, query: query))
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let idempotencyKey {
+            request.setValue(idempotencyKey, forHTTPHeaderField: "Idempotency-Key")
+        }
         if body != nil {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = body
