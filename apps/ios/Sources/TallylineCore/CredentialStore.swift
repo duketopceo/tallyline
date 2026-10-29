@@ -11,6 +11,16 @@ public struct DeviceCredential: Codable, Sendable {
     public var workspaceName: String
     public var serverURL: URL
 
+    public init(token: String, expiresAt: Date, deviceId: String, userId: String, workspaceSlug: String, workspaceName: String, serverURL: URL) {
+        self.token = token
+        self.expiresAt = expiresAt
+        self.deviceId = deviceId
+        self.userId = userId
+        self.workspaceSlug = workspaceSlug
+        self.workspaceName = workspaceName
+        self.serverURL = serverURL
+    }
+
     /// Refresh a little early — a credential that expires inside this window is
     /// treated as already needing rotation.
     public func needsRotation(within leeway: TimeInterval = 86_400) -> Bool {

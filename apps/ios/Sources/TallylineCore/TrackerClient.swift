@@ -12,6 +12,12 @@ public struct IssueCreate: Encodable, Sendable {
     public var parentId: String?
     public var delegateId: String?
     public var delegateType: String?
+
+    public init(title: String = "", description: String? = nil, teamId: String = "", priority: IssuePriority? = nil, projectId: String? = nil, cycleId: String? = nil, parentId: String? = nil, delegateId: String? = nil, delegateType: String? = nil) {
+        self.title = title; self.description = description; self.teamId = teamId; self.priority = priority
+        self.projectId = projectId; self.cycleId = cycleId; self.parentId = parentId
+        self.delegateId = delegateId; self.delegateType = delegateType
+    }
 }
 
 public struct IssuePatch: Encodable, Sendable {
