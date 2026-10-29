@@ -39,24 +39,33 @@ See the origin requirements for R1 to R26, decisions D1 to D15, the acceptance
 examples AE1 to AE5, the CLI design screens, and the open questions. This plan
 does not restate them. Where a unit below names `R#` or `D#`, it means those.
 
-## Current state (verified 2026-10-28, `main` at `acd20dd`)
+## Current state (re-verified 2026-10-29; original pass 2026-10-28 at `acd20dd`)
+
+**Shipped since the 10-28 verification** — S4-U1 native redirect schemes, S4-U2
+QR pairing + device registry (migration `0039`), S4-U4 delta cursors +
+`Idempotency-Key` (migration `0038`), S3 AI providers (`/ai/provider`,
+migration `0040`), S1-U1–U6 CLI polish (home, doctor, connect, keychain,
+ui kit) — all on `main`. S1-U7 browser sign-in (#189) and S2-U3 status +
+checklist (#190) were in CI at verification time. S4-U3 push relay is
+unbuilt — it is an S6 dependency, not an S5 blocker.
 
 | Fact | Evidence |
 |---|---|
 | `apps/ios` does not exist | `ls apps` shows `api`, `mcp-server`, `web` |
-| API rejects private-use redirect schemes, so the old iOS U1 is still open | `apps/api/src/services/mcp-oauth.ts:155` `validRedirectUri` allows only https and loopback http |
+| S4-U1 shipped: private-use redirect schemes accepted during DCR | CHANGELOG Unreleased; `apps/api/src/services/mcp-oauth.ts` |
+| S4-U2 shipped: pairing codes, device registry, `/devices` | `apps/api/src/routes/devices.ts` + service; migration `0039` |
+| S4-U4 shipped: `updatedSince` deltas + `Idempotency-Key` on issue/comment writes | CHANGELOG; migration `0038` |
 | OAuth 2.1 server with DCR, PKCE, revoke is live; loopback redirects work for CLIs | `apps/api/src/routes/mcp-oauth.ts` |
 | Remote MCP at `/mcp` with OAuth | `docs/mcp.md` |
 | Sign-in providers GitHub, Google, OIDC; DB-stored secrets AES-256-GCM via `AUTH_SECRET_KEY` | `docs/auth.md`, `docs/deploy.md` |
-| LLM seam is OpenAI-style, OpenRouter default, env-configured, off without a key | `docs/llm-assist.md`, `apps/api/src/services/llm.ts` |
+| LLM seam: per-workspace AI providers (S3, migration `0040`); `LLMProvider` interface in `services/llm.ts` stays the seam | `apps/api/src/routes/ai-providers.ts`, `docs/llm-assist.md` |
 | Dispatch adapters: `local`, `claude-code`, `codex`, `opencode`, `webhook`; `tallyline work` local runner | `docs/adapters.md` |
 | Notifications are inbox rows only; no device tokens, no APNs | `apps/api/src/services/notifications.ts`; grep for `apns` and `device_token` in `apps/api/src` finds nothing |
 | Web app is installable (manifest) with roadmap pulse and push view | `apps/web/app/manifest.ts`, #167, #173 |
-| CLI is TypeScript, zero runtime deps (esbuild bundle), `--json` and stable exit codes, a colour layer, `init`, `work` | `tools/cli/src/*`, `tools/cli/package.json` |
-| Settings routes today: account, agents, appearance, cycles, dev-inbox, integrations, invites, labels, members, projects, providers (sign-in), tokens, usage, workspace | `apps/web/app/(app)/settings/` |
-| Self-host is a clone plus hand-built `.env` plus compose with about 40 env vars | `README.md`, `docker-compose.selfhost.yml` |
+| CLI is TypeScript, zero runtime deps (esbuild bundle), `--json` and stable exit codes; S1 polish shipped (home, doctor, connect, keychain secrets, ui kit, golden tests) | `tools/cli/src/*` |
+| Settings routes today: account, agents, appearance, cycles, dev-inbox, integrations, invites, labels, members, projects, providers (sign-in), tokens, usage, workspace, devices | `apps/web/app/(app)/settings/` |
+| Self-host is a clone plus hand-built `.env` plus compose with about 40 env vars; deploy procedure is locked (`ops/deploy.sh`, #188) | `README.md`, `docker-compose.selfhost.yml`, `docs/deploy.md` |
 | Brand: tally-strike mark, azure accent `#3ea1f7` dark and `#0b66cc` light | `assets/brand/README.md`, `DESIGN.md` |
-| `@clack/prompts` exists on npm at 1.8.1 (checked with `npm info`) | registry check 2026-10-28 |
 
 ## Naming
 
