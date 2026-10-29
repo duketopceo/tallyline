@@ -38,3 +38,7 @@ coverage/
 
 # Local compose overrides (port remaps for sibling worktrees, etc.)
 docker-compose.override.yml
+
+# deploy script state (ops/deploy.sh)
+.deploy.lock
+deploy.log

@@ -10,7 +10,7 @@ Goal: Tallyline is the tool Luke runs his projects on, Kate first, then Cairn an
 |---|---|---|---|
 | 0 Safe | U1 middleware fix | done | #113 |
 | 0 Safe | U2 scheduled backups, restore drill | repo side done; operator steps open (age key, bucket lock, enable timer, restore drill) | #165 |
-| 0 Safe | U3 deploy lock and provenance | todo | no `ops/deploy.sh` yet |
+| 0 Safe | U3 deploy lock and provenance | repo side done (script, labels, docs, tests); operator steps open (restricted deploy user, first `--assume-running` run) | this PR |
 | 0 Safe | U4 webhook-event retention | done | #142 |
 | 0 Safe | U5 key revoke, rotate, expiry | done | #141 |
 | 0 Safe | U6 cluster2 housekeeping | open, operator (needs Luke to confirm deletions) | n/a |

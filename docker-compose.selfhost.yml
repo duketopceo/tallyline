@@ -2,6 +2,9 @@
 # builds the app from source and gives you a working board at :3100.
 # postgres stays on the internal network; only web (and optionally
 # api) are published.
+#
+# Production hosts deploy through ops/deploy.sh, which sets GIT_SHA so every image
+# carries org.opencontainers.image.revision (see docs/deploy.md).
 
 services:
   postgres:
@@ -27,6 +30,8 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      labels:
+        org.opencontainers.image.revision: ${GIT_SHA:-unknown}
     environment:
       NODE_ENV: production
       API_PORT: "4000"
@@ -93,6 +98,8 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      labels:
+        org.opencontainers.image.revision: ${GIT_SHA:-unknown}
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
     environment:
@@ -128,6 +135,8 @@ services:
     build:
       context: .
       dockerfile: apps/mcp-server/Dockerfile
+      labels:
+        org.opencontainers.image.revision: ${GIT_SHA:-unknown}
     environment:
       NODE_ENV: production
       TALLYLINE_API_URL: ${TALLYLINE_MCP_API_URL:-http://api:4000}
