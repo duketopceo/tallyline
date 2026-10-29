@@ -38,8 +38,6 @@ struct RootView: View {
         switch session.state {
         case .signedOut:
             InstancePickerView(session: session)
-        case .pairing(let serverURL):
-            PairView(session: session, serverURL: serverURL)
         case .signedIn(let credential):
             HomeView(session: session, credential: credential)
         }

@@ -11,14 +11,15 @@ struct InstancePickerView: View {
     @State private var serverText = TallylineConfig.defaultServerURL.absoluteString
 
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            VStack(spacing: 8) {
-                Text("tallyline")
-                    .font(.title.bold())
-                Text("Sign in to a workspace")
-                    .foregroundStyle(Theme.inkMuted)
-            }
+        NavigationStack {
+            VStack(spacing: 24) {
+                Spacer()
+                VStack(spacing: 8) {
+                    Text("tallyline")
+                        .font(.title.bold())
+                    Text("Sign in to a workspace")
+                        .foregroundStyle(Theme.inkMuted)
+                }
             VStack(alignment: .leading, spacing: 8) {
                 Text("Server")
                     .font(.caption)
@@ -38,10 +39,11 @@ struct InstancePickerView: View {
             .tint(Theme.accent)
             .padding(.horizontal)
             .disabled(URL(string: normalizedServer) == nil)
-            Spacer()
-        }
-        .navigationDestination(for: String.self) { _ in
-            PairView(session: session, serverURL: URL(string: normalizedServer)!)
+                Spacer()
+            }
+            .navigationDestination(for: String.self) { _ in
+                PairView(session: session, serverURL: URL(string: normalizedServer)!)
+            }
         }
     }
 

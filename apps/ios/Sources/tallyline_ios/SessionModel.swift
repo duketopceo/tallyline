@@ -7,7 +7,6 @@ import TallylineCore
 /// falls back to the instance picker with its workspace remembered.
 enum SignInState {
     case signedOut
-    case pairing(serverURL: URL)
     case signedIn(DeviceCredential)
 }
 
