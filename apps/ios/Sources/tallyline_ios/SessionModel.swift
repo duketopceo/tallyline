@@ -12,7 +12,7 @@ enum SignInState {
 
 /// Owns the device credential and the API client built from it. Views observe
 /// this; the Keychain store is injected at app start.
-@Observable
+@MainActor @Observable
 final class SessionModel {
     private(set) var state: SignInState = .signedOut
     private(set) var lastError: String?

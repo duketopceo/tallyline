@@ -1,5 +1,5 @@
 #if os(iOS)
-import AVFoundation
+@preconcurrency import AVFoundation
 import SwiftUI
 import TallylineCore
 import TallylineDesign
@@ -139,7 +139,7 @@ struct QRScannerView: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: ScannerController, context: Context) {}
 
-    final class ScannerController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
+    @MainActor final class ScannerController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
         var onCode: ((String) -> Void)?
         private let captureSession = AVCaptureSession()
         private var fired = false
@@ -176,12 +176,14 @@ struct QRScannerView: UIViewControllerRepresentable {
             captureSession.stopRunning()
         }
 
-        func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput objects: [AVMetadataObject], from connection: AVCaptureConnection) {
+        nonisolated func metadataOutput(_ output: AVCaptureMetadataOutput, didOutput objects: [AVMetadataObject], from connection: AVCaptureConnection) {
+            MainActor.assumeIsolated {
             guard !fired,
                   let payload = (objects.first as? AVMetadataMachineReadableCodeObject)?.stringValue,
                   payload.hasPrefix("tlpair_") || payload.hasPrefix("tallyline://") else { return }
             fired = true
             onCode?(payload)
+            }
         }
     }
 }
