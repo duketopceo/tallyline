@@ -292,8 +292,8 @@ struct CreateIssueView: View {
             ))
             await onCreated()
             dismiss()
-        } catch let APIClientError.http(_, _, m) { error = m ?? "create failed" }
-        catch { error = "create failed" }
+        } catch let APIClientError.http(_, _, m) { self.error = m ?? "create failed" }
+        catch { self.error = "create failed" }
     }
 }
 
