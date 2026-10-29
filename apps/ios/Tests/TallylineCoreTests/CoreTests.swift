@@ -91,3 +91,28 @@ final class ModelDecodingTests: XCTestCase {
         XCTAssertEqual(e.error.code, "BAD_CODE")
     }
 }
+
+final class TrackerModelTests: XCTestCase {
+    func testIssueDecodes() throws {
+        let json = """
+        {"id":"i1","key":"ENG-42","number":42,"title":"Fix the thing","description":null,
+         "state":"in_review","priority":"high","estimate":null,"dueDate":null,
+         "assigneeType":"agent","assigneeId":"a1","delegateType":"agent","delegateId":"a1",
+         "creatorType":"human","creatorId":"u1","projectId":null,"cycleId":null,"parentId":null,
+         "source":"intake","occurrenceCount":3,"createdAt":"2026-10-01T00:00:00Z","updatedAt":"2026-10-02T00:00:00Z"}
+        """.data(using: .utf8)!
+        let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601
+        let i = try d.decode(Issue.self, from: json)
+        XCTAssertEqual(i.state, .inReview)
+        XCTAssertEqual(i.priority, .high)
+        XCTAssertEqual(i.occurrenceCount, 3)
+    }
+
+    func testIssuePatchEncodesOnlySetFields() throws {
+        let patch = IssuePatch(state: .done)
+        let data = try JSONEncoder().encode(patch)
+        let obj = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        XCTAssertEqual(obj["state"] as? String, "done")
+        XCTAssertNil(obj["title"])
+    }
+}
