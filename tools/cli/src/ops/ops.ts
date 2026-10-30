@@ -138,7 +138,7 @@ export const updateCmd: Command = {
       const back = r.code === 0 && (await waitHealthy(io, state.apiPort));
       throw new CliError(
         1,
-        `${why}\n${back ? `Went back to version ${state.version}; your data is as it was.` : `Could not confirm the old version came back. Run tallyline doctor.`}\nYour backup: ${homeLabel(backup, io.env)}`,
+        `${why}\n${back ? `Went back to version ${state.version}. If the new version had already changed your data, restore the backup below.` : `Could not confirm the old version came back. Run tallyline doctor.`}\nYour backup: ${homeLabel(backup, io.env)}`,
       );
     };
 

@@ -25,7 +25,7 @@ good="$(printf good | sha512sum | cut -d' ' -f1)"
 pinned() { sed -e "s/^PINNED_VERSION=.*/PINNED_VERSION=\"1.2.3\"/" -e "s/^PINNED_SHA512=.*/PINNED_SHA512=\"$good\"/" "$src" >"$work/install.sh"; }
 runit() { HOME="$work/home" STUB_LOG="$work/log" PATH="$work/bin:/usr/bin:/bin" sh "$work/install.sh" "$@" 2>&1; }
 
-: >"$work/log"; cp "$src" "$work/install.sh"
+: >"$work/log"; sed -e 's/^PINNED_VERSION=.*/PINNED_VERSION=""/' -e 's/^PINNED_SHA512=.*/PINNED_SHA512=""/' "$src" >"$work/install.sh"
 out="$(runit)"; rc=$?
 { [ $rc -ne 0 ] && grep -q "not been pinned" <<<"$out" && [ ! -s "$work/log" ]; } && ok "unpinned installer refuses and installs nothing" || bad "unpinned" "$out"
 

@@ -39,7 +39,7 @@ services:
     volumes:
       - ./backups:/backups:ro
     ports:
-      - "\${API_PUBLISH_PORT:-4000}:4000"
+      - "127.0.0.1:\${API_PUBLISH_PORT:-4000}:4000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,7 +51,7 @@ services:
       NODE_ENV: production
       API_INTERNAL_URL: http://api:4000
     ports:
-      - "\${WEB_PUBLISH_PORT:-3100}:3100"
+      - "127.0.0.1:\${WEB_PUBLISH_PORT:-3100}:3100"
     depends_on:
       - api
     restart: unless-stopped

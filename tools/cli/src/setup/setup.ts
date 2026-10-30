@@ -1,3 +1,4 @@
+import { stat } from "node:fs/promises";
 import { CliError } from "../cli-error.js";
 import type { Command, CmdCtx } from "../commands.js";
 import { VERSION } from "../version.js";
@@ -102,6 +103,10 @@ export async function secretsScreen(p: Prompter, dir: string, home: string, user
       const to = await p.text({ message: "Where should the copy go?", placeholder: "~/Documents/tallyline-keys.txt", validate: (v) => (v.trim() ? undefined : "Type a file path") });
       const target = to.trim().replace(/^~(?=\/)/, userHome ?? "~");
       try {
+        if (await stat(target).then(() => true, () => false)) {
+          p.step("fail", "That file already exists. Pick a new file name so nothing is overwritten.");
+          continue;
+        }
         await writePrivate(target, `${secrets}\n`);
         p.step("ok", `Saved to ${to.trim()} (only you can read it)`);
         return "saved";
@@ -168,6 +173,13 @@ export const setupCmd: Command = {
     await ensureDocker(ctx, sys);
     p?.step("ok", "Docker is ready");
 
+    // Keys lost but the database kept: new keys would lock the old data out. Stop instead.
+    if (!(await readEnvFile(dir)).POSTGRES_PASSWORD && (await sys.run("docker", ["volume", "inspect", "tallyline-postgres"])).code === 0) {
+      throw new CliError(
+        1,
+        `Found an existing Tallyline database on this computer, but no keys in ${home}.\nStarting fresh keys would lock you out of it. Restore ${home}/.env from your saved copy, then run: tallyline setup\nIf you really want to start over, remove the Docker volume "tallyline-postgres" yourself first (this deletes that data).`,
+      );
+    }
     const { created } = await ensureInstall({ dir, sys, version: VERSION, webPort, apiPort });
     p?.step("ok", created ? `Created ${home} with fresh keys` : `Using the existing keys in ${home}`);
 

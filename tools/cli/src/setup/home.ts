@@ -104,6 +104,7 @@ export async function ensureInstall(opts: {
   const existing = await readEnvFile(opts.dir);
   const created = SECRET_KEYS.some((k) => !existing[k]);
   const env: Record<string, string> = {
+    ...existing, // keep anything the person added (mail settings, proxy, ...)
     POSTGRES_PASSWORD: existing.POSTGRES_PASSWORD || opts.sys.randomHex(16),
     JWT_SECRET: existing.JWT_SECRET || opts.sys.randomHex(32),
     AUTH_SECRET_KEY: existing.AUTH_SECRET_KEY || opts.sys.randomBase64(32),
@@ -115,7 +116,11 @@ export async function ensureInstall(opts: {
   };
   await writePrivate(p.env, serializeEnv(env));
   await writeFile(p.compose, COMPOSE_TEMPLATE, { mode: 0o644 });
-  if (!(await readState(opts.dir))) {
+  const prior = await readState(opts.dir);
+  if (prior && (prior.webPort !== opts.webPort || prior.apiPort !== opts.apiPort)) {
+    await writeState(opts.dir, { ...prior, webPort: opts.webPort, apiPort: opts.apiPort });
+  }
+  if (!prior) {
     await writeState(opts.dir, {
       version: env.TALLYLINE_IMAGE_TAG ?? opts.version,
       webPort: opts.webPort,

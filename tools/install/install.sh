@@ -37,6 +37,7 @@ command -v npm >/dev/null 2>&1 || die "npm was not found. It comes with Node.js:
 major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
 [ "$major" -ge 20 ] 2>/dev/null || die "Node.js $major is too old; Tallyline needs 20 or newer. Update from https://nodejs.org"
 
+command -v sha512sum >/dev/null 2>&1 || command -v shasum >/dev/null 2>&1 || die "no tool to check the download (need sha512sum or shasum)"
 sha512_of() {
   if command -v sha512sum >/dev/null 2>&1; then sha512sum "$1" | cut -d' ' -f1
   elif command -v shasum >/dev/null 2>&1; then shasum -a 512 "$1" | cut -d' ' -f1

@@ -24,11 +24,11 @@ afterEach(async () => {
 interface Fake {
   sys: Sys;
   calls: string[];
-  state: { docker: "ready" | "stopped" | "missing"; usedPorts: Set<number>; failUp: boolean; disk: number; mem: number; brew: boolean };
+  state: { docker: "ready" | "stopped" | "missing"; usedPorts: Set<number>; failUp: boolean; disk: number; mem: number; brew: boolean; volume: boolean };
 }
 
 function fakeSys(over: Partial<Fake["state"]> = {}): Fake {
-  const state: Fake["state"] = { docker: "ready", usedPorts: new Set(), failUp: false, disk: 50e9, mem: 16e9, brew: false, ...over };
+  const state: Fake["state"] = { docker: "ready", usedPorts: new Set(), failUp: false, disk: 50e9, mem: 16e9, brew: false, volume: false, ...over };
   const calls: string[] = [];
   let n = 0;
   const ok = (stdout = ""): RunResult => ({ code: 0, stdout, stderr: "" });
@@ -50,6 +50,7 @@ function fakeSys(over: Partial<Fake["state"]> = {}): Fake {
       if (cmd === "docker") {
         if (args[0] === "--version") return state.docker === "missing" ? { code: 127, stdout: "", stderr: "" } : ok("Docker 29");
         if (args[0] === "info") return state.docker === "ready" ? ok() : { code: 1, stdout: "", stderr: "daemon down" };
+        if (args[0] === "volume") return state.volume ? ok() : { code: 1, stdout: "", stderr: "no such volume" };
         if (args.includes("up") && state.failUp) return { code: 1, stdout: "", stderr: "boom\nPOSTGRES_PASSWORD=leak\nport is already allocated" };
         if (args.includes("up")) return ok();
         if (args.includes("cp")) await writeFile(args.at(-1)!, "dump");
@@ -209,6 +210,26 @@ describe("tallyline setup", () => {
     await run(["setup"], io(f, { prompter: scripted({ [KEYS_ASK]: "done" }).p }).io);
     await run(["setup"], io(f, { prompter: scripted({ "already set up": "repair" }).p }).io);
     expect(f.calls.some((c) => /\bdown\b|-v\b|volume rm|prune/.test(c))).toBe(false);
+  });
+
+  it("refuses to make new keys when an old database volume exists", async () => {
+    const f = fakeSys({ volume: true });
+    const t = io(f, { prompter: scripted({}).p });
+    expect(await run(["setup"], t.io)).not.toBe(0);
+    expect(t.err.join("\n")).toContain("lock you out");
+    await expect(stat(join(home, ".tallyline/.env"))).rejects.toThrow();
+  });
+
+  it("a repair run keeps extra settings in .env and tracks a changed port", async () => {
+    const f = fakeSys();
+    await run(["setup", "--yes", "--no-open"], io(f).io);
+    const envPath = join(home, ".tallyline/.env");
+    await writeFile(envPath, `${await readFile(envPath, "utf8")}TRUSTED_PROXY=1\n`);
+    f.state.usedPorts.add(3100);
+    expect(await run(["setup", "--yes", "--no-open", "--port", "3200"], io(f).io)).toBe(0);
+    expect(parseEnv(await readFile(envPath, "utf8")).TRUSTED_PROXY).toBe("1");
+    const st = JSON.parse(await readFile(join(home, ".tallyline/state.json"), "utf8"));
+    expect(st.webPort).toBe(3200);
   });
 
   it("needs a terminal unless --yes", async () => {
