@@ -342,6 +342,20 @@ describe("agent sessions (plan L1)", () => {
     expect(out.session.pullRequests).toEqual(["https://github.com/x/y/pull/1"]);
   });
 
+  it("the issue session timeline carries the agent session and its PR links (U25)", async () => {
+    const { key, session } = await newDispatchSession("timeline prs");
+    await req(`/v1/workspaces/${SLUG}/agent-sessions/${session.id}`, {
+      method: "PATCH",
+      token: agentToken,
+      body: JSON.stringify({ pullRequests: ["https://github.com/x/y/pull/7"] }),
+    });
+    const res = await req(`/v1/workspaces/${SLUG}/issues/${key}/sessions`);
+    expect(res.status).toBe(200);
+    const runs = res.body.sessions as { session: { id: string; pullRequests: string[] } | null }[];
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.session).toMatchObject({ id: session.id, pullRequests: ["https://github.com/x/y/pull/7"] });
+  });
+
   it("sweeper marks pending past the ack window and quiet active sessions stale", async () => {
     const { session: silent } = await newDispatchSession("silent");
     const { session: quiet } = await newDispatchSession("quiet");
@@ -807,6 +821,52 @@ describe("list filters for ready work (U20)", () => {
 
     // delegate filter: nobody is delegated this issue, so a random id matches nothing
     expect(await keys("delegate=00000000-0000-4000-8000-000000000000")).toEqual([]);
+  });
+});
+
+describe("blocked flag and named relations (U19)", () => {
+  it("marks list rows held by an unfinished blocker and names the other end of each relation", async () => {
+    const mkIss = async (title: string) => {
+      const r = await req(`/v1/workspaces/${SLUG}/issues`, {
+        method: "POST",
+        body: JSON.stringify({ title }),
+      });
+      expect(r.status).toBe(201);
+      return r.body as { id: string; key: string };
+    };
+    const blocker = await mkIss("U19b blocker");
+    const held = await mkIss("U19b held");
+    const rel = await req(`/v1/workspaces/${SLUG}/issues/${blocker.key}/relations`, {
+      method: "POST",
+      body: JSON.stringify({ targetIssueKey: held.key, relationType: "blocks" }),
+    });
+    expect(rel.status).toBe(201);
+
+    const flags = async () => {
+      const r = await req(`/v1/workspaces/${SLUG}/issues?search=U19b`);
+      expect(r.status).toBe(200);
+      return Object.fromEntries((r.body.issues as { key: string; blocked: boolean }[]).map((i) => [i.key, i.blocked]));
+    };
+    expect(await flags()).toEqual({ [blocker.key]: false, [held.key]: true });
+
+    const fromHeld = await req(`/v1/workspaces/${SLUG}/issues/${held.key}/relations`);
+    expect(fromHeld.status).toBe(200);
+    expect(fromHeld.body.relations).toEqual([
+      expect.objectContaining({
+        relationType: "blocks",
+        direction: "incoming",
+        other: expect.objectContaining({ key: blocker.key, title: "U19b blocker", state: expect.any(String) }),
+      }),
+    ]);
+    const fromBlocker = await req(`/v1/workspaces/${SLUG}/issues/${blocker.key}/relations`);
+    expect((fromBlocker.body.relations as unknown[])[0]).toMatchObject({ direction: "outgoing", other: { key: held.key } });
+
+    const done = await req(`/v1/workspaces/${SLUG}/issues/${blocker.key}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "canceled" }),
+    });
+    expect(done.status).toBe(200);
+    expect(await flags()).toEqual({ [blocker.key]: false, [held.key]: false });
   });
 });
 

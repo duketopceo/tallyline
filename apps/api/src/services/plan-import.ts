@@ -18,6 +18,7 @@ import {
   githubIssueLinks,
   githubRepos,
   issueExternalRefs,
+  issueRelations,
   issues,
   projectMilestones,
   projects,
@@ -596,6 +597,82 @@ function hashOf(
     .digest("hex");
 }
 
+/**
+ * U19: an in-plan "Depends on: U2" means U2 blocks this unit, so write a
+ * `blocks` edge from U2's issue to this one. Idempotent (re-runs add only
+ * what is missing), never creates a cycle (an edge that would close one is
+ * skipped, matching the relations route), and logs `relation_created` per
+ * new edge. Returns how many edges were added.
+ */
+async function writeDependencyEdges(
+  tx: Exec,
+  ctx: ImportContext,
+  units: UnitPlan[],
+  issueOfUnit: Map<string, string>,
+): Promise<number> {
+  const wanted: { source: string; target: string }[] = [];
+  for (const u of units) {
+    const target = issueOfUnit.get(u.unit.id);
+    if (!target) continue;
+    for (const dep of u.unit.dependencies) {
+      const source = issueOfUnit.get(dep);
+      if (source && source !== target) wanted.push({ source, target });
+    }
+  }
+  if (wanted.length === 0) return 0;
+
+  const existing = await tx
+    .select({ sourceIssueId: issueRelations.sourceIssueId, targetIssueId: issueRelations.targetIssueId })
+    .from(issueRelations)
+    .where(and(eq(issueRelations.workspaceId, ctx.workspaceId), eq(issueRelations.relationType, "blocks")));
+  const adj = new Map<string, Set<string>>();
+  const link = (a: string, b: string) => {
+    const set = adj.get(a) ?? new Set<string>();
+    set.add(b);
+    adj.set(a, set);
+  };
+  for (const e of existing) link(e.sourceIssueId, e.targetIssueId);
+  const reaches = (from: string, to: string) => {
+    const seen = new Set([from]);
+    const queue = [from];
+    while (queue.length) {
+      const cur = queue.shift()!;
+      if (cur === to) return true;
+      for (const next of adj.get(cur) ?? []) {
+        if (!seen.has(next)) {
+          seen.add(next);
+          queue.push(next);
+        }
+      }
+    }
+    return false;
+  };
+
+  let added = 0;
+  for (const { source, target } of wanted) {
+    if (adj.get(source)?.has(target)) continue;
+    if (reaches(target, source)) continue; // would close a cycle
+    const [row] = await tx
+      .insert(issueRelations)
+      .values({ workspaceId: ctx.workspaceId, sourceIssueId: source, targetIssueId: target, relationType: "blocks" })
+      .onConflictDoNothing()
+      .returning();
+    link(source, target);
+    if (!row) continue;
+    added++;
+    await tx.insert(events).values({
+      workspaceId: ctx.workspaceId,
+      entityType: "issue",
+      entityId: source,
+      action: "relation_created",
+      actorType: ctx.actor.type,
+      actorId: ctx.actor.id,
+      after: { relationId: row.id, targetIssueId: target, relationType: "blocks", via: "plan_import" },
+    });
+  }
+  return added;
+}
+
 export async function importPlan(ctx: ImportContext, req: PlanImportRequest): Promise<PlanImportOutcome> {
   const mode = req.mode ?? "dry_run";
   const parsed = parsePlan(req.plan.markdown);
@@ -657,6 +734,7 @@ export async function importPlan(ctx: ImportContext, req: PlanImportRequest): Pr
 
     const applied: NonNullable<PlanImportDiff["applied"]> = { created: [], updated: [] };
     const createdForHooks: { id: string; key: string; title: string; state: IssueState }[] = [];
+    const issueOfUnit = new Map<string, string>();
     const now = clock.now();
 
     for (const title of c.milestonesCreate) {
@@ -737,9 +815,13 @@ export async function importPlan(ctx: ImportContext, req: PlanImportRequest): Pr
         await planRef(u, issue.id, contentHash(issue.title, issue.description));
         await prRefs(u, issue.id, issue.key);
         applied.created.push({ unitId: u.unit.id, key: issue.key });
+        issueOfUnit.set(u.unit.id, issue.id);
         createdForHooks.push({ id: issue.id, key: issue.key, title: issue.title, state: issue.state });
+      } else if (u.action === "unchanged" && u.existing) {
+        issueOfUnit.set(u.unit.id, u.existing.id);
       } else if (u.action === "update" && u.existing) {
         const e = u.existing;
+        issueOfUnit.set(u.unit.id, e.id);
         const set: Partial<typeof issues.$inferInsert> = {};
         const before: Record<string, unknown> = {};
         const after: Record<string, unknown> = {};
@@ -800,6 +882,7 @@ export async function importPlan(ctx: ImportContext, req: PlanImportRequest): Pr
         applied.updated.push({ unitId: u.unit.id, key: e.key });
       }
     }
+    applied.blocksAdded = await writeDependencyEdges(tx, ctx, c.units, issueOfUnit);
     return { kind: "ok" as const, diff: toDiff("apply", c, hash, applied), createdForHooks };
   });
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { BlockedBadge } from "@/components/issue-relations";
 import {
   type Announcements,
   closestCenter,
@@ -54,6 +55,7 @@ function CardFace({ issue, names }: { issue: ListIssue; names: ReturnType<typeof
         <span className="font-mono text-[12px] text-ink-subtle">{issue.key}</span>
         {project && <span title={`Project: ${project.name}`} className="flex"><ProjectIcon name={project.name} iconUrl={project.iconUrl} /></span>}
         {filedBy && <span title={`Filed by ${filedBy}`}><Glint size={12} label={`Filed by agent ${filedBy}`} /></span>}
+        {issue.blocked && <BlockedBadge />}
         <span className="ml-auto"><Assignee type={issue.assigneeType} name={assignee} /></span>
       </span>
       <span className="mt-1.5 line-clamp-2 text-left text-[13px] leading-snug text-ink">{issue.title}</span>

@@ -368,10 +368,30 @@ export const coreIssueRoutes = new Hono()
         arr.push({ id: l.id, name: l.name, color: l.color });
         labelsByIssue.set(l.issueId, arr);
       }
+      // U19: one batched read marks rows held by an unfinished blocker,
+      // the same rule the `unblocked` filter uses
+      const blockedIds = new Set<string>();
+      if (pageIds.length) {
+        const blocker = alias(issues, "blocker");
+        const held = await db
+          .selectDistinct({ id: issueRelations.targetIssueId })
+          .from(issueRelations)
+          .innerJoin(blocker, eq(blocker.id, issueRelations.sourceIssueId))
+          .where(
+            and(
+              eq(issueRelations.workspaceId, ws.id),
+              inArray(issueRelations.targetIssueId, pageIds),
+              eq(issueRelations.relationType, "blocks"),
+              notInArray(blocker.state, ["done", "canceled", "duplicate"]),
+            ),
+          );
+        for (const h of held) blockedIds.add(h.id);
+      }
       return c.json({
         issues: page.map((i) => ({
           ...i,
           labels: labelsByIssue.get(i.id) ?? [],
+          blocked: blockedIds.has(i.id),
         })),
         nextCursor:
           hasMore && last

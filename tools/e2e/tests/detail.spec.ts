@@ -98,3 +98,26 @@ test("detail: no native selects; every control has a name", async ({ page }) => 
   );
   expect(unnamed).toBe(0);
 });
+
+test("relations: link a blocker from the detail page, see Blocked on the list, then remove it (U19)", async ({ page }) => {
+  const blocker = await make(page, `e2e blocker ${RUN}`);
+  const held = await make(page, `e2e held ${RUN}`);
+  await page.goto(`/issues/${held}`);
+  await page.waitForSelector("[data-qc-ready]", { timeout: 20_000 });
+  const section = page.getByRole("region", { name: "Relations" });
+  await section.getByRole("button", { name: "Add link" }).click();
+  await section.getByLabel("Link type").selectOption("blocked_by");
+  await section.getByLabel("Issue key").fill(blocker);
+  await section.getByRole("button", { name: "Link", exact: true }).click();
+  await expect(section.getByRole("link", { name: new RegExp(blocker) })).toBeVisible();
+  await expect(section.getByText("Blocked by", { exact: true })).toBeVisible();
+
+  await page.goto(`/issues?q=${encodeURIComponent(`e2e held ${RUN}`)}`);
+  const row = page.locator("[data-issue-row]", { hasText: `e2e held ${RUN}` });
+  await expect(row.getByText("Blocked", { exact: true })).toBeVisible();
+
+  await page.goto(`/issues/${held}`);
+  await page.waitForSelector("[data-qc-ready]", { timeout: 20_000 });
+  await section.getByRole("button", { name: `Remove link to ${blocker}` }).click();
+  await expect(section.getByRole("link", { name: new RegExp(blocker) })).toHaveCount(0);
+});

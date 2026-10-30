@@ -1,5 +1,6 @@
 "use client";
 
+import { BlockedBadge } from "@/components/issue-relations";
 import type { IssueState, Priority } from "@tallyline/types";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -43,6 +44,8 @@ export interface ListIssue {
   updatedAt?: string;
   dueDate?: string | null;
   labels?: ListLabel[];
+  /** U19: an unfinished issue blocks this one (set by the list API) */
+  blocked?: boolean;
 }
 
 export interface IssueGroup {
@@ -457,6 +460,7 @@ function Row({
           <span className="font-mono text-[12px] text-ink-subtle sm:hidden">{issue.key} </span>{m.title}
         </Link>
       )}
+      {issue.blocked && <BlockedBadge />}
       {mode === "triage" && issue.source && <span className="hidden shrink-0 rounded-full border border-lining px-2 text-[11px] text-ink-muted sm:inline">{issue.source}</span>}
       {mode === "triage" && (issue.occurrenceCount ?? 1) > 1 && (
         <span title={`${issue.occurrenceCount} occurrences grouped by fingerprint`} className="hidden shrink-0 font-mono text-[11px] text-ink-subtle sm:inline">×{issue.occurrenceCount}</span>
