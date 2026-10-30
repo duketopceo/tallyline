@@ -86,7 +86,8 @@ export function http2Apns(cfg: ApnsConfig, now: () => number = Date.now): ApnsSe
         req.on("end", () => {
           let reason: string | undefined;
           try {
-            reason = (JSON.parse(text) as { reason?: string }).reason;
+            const parsed = (JSON.parse(text) as { reason?: unknown }).reason;
+            if (typeof parsed === "string") reason = parsed.slice(0, 64);
           } catch {
             // empty body on success
           }

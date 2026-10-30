@@ -106,7 +106,7 @@ node apps/push-relay/dist/main.js
 | `APNS_PRIVATE_KEY` or `APNS_PRIVATE_KEY_FILE` | The `.p8` key, inline or as a file path. Prefer the file. |
 | `APNS_TOPIC` | The app's bundle ID |
 | `PORT` | Default `8790` |
-| `PUSH_RELAY_TRUST_PROXY` | `1` to read the client IP from `X-Forwarded-For`. Set it only behind a proxy you control that overwrites that header, or callers can dodge the per-IP limit |
+| `PUSH_RELAY_TRUST_PROXY` | `1` to read the client IP from the rightmost `X-Forwarded-For` entry (the one your proxy appends). Set it only behind exactly one proxy you control, or callers can dodge the per-IP limit |
 
 The relay refuses to start unless every required variable is set. It logs one
 JSON line per event and never logs tokens, handles or payloads. Put it behind

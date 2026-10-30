@@ -36,7 +36,13 @@ const handler = createRelay({
   log: (l) => console.log(JSON.stringify({ t: new Date().toISOString(), ...l })),
   clientIp: (req: IncomingMessage) => {
     const xff = req.headers["x-forwarded-for"];
-    if (trustProxy && typeof xff === "string") return xff.split(",")[0]!.trim();
+    // The trusted proxy appends the address it saw, so the rightmost entry is
+    // the only one a client cannot forge. Leftmost entries are client input.
+    if (trustProxy && typeof xff === "string") {
+      const hops = xff.split(",").map((h) => h.trim()).filter(Boolean);
+      const last = hops[hops.length - 1];
+      if (last) return last;
+    }
     return req.socket.remoteAddress ?? "?";
   },
 });
@@ -47,7 +53,7 @@ server.listen(port, () => console.log(`push-relay listening on :${port}`));
 
 for (const sig of ["SIGTERM", "SIGINT"] as const) {
   process.on(sig, () => {
-    server.close();
-    apns.close();
+    // stop accepting, let in-flight pings finish, then drop APNs sessions
+    server.close(() => apns.close());
   });
 }
