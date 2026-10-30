@@ -47,7 +47,7 @@ The full open-question list is at the end of the requirements document.
 | Agent protocol | U22, U23, U25 (see re-verify above), U24 automated intake | #155, #149 |
 | S1 CLI | Home screen, grouped help, keychain config, `connect`, `doctor`, browser sign-in | #179, #180, #181, #183, #189 |
 | S2 install | `setup`, `stop`/`resume`/`backup`/`update`, installer script, Railway config, status endpoint and `/welcome` checklist | #190, #194 |
-| S3 providers | S3-U1 provider spike; S3-U2 bring-your-own provider, sealed keys, monthly spend limit; S3-U3 Connect OpenRouter (PKCE) and compatible endpoints from web and CLI; S3-U7 Settings → AI and the checklist step | #187, #203, PRNUM |
+| S3 providers | S3-U1 provider spike; S3-U2 bring-your-own provider, sealed keys, monthly spend limit; S3-U3 Connect OpenRouter (PKCE) and compatible endpoints from web and CLI; S3-U7 Settings → AI and the checklist step | #187, #203, #200 |
 | S4 mobile server | S4-U1 redirect schemes, S4-U2 QR pairing and devices, S4-U4 delta reads and idempotent writes | #182, #186, #184 |
 | S5 iOS | S5-U2/U3 scaffold and pairing, S5-U4 typed client, S5-U5/U6 issue loop, review queue, board tabs; TestFlight build path | #191, #192, #193, 897088d |
 | Release | v2.0.0 | #159 |
