@@ -2,7 +2,7 @@ import Foundation
 
 /// Typed `/v1` surface for the app's screens. Mutations take a client-generated
 /// `Idempotency-Key` so outbox retries can't double-post (S4-U4 contract).
-public struct IssueCreate: Encodable, Sendable {
+public struct IssueCreate: Codable, Sendable, Equatable {
     public var title: String
     public var description: String?
     public var teamId: String
@@ -20,7 +20,7 @@ public struct IssueCreate: Encodable, Sendable {
     }
 }
 
-public struct IssuePatch: Encodable, Sendable {
+public struct IssuePatch: Codable, Sendable, Equatable {
     public var title: String?
     public var description: String?
     public var state: IssueState?

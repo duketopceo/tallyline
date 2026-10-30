@@ -101,21 +101,30 @@ struct IssueListView: View {
     var session: SessionModel
     let credential: DeviceCredential
     let state: IssueState?
-    @State private var issues: [Issue] = []
     @State private var error: String?
     @State private var showCreate = false
-    @State private var lastSync: Date?
+
+    private var issues: [Issue] {
+        session.offline.cachedIssues(workspaceSlug: credential.workspaceSlug, state: state)
+    }
 
     var body: some View {
         NavigationStack {
             Group {
-                if let error {
+                if issues.isEmpty, let error {
                     ContentUnavailableView("Couldn't load", systemImage: "exclamationmark.triangle", description: Text(error))
                 } else if issues.isEmpty {
                     ContentUnavailableView("Nothing here", systemImage: "checkmark", description: Text("No issues in this list."))
                 } else {
-                    List(issues) { issue in
-                        NavigationLink(value: issue) { IssueRow(issue: issue) }
+                    List {
+                        if error != nil || !session.offline.isOnline {
+                            Label("Offline. Showing issues saved on this phone.", systemImage: "wifi.slash")
+                                .font(.footnote)
+                                .foregroundStyle(Theme.inkMuted)
+                        }
+                        ForEach(issues) { issue in
+                            NavigationLink(value: issue) { IssueRow(issue: issue) }
+                        }
                     }
                 }
             }
@@ -142,14 +151,14 @@ struct IssueListView: View {
     }
 
     private func reload() async {
-        guard let client = session.client else { return }
         do {
-            issues = try await client.issues(ws: credential.workspaceSlug, state: state, updatedSince: lastSync)
-            lastSync = Date()
+            try await session.offline.syncIssues(workspaceSlug: credential.workspaceSlug)
             error = nil
         } catch let APIClientError.http(_, _, message) {
             self.error = message ?? "load failed"
-        } catch { self.error = "load failed" }
+        } catch {
+            self.error = "You're offline"
+        }
     }
 }
 
@@ -202,6 +211,7 @@ struct IssueDetailView: View {
     @State private var comments: [IssueComment] = []
     @State private var draft = ""
     @State private var actionError: String?
+    @State private var pendingNote: String?
 
     var body: some View {
         List {
@@ -255,6 +265,9 @@ struct IssueDetailView: View {
                         .disabled(draft.isEmpty)
                 }
             }
+            if let pendingNote {
+                Section { Label(pendingNote, systemImage: "tray.and.arrow.up").font(.callout).foregroundStyle(Theme.inkMuted) }
+            }
             if let actionError {
                 Section { Text(actionError).foregroundStyle(Theme.urgent).font(.callout) }
             }
@@ -264,12 +277,26 @@ struct IssueDetailView: View {
     }
 
     private func patch(_ mutate: (inout IssuePatch) -> Void) async {
-        guard let client = session.client else { return }
         var p = IssuePatch()
         mutate(&p)
-        do { issue = try await client.updateIssue(ws: credential.workspaceSlug, key: issue.key, p) }
-        catch let APIClientError.http(_, _, m) { actionError = m ?? "update failed" }
-        catch { actionError = "update failed" }
+        let before = issue
+        issue = issue.applying(p)
+        session.offline.applyLocally(issue)
+        actionError = nil
+        switch await session.offline.submit(.updateIssue(key: issue.key, patch: p), workspaceSlug: credential.workspaceSlug) {
+        case .sent:
+            pendingNote = nil
+            if let client = session.client, let fresh = try? await client.issue(ws: credential.workspaceSlug, key: issue.key) {
+                issue = fresh
+                session.offline.applyLocally(fresh)
+            }
+        case .queued:
+            pendingNote = "Saved on this phone. It sends when you're back online."
+        case .rejected(let reason):
+            issue = before
+            session.offline.applyLocally(before)
+            actionError = reason
+        }
     }
 
     private func review(_ decision: String) async {
@@ -280,12 +307,19 @@ struct IssueDetailView: View {
     }
 
     private func postComment() async {
-        guard let client = session.client else { return }
-        do {
-            _ = try await client.addComment(ws: credential.workspaceSlug, key: issue.key, body: draft)
-            draft = ""
+        let body = draft
+        draft = ""
+        actionError = nil
+        switch await session.offline.submit(.addComment(key: issue.key, body: body), workspaceSlug: credential.workspaceSlug) {
+        case .sent:
+            pendingNote = nil
             await loadComments()
-        } catch { actionError = "comment failed" }
+        case .queued:
+            pendingNote = "Comment saved on this phone. It sends when you're back online."
+        case .rejected(let reason):
+            draft = body
+            actionError = reason
+        }
     }
 
     private func loadComments() async {
@@ -411,16 +445,53 @@ struct CreateIssueView: View {
     }
 
     private func create() async {
-        guard let client = session.client else { return }
-        do {
-            _ = try await client.createIssue(ws: credential.workspaceSlug, IssueCreate(
-                title: title, description: description.isEmpty ? nil : description,
-                teamId: teamId, priority: priority
-            ))
+        let draft = IssueCreate(
+            title: title, description: description.isEmpty ? nil : description,
+            teamId: teamId, priority: priority
+        )
+        switch await session.offline.submit(.createIssue(draft), workspaceSlug: credential.workspaceSlug) {
+        case .sent, .queued:
+            // Queued drafts show in Settings > Outbox until they send.
             await onCreated()
             dismiss()
-        } catch let APIClientError.http(_, _, m) { self.error = m ?? "create failed" }
-        catch { self.error = "create failed" }
+        case .rejected(let reason):
+            error = reason
+        }
+    }
+}
+
+/// Writes saved on the phone that have not reached the server yet.
+struct OutboxView: View {
+    var offline: OfflineModel
+
+    var body: some View {
+        List {
+            if offline.entries.isEmpty {
+                ContentUnavailableView("All sent", systemImage: "checkmark.circle", description: Text("Changes made offline wait here until they send."))
+            }
+            ForEach(offline.entries) { entry in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(entry.operation.summary).font(.body)
+                    switch entry.status {
+                    case .pending:
+                        Text(entry.attempts == 0 ? "Waiting to send" : "Retrying (\(entry.attempts) tries so far)")
+                            .font(.caption).foregroundStyle(Theme.inkMuted)
+                    case .failed(let reason):
+                        Text(reason).font(.caption).foregroundStyle(Theme.urgent)
+                    }
+                }
+                .swipeActions {
+                    Button("Discard", role: .destructive) { Task { await offline.discard(entry.id) } }
+                    Button("Retry") { Task { await offline.retry(entry.id) } }.tint(Theme.accent)
+                }
+                .contextMenu {
+                    Button("Retry") { Task { await offline.retry(entry.id) } }
+                    Button("Discard", role: .destructive) { Task { await offline.discard(entry.id) } }
+                }
+            }
+        }
+        .navigationTitle("Outbox")
+        .refreshable { await offline.drain() }
     }
 }
 
@@ -430,6 +501,13 @@ struct SettingsView: View {
     let credential: DeviceCredential
     @State private var whoami: Whoami?
     @AppStorage("appearance") private var appearance = SilverLiningAppearance.system.rawValue
+
+    private var outboxSummary: String {
+        let all = session.offline.entries.count
+        let failed = session.offline.failedCount
+        if all == 0 { return "All sent" }
+        return failed > 0 ? "\(all) waiting, \(failed) need you" : "\(all) waiting"
+    }
 
     var body: some View {
         NavigationStack {
@@ -443,6 +521,13 @@ struct SettingsView: View {
                         ForEach(SilverLiningAppearance.allCases, id: \.rawValue) { option in
                             Text(option.label).tag(option.rawValue)
                         }
+                    }
+                }
+                Section("Sync") {
+                    NavigationLink {
+                        OutboxView(offline: session.offline)
+                    } label: {
+                        LabeledContent("Outbox", value: outboxSummary)
                     }
                 }
                 Section("You") {

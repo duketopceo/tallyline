@@ -119,3 +119,28 @@ struct TeamList: Decodable { let teams: [Team] }
 struct MemberList: Decodable { let members: [Member] }
 struct AgentList: Decodable { let agents: [Agent] }
 struct ReviewQueueList: Decodable { let queue: [ReviewQueueEntry] }
+
+public extension Issue {
+    /// The issue as it will look once `patch` lands, for optimistic display.
+    /// The server's answer replaces it on the next sync.
+    func applying(_ patch: IssuePatch, at now: Date = Date()) -> Issue {
+        Issue(
+            id: id, key: key, number: number,
+            title: patch.title ?? title,
+            description: patch.description ?? description,
+            state: patch.state ?? state,
+            priority: patch.priority ?? priority,
+            estimate: patch.estimate ?? estimate,
+            dueDate: dueDate,
+            assigneeType: patch.assigneeId != nil ? "human" : assigneeType,
+            assigneeId: patch.assigneeId ?? assigneeId,
+            delegateType: patch.delegateType ?? delegateType,
+            delegateId: patch.delegateId ?? delegateId,
+            creatorType: creatorType, creatorId: creatorId,
+            projectId: patch.projectId ?? projectId,
+            cycleId: patch.cycleId ?? cycleId,
+            parentId: parentId, source: source, occurrenceCount: occurrenceCount,
+            createdAt: createdAt, updatedAt: now
+        )
+    }
+}
