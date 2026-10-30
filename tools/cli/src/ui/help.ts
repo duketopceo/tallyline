@@ -34,6 +34,7 @@ export const GROUPS: { title: string; items: [name: string, what: string][] }[] 
       ["events", "watch the live activity feed"],
       ["session", "post progress from a running agent"],
       ["work", "run dispatched work in this repo"],
+      ["ai", "connect the workspace's AI provider"],
     ],
   },
   {

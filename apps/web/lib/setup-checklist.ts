@@ -73,10 +73,10 @@ export function adminChecklist(s: SystemStatus): Step[] {
   );
   steps.push(
     s.ai.problem
-      ? { id: "ai", title: "AI assistant", detail: "A provider is saved but its key cannot be read. Enter the key again.", state: "attention", optional: true, href: "/settings/providers", action: "Fix" }
+      ? { id: "ai", title: "AI assistant", detail: "A provider is saved but its key cannot be read. Enter the key again.", state: "attention", optional: true, href: "/settings/ai", action: "Fix" }
       : s.ai.configured
         ? { id: "ai", title: "AI assistant", detail: `Using ${s.ai.provider?.label ?? "your provider"}${s.ai.provider ? ` (${s.ai.provider.model})` : ""}.`, state: "done", optional: true }
-        : { id: "ai", title: "AI assistant", detail: "Optional. Connect OpenRouter or any compatible service to get summaries and suggestions.", state: "todo", optional: true },
+        : { id: "ai", title: "AI assistant", detail: "Optional. Connect OpenRouter or any compatible service to get summaries and suggestions.", state: "todo", optional: true, href: "/settings/ai", action: "Connect" },
   );
   steps.push(
     s.workspace.members > 1

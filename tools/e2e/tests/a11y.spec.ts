@@ -23,6 +23,8 @@ const APP_PAGES = [
   "/settings/members",
   "/settings/invites",
   "/settings/providers",
+  "/settings/ai",
+  "/settings/ai/openrouter",
 ];
 
 const VIEWPORTS = [

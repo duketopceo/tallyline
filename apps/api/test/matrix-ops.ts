@@ -426,6 +426,13 @@ export const OPERATIONS: Record<string, Builder> = {
   }),
   "DELETE /v1/workspaces/{ws}/ai/provider": simple("DELETE", (t) => `${base(t)}/ai/provider`),
   "POST /v1/workspaces/{ws}/ai/provider/test": simple("POST", (t) => `${base(t)}/ai/provider/test`),
+  "POST /v1/workspaces/{ws}/ai/openrouter/start": simple("POST", (t) => `${base(t)}/ai/openrouter/start`, {
+    mode: "headless",
+  }),
+  "POST /v1/workspaces/{ws}/ai/openrouter/complete": simple("POST", (t) => `${base(t)}/ai/openrouter/complete`, {
+    code: "matrix-code",
+    state: "matrix-state",
+  }),
   "GET /v1/workspaces/{ws}/ai/usage": get((t) => `${base(t)}/ai/usage`),
   "GET /v1/workspaces/{ws}/system/status": get((t) => `${base(t)}/system/status`),
   "DELETE /v1/workspaces/{ws}/tokens/{id}": async (t, who) => {
