@@ -81,5 +81,8 @@ test("review empty state says what will appear", async ({ page }) => {
   await page.route("**/review", (r) => r.continue());
   await page.goto("/review");
   // either rows exist (other tests) or the empty copy shows; the page must render one of them
-  await expect(page.getByText("Nothing waiting").or(page.getByRole("list", { name: "Review queue" }))).toBeVisible();
+  // scoped to <main>: Next streams the page through a hidden <template>-style
+  // copy, so an unscoped getByText can resolve to two nodes (strict-mode throw)
+  const main = page.getByRole("main");
+  await expect(main.getByText("Nothing waiting").or(main.getByRole("list", { name: "Review queue" }))).toBeVisible();
 });

@@ -29,6 +29,14 @@ export default defineConfig({
       port: Number(API_PORT),
       env: {
         API_PORT,
+        // The whole suite runs as ONE signed-in session, and the per-identity
+        // limiter (default 600/min, keyed on user+session) is a production
+        // abuse guard these specs do not exercise (it has its own unit tests).
+        // A busy minute, e.g. the 12-item triage burst after a run of SSR
+        // pages, trips it and the page renders "Triage did not load" or
+        // "not changed: retry in Ns". Lift the cap for the harness only; the
+        // limiter code path stays on.
+        RATE_LIMIT_PER_MIN: "100000",
         API_BASE_URL: `http://localhost:${API_PORT}`,
         WEB_URL: `http://localhost:${WEB_PORT}`,
       },
