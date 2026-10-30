@@ -414,6 +414,19 @@ export const OPERATIONS: Record<string, Builder> = {
   "DELETE /v1/workspaces/{ws}/devices/{id}": simple("DELETE", (t) => `${base(t)}/devices/00000000-0000-4000-8000-000000000000`),
   "DELETE /v1/workspaces/{ws}/devices/current": simple("DELETE", (t) => `${base(t)}/devices/current`),
   "POST /v1/workspaces/{ws}/devices/current/rotate": simple("POST", (t) => `${base(t)}/devices/current/rotate`, {}),
+  "GET /v1/workspaces/{ws}/push/config": get((t) => `${base(t)}/push/config`),
+  "PUT /v1/workspaces/{ws}/devices/current/push": simple("PUT", (t) => `${base(t)}/devices/current/push`, {
+    handle: "h1.matrix",
+    environment: "sandbox",
+  }),
+  "DELETE /v1/workspaces/{ws}/devices/current/push": simple("DELETE", (t) => `${base(t)}/devices/current/push`),
+  "GET /v1/workspaces/{ws}/push/preferences": get((t) => `${base(t)}/push/preferences`),
+  "PUT /v1/workspaces/{ws}/push/preferences": simple("PUT", (t) => `${base(t)}/push/preferences`, {
+    disabledKinds: [],
+    quietStart: null,
+    quietEnd: null,
+    tz: null,
+  }),
   "POST /v1/auth/pair/redeem": simple("POST", () => "/v1/auth/pair/redeem", {
     code: "tlpair_no-such-code-0000000000",
     deviceName: "matrix",

@@ -3,6 +3,7 @@ import { db } from "../src/db/client.js";
 import {
   devices,
   pairingCodes,
+  pushPreferences,
   aiProviders,
   aiUsageLedger,
   agents,
@@ -122,6 +123,12 @@ export async function seedTenant(label: string, teamKey: string): Promise<Tenant
     userId: people.owner.id,
     name: `Phone ${sentinel}`,
     platform: "ios",
+  });
+  await db.insert(pushPreferences).values({
+    workspaceId: ws!.id,
+    userId: people.owner.id,
+    disabledKinds: ["dispatch_failed"],
+    tz: `tz-${sentinel}`,
   });
   await db.insert(pairingCodes).values({
     workspaceId: ws!.id,

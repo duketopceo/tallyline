@@ -48,6 +48,7 @@ import { slackRoutes } from "./routes/slack.js";
 import { systemRoutes } from "./routes/system.js";
 import { tokenRoutes } from "./routes/tokens.js";
 import { deviceRoutes, devicePublicRoutes } from "./routes/devices.js";
+import { pushRoutes } from "./routes/push.js";
 import { usageRoutes } from "./routes/usage.js";
 import { webhookEndpointRoutes } from "./routes/webhook-endpoints.js";
 import { webhookRoutes } from "./routes/webhooks.js";
@@ -119,6 +120,7 @@ export const app = new Hono()
   .route("/v1", tokenRoutes)
   .route("/v1", deviceAuthWorkspaceRoutes)
   .route("/v1", deviceRoutes)
+  .route("/v1", pushRoutes)
   .route("/v1", aiProviderRoutes)
   .route("/v1", systemRoutes)
   .route("/v1", memberRoutes)

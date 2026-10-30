@@ -28,7 +28,8 @@ export const TENANT_TABLES: Record<string, TenantTablePolicy> = {
   comments: { export: true },
   cycle_velocity: { export: true },
   cycles: { export: true },
-  devices: { export: true },
+  // push_handle is the relay-sealed APNs token: device credential, never exported
+  devices: { export: true, redact: ["push_handle"] },
   dispatch_events: { export: true },
   dispatches: { export: true },
   events: { export: true },
@@ -57,6 +58,7 @@ export const TENANT_TABLES: Record<string, TenantTablePolicy> = {
     reason: "five-minute one-time pairing codes (hashes only); transient auth state, not workspace content",
   },
   project_milestones: { export: true },
+  push_preferences: { export: true },
   project_updates: { export: true },
   projects: { export: true },
   sessions: {
