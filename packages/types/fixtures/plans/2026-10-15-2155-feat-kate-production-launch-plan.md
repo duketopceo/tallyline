@@ -21,7 +21,7 @@ deepened: 2026-10-15
 - **Authority:** Product Contract Requirements win on behavior; KTDs win on mechanism; units override neither. The prior launch plan (`docs/plans/2026-10-14-0110-feat-kate-app-store-launch-plan.md`) stays authoritative for its settled decisions (13+ age policy, simplify by default never by deletion, icon C).
 - **Execution profile:** One PR per unit per repo, merged only when the local or self-hosted checks for the merge result pass in a separate command. Luke authorized production deploy and open sign-up for this plan. Each production step still runs only after its gate in U15 passes.
 - **Stop conditions:** Stop and ask Luke if TMDB replies that a free-API app may not have any paid tier and the Wikidata source is not yet shippable. Also stop if a production read shows data loss from migration 0043, if Apple secrets are still unset when U15 reaches the App Review gate, or if a cost alert fires during rollout.
-- **Who finishes:** Claude executes U1–U15 and the backend production deploys. Luke sets Apple secrets, contacts TMDB sales, registers the Mac mini runner, runs TestFlight uploads, and tests from the checklist U15 hands over.
+- **Who finishes:** Claude executes U1–U15 and the backend production deploys. Luke sets Apple secrets, contacts TMDB sales, registers the macOS build host runner, runs TestFlight uploads, and tests from the checklist U15 hands over.
 
 ---
 
@@ -40,7 +40,7 @@ Kate is about to be offered to the public, and three things stand in the way of 
 - **Plus charges for storage, members and video; movie search stays free; TMDB stays out of anything paid.** Research found TMDB's terms count any paid tier as commercial use, so Plus stays off until TMDB grants a commercial agreement or movies run on a commercial-safe source. (session-settled: user-directed — chosen over buying a TMDB commercial licence up front and over keeping Kate free: Luke wants an app that can make money without TMDB in it.) Governs R11, R12, R13.
 - **Production rollout includes open sign-up for 10k users.** (session-settled: user-directed — chosen over deploy-only with invite-only kept: Luke chose "Deploy + open sign-up".) Governs R1–R6, R22.
 - **Bug logging is first-party.** Errors and crashes go to Kate's own Worker and D1, with no third-party SDK. (session-settled: user-directed — chosen over Sentry and over local-only logs: no new vendor holding user data.) Governs R14–R17.
-- **Deterministic tests run on self-hosted runners**: a Linux box for backend and web, the Mac mini for XCUITest and screenshots. (session-settled: user-directed — chosen over paid hosted Actions and over local-only gates: private repos are billing-blocked on hosted runners.) Governs R18–R20.
+- **Deterministic tests run on self-hosted runners**: a Linux box for backend and web, the macOS build host for XCUITest and screenshots. (session-settled: user-directed — chosen over paid hosted Actions and over local-only gates: private repos are billing-blocked on hosted runners.) Governs R18–R20.
 - **Every tab is audited by code review, web screenshots and iOS UI-test screenshots.** (session-settled: user-directed — Luke's "check every tab".) Governs R8–R10.
 - **13+ neutral age screen** carries forward from the prior launch plan unchanged. Governs R7.
 
@@ -78,7 +78,7 @@ Kate is about to be offered to the public, and three things stand in the way of 
 **Deterministic tests and CI**
 
 - R18. Backend tests, migration checks against D1's own rules, and web end-to-end tests run on a self-hosted Linux runner for every PR and give the same result on every run.
-- R19. iOS UI tests drive every tab against a fixture server with a fixed clock, locale and data, run on the Mac mini, and produce App Store screenshots.
+- R19. iOS UI tests drive every tab against a fixture server with a fixed clock, locale and data, run on the macOS build host, and produce App Store screenshots.
 - R20. A PR merges only after its self-hosted checks pass on the exact merge result: the PR is up to date with main, and the checks ran against the current main head.
 
 **Production rollout**
@@ -141,10 +141,10 @@ Kate is about to be offered to the public, and three things stand in the way of 
 - KTD3. **The usage guard derives everything from Kate's own counters**: `crew_usage` totals, new accounts and uploads, read by the daily cron (U6 adds `client_errors` volume when that table lands). It needs no Cloudflare API token. Its thresholds live in `system_flags`. The cron wraps each job with `.catch` and records a heartbeat row, so a dead cron itself shows up in the digest (R4). It cannot see request counts, so request volume is checked on Cloudflare's own usage data. Alert rows are also pushed immediately to an ntfy topic.
 - KTD4. **Bounded reads are opt-in.** No paging parameters returns the legacy shape capped at 2,000 rows plus an `X-Kate-Truncated` header, which is acceptable because only TestFlight builds predate this release. New builds send `limit` and `before` cursors and page through everything. The duplicate guard asks the server by title or movie id instead of scanning the local list (R5).
 - KTD5. **Diagnostics are fingerprint-deduplicated counts in a D1 `client_errors` table** keyed by build, platform, endpoint template, status, code and kind. Each row keeps a few sample payloads, a first-seen and last-seen time, and a count. Server errors land in the same table from `withApiErrors` with source `server`. An anonymous per-install id replaces the user id, so the privacy label stays "Diagnostics, not linked" (R14, R16). The endpoint accepts authenticated sessions, plus a signed-out variant capped at 4 KB per report with a strict per-IP limit for sign-in failures. New rows are capped per day at 5,000 for signed-in app reports, 1,000 for server 5xx (its own budget, so app reports cannot blind server capture), and 500 for the signed-out variant.
-- KTD6. **MetricKit is the only crash source.** Payloads (`MXCrashDiagnostic`, `MXHangDiagnostic`) are stored unsymbolicated. `scripts/testflight.sh` archives each build's dSYMs on the Mac mini for offline symbolication (R15). There is no signal handler, because a homemade handler risks deadlocks and double reporting.
+- KTD6. **MetricKit is the only crash source.** Payloads (`MXCrashDiagnostic`, `MXHangDiagnostic`) are stored unsymbolicated. `scripts/testflight.sh` archives each build's dSYMs on the macOS build host for offline symbolication (R15). There is no signal handler, because a homemade handler risks deadlocks and double reporting.
 - KTD7. **Movie data goes behind a `MovieSource` interface with `tmdb` and `wikidata` implementations**, selected by a `KATE_MOVIE_SOURCE` var. Wikidata free-text title search uses the Wikidata/MediaWiki search API (`wbsearchentities` or `action=query&list=search`, filtered to films and series), then SPARQL or an entity fetch by QID for title, year, genres and the IMDb id; never free-text SPARQL. Results are cached in the existing catalog tables with source and fetch time. Posters on the Wikidata source are a generated typographic placeholder or a crew-uploaded image, never hotlinked Commons files (R12). TMDB ids remain the identity key for existing rows, and Wikidata rows key on the QID with a mapping column.
 - KTD8. **One helper decides "Plus on"** for the server (`isPlusEnabled` accepting the same truthy set as other flags). The release checklist in U15 flips the iOS `KATE_PLUS` compile flag and the server flag only together, and only with the R13 precondition recorded (R13).
-- KTD9. **CI runs on self-hosted runners only for these private repos, with merge gating enforced by the merge procedure.** A personal account (the repos are owned by user `duketopceo`) has no organization-level runner pools, so each repo gets one repo-level runner registered with `--ephemeral` (JIT, re-registered per job). The Linux runner is a non-sudo user outside the docker group on `omarchy-max` (or cluster2 when available), with no access to the main user's home or omaseal session; the Mac mini runner is likewise its own user and is labelled `macos`. Workflows never use `pull_request_target`. GitHub branch protection on private repos is unavailable on the current plan, so R20 is enforced by the merge step checking the head SHA's check runs, the same rule as the standing "never merge in the same command as tests". The merge step also refuses unless the PR branch is up to date with main (the base SHA the checks ran against equals the current main head). (session-settled: user-directed — chosen over hosted Actions: hosted runners are billing-blocked for private repos.)
+- KTD9. **CI runs on self-hosted runners only for these private repos, with merge gating enforced by the merge procedure.** A personal account (the repos are owned by user `duketopceo`) has no organization-level runner pools, so each repo gets one repo-level runner registered with `--ephemeral` (JIT, re-registered per job). The Linux runner is a non-sudo user outside the docker group on `the Linux dev machine` (or the production host when available), with no access to the main user's home or omaseal session; The macOS build host runner is likewise its own user and is labelled `macos`. Workflows never use `pull_request_target`. GitHub branch protection on private repos is unavailable on the current plan, so R20 is enforced by the merge step checking the head SHA's check runs, the same rule as the standing "never merge in the same command as tests". The merge step also refuses unless the PR branch is up to date with main (the base SHA the checks ran against equals the current main head). (session-settled: user-directed — chosen over hosted Actions: hosted runners are billing-blocked for private repos.)
 
 ### High-Level Technical Design
 
@@ -194,7 +194,7 @@ flowchart TB
 ### Assumptions
 
 - Workers Paid is active on the account, because the production Worker has been serving the OpenNext app. U15 preflight confirms it.
-- The Mac mini is reachable and Luke can register it as a runner. Until he does, R19 runs manually on the Mac mini with the same scripts.
+- The macOS build host is reachable and Luke can register it as a runner. Until he does, R19 runs manually on the macOS build host with the same scripts.
 - An owner deleting their account while others remain hands ownership to the member with the earliest `crew_members.created_at`. Deletion is never blocked.
 
 ### Sequencing
@@ -218,7 +218,7 @@ U1 → U2 → U3 → U4 harden production first and ship as soon as each is gree
 | Wikidata search quality or latency under load | The existing local catalog cache plus the 2.5 s timeout (KTD7, U10). |
 | Another session deploys mid-rollout | U15 confirms the deploy window with Luke first. Preflight re-runs immediately before each step. |
 | MetricKit misses crashes on some iOS versions | ErrorLog upload stays the primary signal, and MetricKit is additive (KTD6). |
-| The Linux runner shares `omarchy-max` with local LLM services | The runner user has no sudo, and its jobs live in `app.slice` like other user work. If oomd kills llama services during CI, CI moves to cluster2. |
+| The Linux runner shares the Linux dev machine with local LLM services | The runner user has no sudo, and its jobs live in `app.slice` like other user work. If oomd kills llama services during CI, CI moves to the production host. |
 
 ### Sources and Research
 
@@ -690,7 +690,7 @@ U1 → U2 → U3 → U4 harden production first and ship as soon as each is gree
 - A Playwright run writes screenshots of each public page and the triage page, with seeded data and a fixed clock.
 - Running each suite three times on one commit yields identical results.
 
-**Verification:** Three consecutive runs with no retries are green on the Linux box and the Mac mini.
+**Verification:** Three consecutive runs with no retries are green on the Linux box and the macOS build host.
 
 ### U13. Self-hosted CI
 
@@ -709,7 +709,7 @@ U1 → U2 → U3 → U4 harden production first and ship as soon as each is gree
 
 **Approach:**
 1. Move `runs-on` to `[self-hosted, linux]` for backend and web, and `[self-hosted, macos]` for UI tests.
-2. Register one repo-level runner per repo with `--ephemeral` (JIT, re-registered per job), as a non-sudo user outside the docker group with no access to the main user's home or omaseal session. The Mac mini runner is likewise its own user.
+2. Register one repo-level runner per repo with `--ephemeral` (JIT, re-registered per job), as a non-sudo user outside the docker group with no access to the main user's home or omaseal session. The macOS build host runner is likewise its own user.
 3. Trigger workflows on `pull_request` and `push` to main only, with no `pull_request_target`.
 4. `merge-when-green.sh` checks that every required check run on the PR head SHA succeeded, and refuses unless the PR branch is up to date with main (the base SHA the checks ran against equals the current main head), before calling `gh pr merge --squash`, as a separate command from the test run.
 
@@ -732,7 +732,7 @@ U1 → U2 → U3 → U4 harden production first and ship as soon as each is gree
 - `ios:Tests/fixtures-server/screenshots/*` (new seed)
 - `docs/app-store/screenshots.md`
 
-**Approach:** Use a seed crew with friendly fictional content and fixed dates. Capture each tab at the 6.9" and 6.5" sizes in light mode. The output is collected as a workflow artifact on the Mac mini and copied to `~/Downloads/claude/kate-launch/screenshots/` for Luke.
+**Approach:** Use a seed crew with friendly fictional content and fixed dates. Capture each tab at the 6.9" and 6.5" sizes in light mode. The output is collected as a workflow artifact on the macOS build host and copied to `~/Downloads/claude/kate-launch/screenshots/` for Luke.
 
 **Test expectation:** the screenshot test asserts each target screen reached its expected title before capturing.
 
@@ -780,9 +780,9 @@ U1 → U2 → U3 → U4 harden production first and ship as soon as each is gree
 |---|---|---|---|
 | Lint, types, unit tests | `npm run lint`, `npm run typecheck`, `npm test` | `KATE_CORE_ONLY=1 swift test` | every unit |
 | D1 migration check | `scripts/test/d1-migrations-check.sh` | none | U1, U6, U10, any migration |
-| Build | `npm run build` and `npm run build:cloudflare` | `xcodebuild build` on the Mac mini (or `swiftc -parse` on Linux for syntax) | every unit |
+| Build | `npm run build` and `npm run build:cloudflare` | `xcodebuild build` on the macOS build host (or `swiftc -parse` on Linux for syntax) | every unit |
 | Web e2e | `npx playwright test -c e2e` | none | U8, U12, U15 |
-| iOS UI tests | none | `xcodebuild test -scheme kate_iosUITests` on the Mac mini | U9, U12, U14 |
+| iOS UI tests | none | `xcodebuild test -scheme kate_iosUITests` on the macOS build host | U9, U12, U14 |
 | Determinism | each suite three times on one commit | same | U12, U13 |
 | Production preflight | `scripts/ops/preflight.sh` | none | U15, before every production step |
 

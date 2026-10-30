@@ -81,8 +81,8 @@ serious in the room.
 | D11 | iOS framework and floor | SwiftUI, iOS 17+, Swift 6, no UI dependencies, single App Store app that points at any server (instance URL) plus Tallyline Cloud as default. | Carries over the settled decisions from the 2026-10-12 plan. |
 | D12 | Self-hosted push notifications | A small **Tallyline push relay** run by the maintainer (stateless, open source). Self-hosted servers send a minimal "something happened" ping to the relay; the relay forwards to APNs; the app fetches the real content from the owner's server. | An App Store app can only be pushed to with the publisher's Apple key, which cannot live on every self-hosted server. Same pattern other self-hosted apps use. **Assumed** acceptable to Luke; see open questions. |
 | D13 | Pairing the phone | **QR pairing** from web Settings and from the terminal (`tallyline pair`): QR carries server address plus a single-use, 5-minute code; the app exchanges it for a revocable device session. Typing a server URL and signing in stays as the fallback. | Zero typing for non-technical users; no passwords on the phone. |
-| D14 | Distribution | TestFlight internal first, then external TestFlight, then App Store. Builds run on the Mac mini over `ssh mini`. | Luke has the paid account and the pipeline exists (see plan, "Build and TestFlight pipeline"). |
-| D15 | Where does the old iOS plan go? | It is **superseded in part**: its OAuth, API-client, screens and theme units carry forward into Stage 5; its xtool-on-Linux build path is replaced by the Mac mini path for anything that ships; its "defer push, widgets, share, offline" list is reversed. | Luke's ask changed the bar. |
+| D14 | Distribution | TestFlight internal first, then external TestFlight, then App Store. Builds run on the macOS build host over ssh. | Luke has the paid account and the pipeline exists (see plan, "Build and TestFlight pipeline"). |
+| D15 | Where does the old iOS plan go? | It is **superseded in part**: its OAuth, API-client, screens and theme units carry forward into Stage 5; its xtool-on-Linux build path is replaced by the macOS build host path for anything that ships; its "defer push, widgets, share, offline" list is reversed. | Luke's ask changed the bar. |
 
 ## Requirements
 
@@ -178,7 +178,7 @@ serious in the room.
   (OmaSeal `install.sh` pattern): macOS and Linux first, Windows via WSL guidance
   then a native installer later. Homebrew tap and `npx @tallyline/cli` as
   alternates.
-- **R26.** The iOS app ships to TestFlight from the Mac mini with a single
+- **R26.** The iOS app ships to TestFlight from the macOS build host with a single
   command, with build numbers, symbol files kept, and no credentials in the repo.
 
 ## Acceptance examples
@@ -404,8 +404,8 @@ env vars, and `tallyline work`. Renames use hidden aliases for one release
 - **Verified:** private-use redirect schemes are still rejected by
   `validRedirectUri` (`apps/api/src/services/mcp-oauth.ts:155`), so the old iOS
   unit U1 is still open.
-- **Verified 2026-10-28 (read-only):** from omarchy-max, `ssh mini` reaches an
-  M1 Mac mini, macOS 27.2, Xcode 27.1, `xcodegen` installed, no fastlane. A
+- **Verified 2026-10-28 (read-only):** from the Linux dev machine, ssh to the macOS build host reaches an
+  the macOS build host, macOS 27.2, Xcode 27.1, `xcodegen` installed, no fastlane. A
   `release` script exists there for Kate and Cairn, with an App Store Connect key
   file path read from a local env file and a distribution signing identity in the
   login keychain. Not yet verified: Tallyline's App ID, App Store Connect app
@@ -449,5 +449,5 @@ None. All product-shaping questions have defaults above.
 9. **Backups (carried).** The U2 operator steps still wait on the key being
    saved and the Cloudflare account and token. Stage 2's `tallyline backup` and
    doctor depend on them being done.
-10. **Signing identity.** Confirm the mini's Apple Distribution identity and the
+10. **Signing identity.** Confirm the macOS build host's Apple Distribution identity and the
     ASC API key may be used for a third app (Tallyline) alongside Kate and Cairn.

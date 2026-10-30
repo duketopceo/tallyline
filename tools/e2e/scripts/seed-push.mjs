@@ -5,7 +5,7 @@
 // Fresh database only (bootstrap is one-shot). Public API only.
 const API = `http://localhost:${process.env.E2E_API_PORT ?? "4000"}`;
 const PASSWORD = "demo-password-4242";
-const OWNER = { email: "luke@tallyline.test", name: "Luke Kimball" };
+const OWNER = { email: "demo@tallyline.test", name: "Alex Rivera" };
 const DAY = 86_400_000;
 const now = Date.now();
 

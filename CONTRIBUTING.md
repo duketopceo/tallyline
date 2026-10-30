@@ -47,6 +47,20 @@ The api suites clone a migrated template database per test file, so they never w
 
 `pnpm --filter @tallyline/e2e test` starts its own compose project (`tallyline-e2e`, `tools/e2e/docker-compose.e2e.yml`) with Postgres on `:55432` (override with `E2E_PG_PORT`), serves the API on `:4100` and web on `:3110` (`E2E_API_PORT` / `E2E_WEB_PORT`), and never reuses an already-running dev server. If `DATABASE_URL` is already set (as in CI) it uses that and starts nothing. Tear down with `pnpm --filter @tallyline/e2e stack:down`.
 
+## Keep personal details out
+
+This repository is public. Do not commit machine names, host aliases, private
+network names, home-directory or temp paths, usernames, personal email
+addresses, account or app IDs, or signing material. Describe machines by role
+("the macOS build host", "the production host") and read anything
+machine-specific from environment variables or repository secrets.
+
+`tools/ci/privacy-scan.sh` runs in the check gate. It applies generic rules
+(home and macOS temp paths, `.local` and tailnet host names, personal mail
+domains) plus an owner-maintained term list in the `PRIVACY_DENYLIST` secret.
+It prints only the file, line and rule, never the matched text. Note that git
+history keeps anything committed before the scan existed.
+
 ## Conventions
 
 - **TypeScript strict everywhere; no `any`.**

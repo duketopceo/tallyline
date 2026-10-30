@@ -152,11 +152,11 @@ unbuilt — it is an S6 dependency, not an S5 blocker.
 - **KTD12 — Sync is delta-based.** Server adds `updatedSince` cursors to the list
   endpoints the app caches, rather than the app refetching everything. The roadmap
   defers "delta sync" with a revisit trigger; this plan is that trigger firing.
-- **KTD13 — Build and sign on the Mac mini with xcodegen; develop with xtool on omarchy-max.** Shipping builds
-  come from the mini over `ssh mini` (macOS Xcode, `xcodegen`, App Store Connect
-  API key already on the mini). `xtool` on omarchy-max stays the fast inner-loop
-  install to a registered phone (xtool 1.21.0 verified on omarchy-max, not present
-  on the mini). The old plan's "no Xcode needed" stance is dropped for anything
+- **KTD13 — Build and sign on the macOS build host with xcodegen; develop with xtool on the Linux dev machine.** Shipping builds
+  come from the macOS build host over ssh (macOS Xcode, `xcodegen`, App Store Connect
+  API key already on the macOS build host). `xtool` on the Linux dev machine stays the fast inner-loop
+  install to a registered phone (xtool 1.21.0 verified on the Linux dev machine, not present
+  on the macOS build host). The old plan's "no Xcode needed" stance is dropped for anything
   that ships.
 - **KTD14 — The iOS project mirrors `kate-ios`.** SwiftPM package for the app
   code plus an `xcodegen` `project.yml` for the shipping target, a
@@ -166,36 +166,36 @@ unbuilt — it is an S6 dependency, not an S5 blocker.
 
 ## Build and TestFlight pipeline
 
-### Verified (read-only, 2026-10-28, run from omarchy-max)
+### Verified (read-only, 2026-10-28, run from the Linux dev machine)
 
 | Check | Result |
 |---|---|
-| `ssh mini` from omarchy-max | Works (host alias `mini` and `mac-mini`, Tailscale name). Host `M1-Mac-Mini.local`, user `lukekimball`, up 17 days |
+| ssh to the macOS build host from the Linux dev machine | Works (private host alias over a private network). macOS host reachable, non-admin user |
 | Mini OS and Xcode | macOS 27.2, Xcode 27.1 (build 27A9275) |
 | Tools on mini | `xcodegen` at `/opt/homebrew/bin`; `fastlane` absent; `xtool` absent |
 | Signing identities in the login keychain | An Apple Distribution identity and two Apple Development identities listed as valid |
-| Existing pipeline | `~/bin/testflight kate|cairn|all` on omarchy-max runs `ssh -t mac-mini "/opt/homebrew/bin/release …"`; `release` on the mini resets clean clones under `~/release/`, copies a gitignored per-app `Config.swift` from `~/release/config/`, sources `~/release/testflight.env` (key id, issuer id, key path, team id; the `.p8` stays in `~/.appstoreconnect`), unlocks the login keychain if needed, runs the app's `scripts/testflight.sh`, and greps the log for upload success |
+| Existing pipeline | a local `testflight kate|cairn|all` wrapper runs a `release` script on the macOS build host over ssh; `release` on the macOS build host resets clean clones under `~/release/`, copies a gitignored per-app `Config.swift` from `~/release/config/`, sources `~/release/testflight.env` (key id, issuer id, key path, team id; the `.p8` stays in `~/.appstoreconnect`), unlocks the login keychain if needed, runs the app's `scripts/testflight.sh`, and greps the log for upload success |
 | Pipeline scope | `release` has `kate` and `cairn` cases only. No Tallyline entry exists |
 | Kate's `scripts/testflight.sh` | Uses `xcodegen`, `xcodebuild archive -allowProvisioningUpdates` with the API key, exports an IPA, keeps dSYMs, uploads; build number `date -u +%Y%m%d%H%M%S` |
-| xtool on omarchy-max | 1.21.0 |
+| xtool on the Linux dev machine | 1.21.0 |
 
 I did not run any build, signing, keychain unlock, or upload.
 
 ### Assumed (verify in S5-U1 before relying on them)
 
-- Xcode 27.1 on the mini is a release Xcode acceptable for TestFlight (Kate's
+- Xcode 27.1 on the macOS build host is a release Xcode acceptable for TestFlight (Kate's
   README warns against RC SDKs).
 - The App Store Connect API key has App Manager or Admin access, enough to create
   an app record and upload builds.
 - A Tallyline App ID and App Store Connect app record do not exist yet.
-- The mini's keychain unlock works non-interactively over ssh or needs Luke at the
+- The macOS build host's keychain unlock works non-interactively over ssh or needs Luke at the
   console on build days (the `release` script exits with a message if locked).
-- Network egress from the mini to App Store Connect works (Kate and Cairn shipped
+- Network egress from the macOS build host to App Store Connect works (Kate and Cairn shipped
   from it, per the script, but no run was observed).
 
 ### Target pipeline (after S5-U1)
 
-1. `~/bin/testflight tallyline` on omarchy-max (new case added to `release` on the mini).
+1. a local `testflight tallyline` wrapper (new case added to `release` on the macOS build host).
 2. Mini resets `~/release/tallyline` to `origin/main`, copies `tallyline.Config.swift` (default server, relay URL; no secrets), runs `apps/ios/scripts/testflight.sh`.
 3. Script: `swift test`, `xcodegen generate`, `xcodebuild archive`, export, keep dSYMs, export and upload with the same tooling Kate's script uses (confirm the exact command in S5-U1; Kate's script is the working reference).
 4. Build lands in the internal TestFlight group. A TestFlight status check (App Store Connect API read) reports processing state back to the tallyline board as a comment on the stage ticket.
@@ -370,7 +370,7 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 - **Files:** `apps/web/app/(app)/settings/agents/connect/`, `tools/cli/src/agent/connect-agent.ts`, `docs/agents.md`.
 - **Approach:** Pick Claude Code, Codex, Cursor or opencode. Detect installed harnesses on the machine for the CLI path, add or replace only the `tallyline` entry by JSON/TOML merge, preserving every other server and unknown key (OmaSeal's `mcp install` does the same for its own entry; back up the file first and offer undo), using the OAuth `/mcp` endpoint so no key is pasted; verify the agent appears (or a test call succeeds). Config paths and formats per harness are verified at build time, not assumed now (the existing `docs/agents.md` lists Claude Code `.mcp.json`, Cursor `~/.cursor/mcp.json`, Codex `~/.codex/config.toml`, opencode `opencode.json`).
 - **Test scenarios:** existing config preserved; undo removes only our entry; harness not installed gives plain instructions; scopes default read plus write, review never granted.
-- **Verification:** each harness on omarchy-max against a scratch workspace.
+- **Verification:** each harness on the Linux dev machine against a scratch workspace.
 
 #### S3-U7. Settings → AI and onboarding step
 - **Files:** settings page and the S2-U3 checklist step.
@@ -413,17 +413,17 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 
 **Stage goal:** Luke runs Tallyline on his phone from a TestFlight build.
 **Ships:** QR or URL sign-in, workspace switcher, triage, my issues, issue detail with comments, create and edit, board, projects, cycles, labels, roadmap, search, inbox, review queue.
-**Stage verification:** `swift test` green on the mini; per-unit smoke on a device; live acceptance (sign-in, triage, comment, state change, approve a review, see it on web).
+**Stage verification:** `swift test` green on the macOS build host; per-unit smoke on a device; live acceptance (sign-in, triage, comment, state change, approve a review, see it on web).
 
 #### S5-U1. Pipeline and Apple setup (needs Luke)
 - **Requirements:** R26; KTD13, KTD14.
-- **Approach:** Verify the assumptions list above. Confirm bundle ID and name availability (open question 3). Draft the exact App ID and app-record steps; creating either in Apple's console is Luke's go. Add a `tallyline` case to the mini's `release` script and a `tallyline.Config.swift` under `~/release/config/`, a `testflight tallyline` path on omarchy-max (already generic). Prove it with a hello-world build before any real code ships. Report build and upload logs without secrets.
+- **Approach:** Verify the assumptions list above. Confirm bundle ID and name availability (open question 3). Draft the exact App ID and app-record steps; creating either in Apple's console is Luke's go. Add a `tallyline` case to the macOS build host's `release` script and a `tallyline.Config.swift` under `~/release/config/`, a `testflight tallyline` path on the Linux dev machine (already generic). Prove it with a hello-world build before any real code ships. Report build and upload logs without secrets.
 - **Verification:** a trivial build processed by TestFlight and installable. **Stop:** upload only with Luke's explicit go.
 
 #### S5-U2. Scaffold `apps/ios`
 - **Files:** `pnpm-workspace.yaml` (exclusion), `apps/ios/` (SwiftPM package, `project.yml`, `scripts/testflight.sh`, `Resources/`, `PrivacyInfo.xcprivacy`, README), `.gitignore`, repo README line.
 - **Approach:** Mirror `kate-ios`. iOS 17, Swift 6, zero UI dependencies; only `swift-openapi-generator` and runtime if it resolves. Not part of the pnpm workspace: `apps/ios` has no `package.json`, so pnpm ignores it, and the unit still adds `!apps/ios` to `pnpm-workspace.yaml` so a stray `package.json` can never join it.
-- **Verification:** builds on the mini; `swift test` runs.
+- **Verification:** builds on the macOS build host; `swift test` runs.
 
 #### S5-U3. Auth and pairing
 - **Carried and extended from old U3.** Camera QR scan, URL sign-in via ASWebAuthenticationSession plus PKCE, Keychain tokens, single-flight refresh, sign-out wipes cache.
@@ -492,7 +492,7 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 | Old unit | New home | Change |
 |---|---|---|
 | U1 redirect schemes | S4-U1 | none |
-| U2 scaffold | S5-U2 | build on the mini with `project.yml` (xcodegen) and `scripts/testflight.sh`, not xtool-only; both files are in S5-U2's file list |
+| U2 scaffold | S5-U2 | build on the macOS build host with `project.yml` (xcodegen) and `scripts/testflight.sh`, not xtool-only; both files are in S5-U2's file list |
 | U3 auth | S5-U3 | adds QR pairing |
 | U4 client | S5-U4 | adds delta and idempotency |
 | U5 issue loop | S5-U5 | outbox arrives in S6 |
@@ -508,7 +508,7 @@ After this plan merges, the old plan gets a one-line "superseded in part" banner
 - CLI: `pnpm --filter @tallyline/cli test`, `lint`, `typecheck`; golden outputs for every existing command pinned before restyle; manual terminal pass; demo GIF.
 - API: `pnpm --filter @tallyline/api test`; `pnpm check` per PR; migrations applied to a copy of prod data first.
 - Web: component tests, a screenshot per screen in the PR (DESIGN.md contract), keyboard tab-through.
-- iOS: `swift test` on the mini; `xcodebuild` archive per unit; device smoke per unit; live acceptance script.
+- iOS: `swift test` on the macOS build host; `xcodebuild` archive per unit; device smoke per unit; live acceptance script.
 - Install: clean-machine install timing for AE1; one usability session with a non-technical person.
 - Security review per stage: secrets, token storage, pairing abuse, SSRF on provider URLs, relay payload content.
 

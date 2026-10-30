@@ -18,7 +18,7 @@ consolidates: docs/plans/2026-10-13-1535-feat-next-tier-plan.md, docs/plans/2026
 - **Authority:** Product behavior lives on the R-IDs. This plan is the single status ledger and sequencing source. The unit specs for L1-L8 stay in the Linear teardown plan (PR #132) and for intake in PR #138, and this plan only changes their order and scope where a KTD says so.
 - **Scale test:** One human plus AI agents. Anything that only helps teams, billing or multi-tenant hosting is deferred (see the Deferred ledger).
 - **Stop conditions:** Stop and ask before any unit that needs a paid model call, a new datastore, a production data write not named in a unit, or a deploy outside the U3 procedure.
-- **Execution profile:** `ce-work` per unit, one PR per unit. Production deploys happen only on cluster2 under U3.
+- **Execution profile:** `ce-work` per unit, one PR per unit. Production deploys happen only on the production host under U3.
 
 ## Product Contract
 
@@ -38,7 +38,7 @@ Prod holds 146 issues. 123 came from GitHub sync across 19 repos, 125 belong to 
 - R2. `github_webhook_events` has a retention policy that keeps the table bounded and keeps delivery de-duplication working.
 - R3. An admin can revoke and rotate an agent key. New keys may carry an expiry. Existing long-lived keys are replaced.
 - R4. Exactly one process deploys prod. A deploy never builds a commit older than the one running, always takes a backup first, and records which commit each image was built from.
-- R5. Cluster2 housekeeping is done: the orphan redis volume, dangling swarm container records that break `docker system df`, and loose `.env.bak-*` files.
+- R5. Production host housekeeping is done: the orphan redis volume, dangling swarm container records that break `docker system df`, and loose `.env.bak-*` files.
 - R6. Every open PR has a recorded fate, and the approved security fix #113 lands before any feature work.
 
 **PM-ready for daily use**
@@ -160,7 +160,7 @@ Status: done, partial, PR (open PR), todo, deferred. "Now" names where it lands 
 - KTD7. **PR link data lives in `issue_external_refs`.** System `github_pr`, external id `<owner>/<repo>#<n>:<issueKey>`, because the table is unique on workspace, system and external id and one PR can name several issues. No new table for the PM slice.
 - KTD8. **Cycles auto-schedule from a team setting** (length, start weekday, how many to keep ahead) evaluated by a daily tick in the API process. Roll-over already exists in `services/cycles.ts`.
 - KTD9. **Status updates are drafted from `events`**, not by a model. A template summarizes issues moved to done, opened, blocked, PRs merged and milestone progress; Luke edits and posts it. A model may polish it later, optional.
-- KTD10. **Backups use the existing `ops/backup.sh`** (pg_dump, gzip, age-encrypt, S3-compatible upload) run by a systemd timer on cluster2, with a local copy kept as well. The age private key never lives on cluster2.
+- KTD10. **Backups use the existing `ops/backup.sh`** (pg_dump, gzip, age-encrypt, S3-compatible upload) run by a systemd timer on the production host, with a local copy kept as well. The age private key never lives on the production host.
 - KTD11. **Deploy is a script, not a habit.** `ops/deploy.sh` takes an exclusive lock, refuses a non-fast-forward or older target, runs the backup, builds all three images with a revision label, runs health checks, and appends to a deploy log. The Devin session gets a dedicated unix user outside the docker group whose sudoers entry allows only the root-owned `ops/deploy.sh`; the script owns the docker calls and the backup credentials, and Luke's own user is the only other deployer. Convention alone (telling Devin) is not the control.
 
 ### High-Level Technical Design
@@ -210,7 +210,7 @@ U19 improves U9 but does not block it: before U19, imports write "Depends on" li
 
 ### Assumptions
 
-- Prod is `~/apps/tallyline` on cluster2 with `docker-compose.selfhost.yml`. Issue prefix `TLY`, workspace slug `luke`.
+- Prod is `~/apps/tallyline` on the production host with `docker-compose.selfhost.yml`. Issue prefix `TLY`, a single workspace.
 - The workspace has one human user, so role checks on a PAT are met by Luke's own token.
 - The sources in this plan's Kate section are the plans on `main` of `duketopceo/kate` at import time; the import records the commit SHA it read.
 
@@ -234,7 +234,7 @@ U19 improves U9 but does not block it: before U19, imports write "Depends on" li
 | U3 | Deploy lock, provenance, catch-up deploy | `ops/deploy.sh`, `docker-compose.selfhost.yml`, `docs/deploy.md` | U2 |
 | U4 | Webhook-event retention | `apps/api/src/services/`, `apps/api/src/db/schema.ts` | U2 |
 | U5 | Agent key revoke, rotate, expiry | `apps/api/src/routes/agents.ts`, `apps/web/app/(app)/settings/` | U2 |
-| U6 | Cluster2 housekeeping | `docs/deploy.md` (operator steps) | U2 |
+| U6 | Production host housekeeping | `docs/deploy.md` (operator steps) | U2 |
 | U7 | Clear the PR queue | PRs #102, #107, #108, #111, #132, #137, #138 | U1 |
 | U8 | Docs and stub reconciliation | `ROADMAP.md`, `AGENTS.md`, `README.md`, `services/`, `packages/ui` | none |
 | U9 | Plan import core | `packages/types/src/plan.ts`, `apps/api/src/services/plan-import.ts`, `apps/api/src/routes/import.ts` | U2, U3 |
@@ -267,8 +267,8 @@ U19 improves U9 but does not block it: before U19, imports write "Depends on" li
 
 - **Goal:** nightly encrypted backups off the host, restore proven, Kate included. (R1)
 - **Files:** `ops/backup.sh`, `ops/restore.sh`, new `ops/systemd/tallyline-backup.service` and `.timer`, `docs/deploy.md`.
-- **Approach:** KTD10. Generate the age key pair on Luke's laptop and put only the public key on cluster2. Choose the upload target (Cloudflare R2 per the script header, or a second host) and set the healthcheck ping URL. Keep 14 daily and 8 weekly files using a bucket lifecycle rule, not the timer. Use a bucket with versioning or object lock and a write-only upload token (put, no delete or list) for cluster2, so a compromised host cannot erase the off-host copies. Run the restore drill from Luke's laptop with the private key, and store a second offline copy of that key; the key never moves to cluster2. Take one backup before U3 and U4 touch prod. Drill: restore into a throwaway Postgres container and compare table row counts against prod.
-- **Test scenarios:** the timer fires and a new dump appears; a failed upload sends the failure ping; a dump decrypts with the private key and restores; the restored `projects` table contains Kate; a missing `BACKUP_AGE_RECIPIENT` or a private key in that variable aborts the script; the cluster2 token cannot delete an uploaded object; the lifecycle rule keeps the newest 14 dailies.
+- **Approach:** KTD10. Generate the age key pair on Luke's laptop and put only the public key on the production host. Choose the upload target (Cloudflare R2 per the script header, or a second host) and set the healthcheck ping URL. Keep 14 daily and 8 weekly files using a bucket lifecycle rule, not the timer. Use a bucket with versioning or object lock and a write-only upload token (put, no delete or list) for the production host, so a compromised host cannot erase the off-host copies. Run the restore drill from Luke's laptop with the private key, and store a second offline copy of that key; the key never moves to the production host. Take one backup before U3 and U4 touch prod. Drill: restore into a throwaway Postgres container and compare table row counts against prod.
+- **Test scenarios:** the timer fires and a new dump appears; a failed upload sends the failure ping; a dump decrypts with the private key and restores; the restored `projects` table contains Kate; a missing `BACKUP_AGE_RECIPIENT` or a private key in that variable aborts the script; the production host token cannot delete an uploaded object; the lifecycle rule keeps the newest 14 dailies.
 - **Verification:** `systemctl list-timers` shows the timer, the healthcheck shows a green run, and the drill's row counts match.
 
 ### U3. Deploy lock, provenance, and catch-up deploy
@@ -295,7 +295,7 @@ U19 improves U9 but does not block it: before U19, imports write "Depends on" li
 - **Test scenarios:** a revoked key returns 401 on its next call; rotate returns a new key and by default the old key is 401 on its next call, while `graceSeconds` keeps it valid only inside that window; an expired key is refused; a member or agent cannot revoke; revoking another workspace's key is 404; the plaintext shows once and is not in event payloads.
 - **Verification:** `pnpm --filter ./apps/api test`, web e2e for the screen, and the fleet's own calls keep working after rotation.
 
-### U6. Cluster2 housekeeping
+### U6. Production host housekeeping
 
 - **Goal:** clean host, working Docker tooling. (R5)
 - **Files:** `docs/deploy.md` (an "Operator housekeeping" section recording what was done and the commands).
@@ -500,7 +500,7 @@ U19 improves U9 but does not block it: before U19, imports write "Depends on" li
 ## Documentation and Operational Notes
 
 - `docs/deploy.md` gains the backup timer, deploy script, deploy log and housekeeping record. `docs/import.md` documents the import format and dedupe layers. `docs/agents.md` loses the "tracked for a later milestone" line when U5 ships.
-- Prod deploys use only `ops/deploy.sh` on cluster2 (`~/apps/tallyline`). No deploy or prod data write happens in the planning run that produced this document.
+- Prod deploys use only `ops/deploy.sh` on the production host (`~/apps/tallyline`). No deploy or prod data write happens in the planning run that produced this document.
 
 ## Verification Contract
 
@@ -537,8 +537,8 @@ No deploy of a unit that touches the database, auth or the web shell until all o
 ## Luke actions
 
 1. Confirm the OQ defaults, in particular OQ3 (project map for the 19 synced repos) and OQ5 (the credential for the Kate import).
-2. Generate the age key pair on the laptop and give cluster2 only the public key; choose the backup target (U2).
-3. Approve the restricted Devin unix user and sudoers entry on cluster2, and tell the Devin session to deploy only through `ops/deploy.sh` (U3).
+2. Generate the age key pair on the laptop and give the production host only the public key; choose the backup target (U2).
+3. Approve the restricted Devin unix user and sudoers entry on the production host, and tell the Devin session to deploy only through `ops/deploy.sh` (U3).
 4. Confirm which exited swarm containers and which `.env.bak-*` files may be deleted (U6).
 5. Approve each production write by name: migrations, repo backfill, Kate import.
 6. Review the Kate dry-run ambiguous list before apply (U11).

@@ -6,7 +6,7 @@
 // a fresh database only (bootstrap is one-shot).
 const API = `http://localhost:${process.env.E2E_API_PORT ?? "4000"}`;
 const PASSWORD = "demo-password-4242";
-const OWNER = { email: "luke@tallyline.test", name: "Luke Kimball" };
+const OWNER = { email: "demo@tallyline.test", name: "Alex Rivera" };
 
 let seed = 7;
 const rnd = () => {

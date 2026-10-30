@@ -7,7 +7,7 @@ const WEB = `http://localhost:${process.env.E2E_WEB_PORT ?? "3100"}`;
 const out = process.argv[2];
 const prefix = process.argv[3] ?? "";
 mkdirSync(out, { recursive: true });
-const EMAIL = process.env.SHOOT_EMAIL ?? "luke@tallyline.test";
+const EMAIL = process.env.SHOOT_EMAIL ?? "demo@tallyline.test";
 const PASSWORD = process.env.SHOOT_PASSWORD ?? "demo-password-4242";
 const only = process.env.SHOOT_ONLY?.split(",");
 

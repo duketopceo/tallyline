@@ -1,0 +1,82 @@
+name: ios-release
+
+# Archives, signs and uploads the iOS app to TestFlight (internal group).
+# Runs only by hand or on an ios-v* tag, and only after a required reviewer
+# approves the `testflight` environment (Settings → Environments). Secrets live
+# in that environment, never in the repo:
+#   ASC_KEY_ID, ASC_ISSUER_ID   App Store Connect API key identifiers
+#   ASC_KEY_P8_BASE64           the AuthKey_<id>.p8 file, base64-encoded
+#   APPLE_TEAM_ID               Apple Developer team ID
+on:
+  workflow_dispatch:
+    inputs:
+      marketing_version:
+        description: "Marketing version, e.g. 1.0"
+        required: true
+        default: "1.0"
+  push:
+    tags: ["ios-v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-release
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    runs-on: macos-26
+    timeout-minutes: 60
+    environment: testflight
+    defaults:
+      run:
+        working-directory: apps/ios
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check secrets are present
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=""
+          for v in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8_BASE64 APPLE_TEAM_ID; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          [ -z "$missing" ] || { echo "::error::Missing secrets in the testflight environment:$missing"; exit 1; }
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          brew install xcodegen
+      - name: Write the API key to a temp file
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          umask 077
+          printf '%s' "$ASC_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+      - name: Archive, export, upload
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
+          DSYM_DIR: ${{ runner.temp }}/dsyms
+          VERSION_INPUT: ${{ inputs.marketing_version }}
+        run: |
+          MARKETING_VERSION="${VERSION_INPUT:-${GITHUB_REF_NAME#ios-v}}"
+          [[ "$MARKETING_VERSION" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || { echo "::error::bad version $MARKETING_VERSION"; exit 1; }
+          export MARKETING_VERSION
+          bash scripts/testflight.sh
+      - name: Keep dSYMs (crash symbolication)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dsyms-${{ github.run_number }}
+          path: ${{ runner.temp }}/dsyms
+          retention-days: 90
+      - name: Remove the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8" "$HOME/.appstoreconnect/private_keys/"AuthKey_*.p8
