@@ -14,9 +14,9 @@ import { ingestIntake } from "../services/intake.js";
 
 // ranking is switched on so the test proves the receiver bypasses it
 const suggestTriage = vi.hoisted(() => vi.fn());
-vi.mock("../services/llm.js", async (orig) => ({
-  ...(await orig<typeof import("../services/llm.js")>()),
-  llmEnabled: () => true,
+vi.mock("../services/ai-seam.js", async (orig) => ({
+  ...(await orig<typeof import("../services/ai-seam.js")>()),
+  aiEnabledFor: async () => true,
 }));
 vi.mock("../services/assist.js", async (orig) => ({
   ...(await orig<typeof import("../services/assist.js")>()),

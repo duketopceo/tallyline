@@ -12,7 +12,7 @@ import { useToast } from "@/components/app/toast";
 import { Assignee, Glint, Kbd, PriorityGlyph, StateGlyph } from "@/components/app/ui";
 import type { IssueDetail } from "@/components/app/peek-panel";
 import { recordRecent } from "@/components/command-palette";
-import { SummarizeButton } from "@/components/issue-detail-client";
+import { BreakdownButton, SummarizeButton } from "@/components/issue-detail-client";
 import { SessionTimeline, type Outcome, type Session } from "@/components/session-timeline";
 import { PRIORITY_LABEL, relTime, STATE_LABEL } from "@/lib/format";
 import { Markdown } from "@/lib/markdown";
@@ -21,7 +21,7 @@ export interface DetailComment { id: string; body: string; actorType: string; ac
 export interface DetailEvent { id: number; action: string; actorType: string; actorId: string | null; before: Record<string, unknown> | null; after: Record<string, unknown> | null; createdAt: string }
 type Child = { key: string; title: string };
 export interface PullRequestLink { repo: string; number: number; title: string; state: "draft" | "open" | "merged" | "closed"; url: string | null }
-export type FullIssue = IssueDetail & { children: Child[]; parentId?: string | null; pullRequests?: PullRequestLink[] };
+export type FullIssue = IssueDetail & { id?: string; children: Child[]; parentId?: string | null; pullRequests?: PullRequestLink[] };
 
 const abs = (iso: string) => new Date(iso).toLocaleString();
 
@@ -355,6 +355,7 @@ export function IssueDetailView({
             </section>
 
             <SummarizeButton issueKey={issue.key} />
+            <BreakdownButton issueKey={issue.key} parentId={serverIssue.id} onCreated={() => router.refresh()} />
 
             {serverIssue.children.length > 0 && (
               <section aria-label="Sub-issues" className="mt-8">

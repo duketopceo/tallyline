@@ -327,6 +327,7 @@ export const OPERATIONS: Record<string, Builder> = {
   "GET /v1/workspaces/{ws}/issues/{key}/comments": issueOp("GET", "/comments"),
   "POST /v1/workspaces/{ws}/issues/{key}/comments": issueOp("POST", "/comments", { body: "hello" }),
   "POST /v1/workspaces/{ws}/issues/{key}/summarize": issueOp("POST", "/summarize"),
+  "POST /v1/workspaces/{ws}/issues/{key}/breakdown-suggest": issueOp("POST", "/breakdown-suggest"),
   "POST /v1/workspaces/{ws}/issues/{key}/triage-suggest": issueOp("POST", "/triage-suggest"),
   "POST /v1/workspaces/{ws}/issues/dup-check": simple("POST", (t) => `${base(t)}/issues/dup-check`, {
     title: "Matrix duplicate probe",

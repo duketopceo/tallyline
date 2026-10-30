@@ -540,6 +540,15 @@ export const toolDefs: ToolDef[] = [
   }),
 
   defineTool({
+    name: "suggest_sub_issues",
+    description:
+      "Ask the workspace's AI provider to break an issue into up to 8 sub-issues ({title, description}). Suggestions only: nothing is created. Create the ones worth doing with create_issue and parentId. Counts against the workspace's monthly AI limit; fails with LLM_DISABLED when no provider is connected. Needs write scope.",
+    inputSchema: { key: z.string() },
+    handler: async (args, client) =>
+      client.apiPost(`/issues/${encodeURIComponent(args.key)}/breakdown-suggest`, {}),
+  }),
+
+  defineTool({
     name: "create_issue",
     description:
       "Create an issue. State may be 'triage' or 'backlog' (default backlog). teamKey picks the team (defaults to the workspace's first). To assign, pass assigneeType AND assigneeId together.",

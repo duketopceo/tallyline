@@ -295,9 +295,17 @@ const basePaths = {
     "/v1/workspaces/{ws}/issues/{key}/summarize": {
       post: {
         summary:
-          "LLM-generated issue summary (title + description + comments). 503 LLM_DISABLED when no TALLYLINE_LLM_API_KEY is configured",
+          "LLM-generated issue summary (title + description + comments). Runs on the workspace AI provider (or the server's env provider) and counts against the monthly limit. 503 LLM_DISABLED when none is connected; 402 AI_CAP_REACHED when the limit is spent",
         parameters: [wsParam, keyParam],
         responses: { "200": { description: "Summary text" } },
+      },
+    },
+    "/v1/workspaces/{ws}/issues/{key}/breakdown-suggest": {
+      post: {
+        summary:
+          "Propose up to 8 sub-issues {title, description} for a larger issue. Suggestions only: nothing is created until a person creates the ones they pick. Same provider, limit and errors as summarize",
+        parameters: [wsParam, keyParam],
+        responses: { "200": { description: "{subIssues: [{title, description}]}" } },
       },
     },
     "/v1/workspaces/{ws}/issues/{key}/triage-suggest": {
