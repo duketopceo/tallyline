@@ -132,7 +132,7 @@ describe("hitl label (U16)", () => {
       .values({ workspaceId: t.ws.id, name: "hitl", color: "#f59e0b" })
       .returning();
     const other = await mkLabel(t);
-    const created = await call("POST", "/issues", { title: "needs luke", labelIds: [hitl!.id] });
+    const created = await call("POST", "/issues", { title: "needs a human", labelIds: [hitl!.id] });
     await call("POST", "/issues", { title: "other", labelIds: [other.id] });
     const r = await call("GET", `/issues?label=${hitl!.id}`);
     expect(r.body.issues.map((i) => i.key)).toEqual([created.body.key]);

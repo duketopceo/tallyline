@@ -75,7 +75,7 @@ const ev = (over: Partial<LiveFeedEvent>): LiveFeedEvent => ({
   entityType: "issue",
   action: "state_changed",
   actorType: "human",
-  actorName: "Luke",
+  actorName: "Ada",
   issueKey: "TLY-9",
   issueTitle: "ring it",
   projectId: "p1",
@@ -90,7 +90,7 @@ describe("applyLiveEvent", () => {
     const s = applyLiveEvent(base, ev({}), NOW - DAY);
     expect(s.projects[0]).toMatchObject({ done: 3, closed: 3, doneSince: 2, inReview: 0, inProgress: 3 });
     expect(s.totals).toMatchObject({ done: 3, doneSince: 2 });
-    expect(s.merges[0]).toMatchObject({ issueKey: "TLY-9", actorName: "Luke", pr: null });
+    expect(s.merges[0]).toMatchObject({ issueKey: "TLY-9", actorName: "Ada", pr: null });
   });
   it("a PR merge for the same ticket enriches its item without double counting", () => {
     const once = applyLiveEvent(base, ev({}), NOW - DAY);
@@ -100,7 +100,7 @@ describe("applyLiveEvent", () => {
       NOW - DAY,
     );
     expect(twice.merges).toHaveLength(1);
-    expect(twice.merges[0]).toMatchObject({ actorName: "Luke", pr: { number: 7, url: "https://github.com/x/y/pull/7" } });
+    expect(twice.merges[0]).toMatchObject({ actorName: "Ada", pr: { number: 7, url: "https://github.com/x/y/pull/7" } });
     expect(twice.projects[0]!.done).toBe(3);
   });
   it("a PR merge alone shows the author and leaves the counts alone", () => {

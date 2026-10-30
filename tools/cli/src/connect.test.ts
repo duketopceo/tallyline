@@ -34,7 +34,7 @@ function server(): CliIo["fetch"] {
     if (u.pathname === "/v1/whoami") {
       if (req.headers.get("authorization") !== `Bearer ${GOOD}`)
         return new Response(JSON.stringify({ error: { code: "UNAUTHENTICATED", message: "no" } }), { status: 401 });
-      return new Response(JSON.stringify({ type: "human", id: "u1", name: "Luke", scopes: ["read", "write"], workspaceSlug: "acme", role: "owner" }), { status: 200 });
+      return new Response(JSON.stringify({ type: "human", id: "u1", name: "Ada", scopes: ["read", "write"], workspaceSlug: "acme", role: "owner" }), { status: 200 });
     }
     return new Response("<html>not tallyline</html>", { status: 200 });
   };
@@ -97,7 +97,7 @@ describe("connect in scripts", () => {
     const { io, out } = ioFor({ stdin: async () => `${GOOD}\n` });
     const code = await run(["connect", "--server", "https://api.example.test", "--token-stdin"], io);
     expect(code).toBe(0);
-    expect(out.join("")).toContain("connected to https://api.example.test as Luke (acme)");
+    expect(out.join("")).toContain("connected to https://api.example.test as Ada (acme)");
     expect(await io.tokens!.get("https://api.example.test")).toBe(GOOD);
     const cfg = await readFile(join(home, ".config", "tallyline", "config.json"), "utf8");
     expect(cfg).not.toContain(GOOD);
@@ -139,7 +139,7 @@ describe("connect on a terminal", () => {
     const code = await run(["connect"], io);
     expect(code).toBe(0);
     const log = p.log.join("\n");
-    expect(log).toContain("Signed in as Luke (acme)");
+    expect(log).toContain("Signed in as Ada (acme)");
     expect(log).toContain("saved in a private file");
     expect(log).toContain("You're connected.");
     expect(await io.tokens!.get("https://api.example.test")).toBe(GOOD);
@@ -184,10 +184,10 @@ describe("status, disconnect, config", () => {
   it("status says who you are, and is machine readable with --json", async () => {
     const { io, out } = ioFor({ env: { HOME: home, TALLYLINE_KEYCHAIN: "off", TALLYLINE_API_URL: "https://api.example.test", TALLYLINE_TOKEN: GOOD, TALLYLINE_WORKSPACE: "acme" } });
     expect(await run(["status"], io)).toBe(0);
-    expect(out.join("")).toContain("as Luke");
+    expect(out.join("")).toContain("as Ada");
     const j = ioFor({ env: io.env });
     await run(["status", "--json"], j.io);
-    expect(JSON.parse(j.out.join(""))).toMatchObject({ connected: true, user: "Luke", workspace: "acme" });
+    expect(JSON.parse(j.out.join(""))).toMatchObject({ connected: true, user: "Ada", workspace: "acme" });
   });
   it("status when signed out", async () => {
     const { io, out } = ioFor();

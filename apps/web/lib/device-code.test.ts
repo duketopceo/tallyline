@@ -34,7 +34,7 @@ describe("approvableWorkspaces", () => {
 
 describe("bridge path guards", () => {
   it("only plain slugs and codes become part of an upstream path", () => {
-    expect(SLUG_RE.test("luke")).toBe(true);
+    expect(SLUG_RE.test("ada")).toBe(true);
     expect(SLUG_RE.test("my-team-2")).toBe(true);
     for (const bad of ["", "../x", "a/b", "A", "-x", "a b", "x".repeat(64)]) expect(SLUG_RE.test(bad), bad).toBe(false);
     expect(CODE_RE.test("BCDF-G2H3")).toBe(true);
