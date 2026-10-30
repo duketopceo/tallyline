@@ -23,11 +23,11 @@ Goal: Tallyline is the tool Luke runs his projects on, Kate first, then Cairn an
 | 1 PM-ready | U13 project pages, portfolio overview | partial: project health page in PR | #158 |
 | 1 PM-ready | U15 weekly cycle auto-schedule | done | #147 |
 | 1 PM-ready | U16 milestone-issue link, labels | done | #146 |
-| 1b Daily use | U14 project status updates | PR (API and MCP; web feed to follow) | #170 |
+| 1b Daily use | U14 project status updates | done (API, MCP and web feed on the project page; Luke posts the first real update) | #170 |
 | 1b Daily use | U17 PR-to-issue mapping v2 | todo (branch-name push mapping exists) | none |
 | 1b Daily use | U18 workspace search | done | #166 |
 | 1b Daily use | U19 issue relations | landed in #155, not re-verified per unit | #155 |
-| 1b Daily use | U20 agent inbox, ready excludes blocked | PR (mentions and answered questions not yet in inbox) | #169 |
+| 1b Daily use | U20 agent inbox, ready excludes blocked | done (assigned, mentions, answered questions, ack; mentions and answers are derived, not notification rows) | #169 |
 | 1b Daily use | U21 mobile web and installable PWA | done (device check by Luke pending) | #167 |
 | 2 Agent protocol | U22 sessions and delegate, U23 elicitation and PR links, U25 suggestions | landed in #155, not re-verified per unit | #133, #155 |
 | 2 Agent protocol | U24 automated intake | done | #149 |

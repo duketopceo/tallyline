@@ -14,6 +14,15 @@ import { ApiError, TallylineClient } from "./client.js";
 
 // ── API row shapes (only the fields tools read) ──────────────────────
 
+interface InboxItem {
+  kind: "mention" | "answer";
+  id: string;
+  issueKey: string;
+  issueTitle: string;
+  excerpt: string;
+  createdAt: string;
+}
+
 interface IssueRow {
   id: string;
   key: string;
@@ -438,7 +447,7 @@ export const toolDefs: ToolDef[] = [
   defineTool({
     name: "inbox",
     description:
-      "What is waiting for you in one call: open issues assigned to you or delegated to you ('todo' or 'in_progress'), not blocked by an unfinished issue, urgent first. Mentions and answered questions are not included yet.",
+      "What is waiting for you in one call. `waiting`: open issues assigned to you or delegated to you ('todo' or 'in_progress'), not blocked by an unfinished issue, urgent first. `mentions`: comments that @-mentioned you, and `answers`: human replies to your questions on your sessions, both newer than your last `ack` (oldest first, agent keys only). Call `ack` with the last item's createdAt once handled.",
     inputSchema: { limit: z.number().int().min(1).max(200).optional() },
     readOnly: true,
     handler: async (args, client) => {
@@ -459,8 +468,31 @@ export const toolDefs: ToolDef[] = [
             Date.parse(a.createdAt) - Date.parse(b.createdAt),
         )
         .slice(0, args.limit ?? 20);
-      return { waiting: waiting.map(slimIssue) };
+      // mentions and answered questions are an agent-only feed (U20)
+      const feed =
+        me.type === "agent"
+          ? await client.apiGet<{ items: InboxItem[]; ackedAt: string | null }>(
+              "/agent-inbox",
+              { limit: args.limit ?? 20 },
+            )
+          : { items: [] as InboxItem[], ackedAt: null };
+      return {
+        waiting: waiting.map(slimIssue),
+        mentions: feed.items.filter((i) => i.kind === "mention"),
+        answers: feed.items.filter((i) => i.kind === "answer"),
+        ackedAt: feed.ackedAt,
+      };
     },
+  }),
+
+  defineTool({
+    name: "ack",
+    description:
+      "Acknowledge inbox mentions and answers up to `through` (an ISO time, usually the createdAt of the last item you handled). They stop appearing in `inbox`; the mark only moves forward. Agent keys only.",
+    inputSchema: { through: z.string().datetime() },
+    readOnly: false,
+    handler: async (args, client) =>
+      client.apiPost<{ ackedAt: string }>("/agent-inbox/ack", { through: args.through }),
   }),
 
   defineTool({
