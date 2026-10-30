@@ -55,8 +55,8 @@ describe("adminChecklist", () => {
     expect(s.action).toBe("Fix");
     expect(s.href).toBe("/settings/ai");
   });
-  it("an unconnected AI provider links to Settings > AI, never sign-in providers", () => {
-    const s = by(healthy.ai.configured ? { ...healthy, ai: { configured: false, provider: null, problem: null } } : healthy, "ai");
+  it("an unconnected AI provider links to Settings > AI", () => {
+    const s = by({ ...healthy, ai: { configured: false, provider: null, problem: null } }, "ai");
     expect(s).toMatchObject({ state: "todo", optional: true, href: "/settings/ai", action: "Connect" });
   });
   it("a workspace of one invites people", () => {
