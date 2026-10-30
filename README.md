@@ -29,6 +29,7 @@
 - **MCP server:** Model Context Protocol server for AI agents (`apps/mcp-server`)
 - **Dispatch:** agent routing inside the API (`apps/api/src/services/dispatch.ts`)
 - **CLI:** `tallyline` command-line tool (`tools/cli`)
+- **iOS app (in development):** native SwiftUI client in `apps/ios` (see [Recent changes](#recent-changes))
 - **Shared packages:** `packages/types`, `packages/silver-lining`
 - **Infra:** Docker Compose (Postgres only) for dev and self-host
 
@@ -50,6 +51,9 @@ the actor's identity.
   agent's harness adapter (local harnesses, or a signed webhook). See [docs/adapters.md](./docs/adapters.md).
 - **Signed webhooks out.** HMAC-SHA256 deliveries with retries and a delivery log
   ([docs/webhooks.md](./docs/webhooks.md)).
+- **Bring your own AI provider.** An admin connects OpenRouter or any OpenAI-compatible endpoint for a
+  workspace. The key is sealed at rest and never shown again, and a monthly spend limit stops calls before
+  they happen ([docs/llm-assist.md](./docs/llm-assist.md)).
 - **Integrations.** GitHub App sync, Slack intake and thread mirroring, an n8n node, a Composio
   toolkit, and importers for GitHub issues and Linear CSV.
 
@@ -74,6 +78,36 @@ Open `http://localhost:3100`, bootstrap the first workspace, and you have a boar
 
 Running tests? Do not point them at this dev stack — see [CONTRIBUTING.md](./CONTRIBUTING.md#testing-against-real-postgres); the test harnesses refuse to start against it.
 
+## Recent changes
+
+Merged since the README was last updated (PRs #158 to #194, full list in the [CHANGELOG](./CHANGELOG.md)):
+
+- **v2.0.0** is released: agent protocol, automated intake, plan import, project health and status updates,
+  workspace search, issue relations and installable web app, plus the move to AGPL-3.0 and a Postgres-only stack.
+- **Bring your own AI provider** ([#187](https://github.com/duketopceo/tallyline/pull/187)): per-workspace
+  OpenRouter or OpenAI-compatible provider with sealed keys and a monthly spend limit.
+- **Deploy lock** ([#188](https://github.com/duketopceo/tallyline/pull/188)): `ops/deploy.sh` is the one
+  sanctioned way to update a production host. It takes a lock, refuses a dirty tree or an older commit, runs a
+  backup first, and health-checks every service. See [Deploying a production host](./docs/deploy.md#deploying-a-production-host-opsdeploysh).
+- **Browser sign-in for the CLI** ([#189](https://github.com/duketopceo/tallyline/pull/189)): `tallyline
+  connect` opens a page where an admin approves the code the terminal shows, so no pasted token is needed. It
+  also works over SSH with `--browser`.
+- **System status and a first-run checklist** ([#190](https://github.com/duketopceo/tallyline/pull/190)): admins
+  get `GET /v1/workspaces/{ws}/system/status` and a `/welcome` page that checks the database, backups, sign-in
+  methods, AI provider and email, and tells you the next step for each.
+- **Guided self-host setup** ([#194](https://github.com/duketopceo/tallyline/pull/194)): a `tallyline setup`
+  wizard, `stop`, `resume`, `backup` and `update` commands, a pinned installer script and Railway config files.
+  Publishing the container images and hosting the installer are still to do.
+- **Mobile groundwork** (#182, #184, #186): QR pairing and a device registry, `updatedSince` delta reads, and
+  `Idempotency-Key` on writes, for offline-capable clients ([docs/offline-sync.md](./docs/offline-sync.md)).
+- **iOS app, early** ([#191](https://github.com/duketopceo/tallyline/pull/191),
+  [#192](https://github.com/duketopceo/tallyline/pull/192), [#193](https://github.com/duketopceo/tallyline/pull/193)):
+  `apps/ios` has pairing sign-in, a typed API client, an issue list and detail view, a review queue, and board
+  tabs. It has not been tested on a device or released to TestFlight yet. See [apps/ios/README.md](./apps/ios/README.md).
+
+What is planned next (more of the CLI and setup work, push notifications, a fuller iOS app) is in
+[ROADMAP.md](./ROADMAP.md).
+
 ## Self-host
 
 From clone to a working board in under 10 minutes:
@@ -88,11 +122,14 @@ docker compose -f docker-compose.selfhost.yml up -d
 # http://localhost:3100 -> /bootstrap -> board
 ```
 
+After sign-in, open **Settings, Setup** (`/welcome`) for a checklist of what is still worth setting up (backups, email, AI provider).
+
 Env reference, Cloudflare Tunnel, Railway, upgrades and backups: [docs/deploy.md](./docs/deploy.md).
 
 ## Connect an agent
 
 ```bash
+# 0. on your computer: `tallyline connect` signs in through your browser (or paste a token)
 # 1. a signed-in human registers an agent and mints a key (shown once)
 #    POST /v1/workspaces/:ws/agents          then   POST /v1/workspaces/:ws/agents/:id/keys
 # 2. the agent works the board
@@ -127,8 +164,9 @@ client. Details of the repository layout are in [AGENTS.md](./AGENTS.md).
 
 ## Status
 
-v1.0.0 shipped 2026-10-10 ([CHANGELOG](./CHANGELOG.md)). The stack is Postgres-only; agent key
-revoke/rotate and GitHub Actions CI are live. Upcoming work is sequenced in
+v2.0.0 is the latest release (v1.0.0 shipped 2026-10-10; see the [CHANGELOG](./CHANGELOG.md)). The stack is
+Postgres-only; agent key revoke/rotate and GitHub Actions CI are live, and later work is listed under
+[Recent changes](#recent-changes) and in the CHANGELOG's Unreleased section. Upcoming work is sequenced in
 [ROADMAP.md](./ROADMAP.md) (full ledger:
 [docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md](./docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md)).
 Research on competing tools:
@@ -141,6 +179,9 @@ Research on competing tools:
 - [docs/agents.md](./docs/agents.md) — onboard an AI agent (keys, MCP, CLI)
 - [docs/mcp.md](./docs/mcp.md) — MCP server reference
 - [docs/deploy.md](./docs/deploy.md) — self-host guide
+- [docs/llm-assist.md](./docs/llm-assist.md) — connect your own AI provider
+- [docs/offline-sync.md](./docs/offline-sync.md) — delta reads and idempotent writes for mobile clients
+- [apps/ios/README.md](./apps/ios/README.md) — the iOS app (in development)
 - [docs/auth.md](./docs/auth.md) — sign-in & SSO: GitHub/Google/OIDC setup, invites, linking, env flags
 - [docs/adapters.md](./docs/adapters.md) — agent harness adapters
 - [docs/webhooks.md](./docs/webhooks.md) — signed outbound webhooks
