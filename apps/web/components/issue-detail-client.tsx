@@ -87,7 +87,7 @@ export function BreakdownButton({
     setBusy("suggest");
     setError(null);
     try {
-      const res = await fetch(`/api/issues/${issueKey}/breakdown-suggest`, { method: "POST" });
+      const res = await fetch(`/api/issues/${encodeURIComponent(issueKey)}/breakdown-suggest`, { method: "POST" });
       const body = (await res.json().catch(() => null)) as
         | { subIssues?: SubIssueDraft[]; error?: { message?: string } }
         | null;
@@ -108,7 +108,8 @@ export function BreakdownButton({
     if (!d || d.created) return;
     setBusy(`create-${i}`);
     setError(null);
-    const res = await fetch("/api/issues", {
+    type Created = { ok: boolean; body: { key?: string; error?: { message?: string } } | null };
+    const { ok, body }: Created = await fetch("/api/issues", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -117,10 +118,12 @@ export function BreakdownButton({
         ...(teamKey ? { teamKey } : {}),
         parentId,
       }),
-    });
-    const body = (await res.json().catch(() => null)) as { key?: string; error?: { message?: string } } | null;
-    setBusy(null);
-    if (!res.ok || !body?.key) {
+    })
+      .then(async (res) => ({ ok: res.ok, body: (await res.json().catch(() => null)) as Created["body"] }))
+      // network failure: show the error below instead of a stuck panel
+      .catch(() => ({ ok: false, body: null }))
+      .finally(() => setBusy(null));
+    if (!ok || !body?.key) {
       setError(body?.error?.message ?? "Couldn't create that sub-issue.");
       return;
     }

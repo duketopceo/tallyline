@@ -168,13 +168,14 @@ export function createAssist(provider?: LLMProvider) {
         .filter(Boolean)
         .join("\n\n");
       const text = await llmFor(workspaceId, "breakdown").complete({ system: SYSTEM, user: prompt, maxTokens: 700 });
-      const parsed = parseJson<{ subIssues?: { title?: unknown; description?: unknown }[] }>(text);
+      const parsed = parseJson<{ subIssues?: ({ title?: unknown; description?: unknown } | null)[] }>(text);
       if (!parsed || !Array.isArray(parsed.subIssues)) {
         throw new HttpError(502, "LLM_BAD_RESPONSE", "the break-down wasn't readable; try again");
       }
       const seen = new Set<string>();
       return parsed.subIssues
         .flatMap((d) => {
+          if (!d || typeof d !== "object") return [];
           const title = typeof d.title === "string" ? d.title.trim().slice(0, 200) : "";
           if (!title || seen.has(title.toLowerCase())) return [];
           seen.add(title.toLowerCase());

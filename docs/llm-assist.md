@@ -98,6 +98,5 @@ How it behaves:
   reply: "it didn't accept the API key", "the account is out of credit", "it
   doesn't know that model".
 
-This release adds the provider store, the spend ledger and the connect/test API.
-The existing assist surfaces above still read the server-wide environment until
-they are moved onto the workspace provider.
+Every assist surface above runs on this workspace provider, so the monthly
+limit and the usage ledger cover them too.

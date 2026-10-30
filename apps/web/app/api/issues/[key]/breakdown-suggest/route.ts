@@ -19,7 +19,7 @@ export async function POST(
     );
   }
   const upstream = await upstreamFetch(
-    `${API_URL}/v1/workspaces/${workspace}/issues/${key}/breakdown-suggest`,
+    `${API_URL}/v1/workspaces/${encodeURIComponent(workspace)}/issues/${encodeURIComponent(key)}/breakdown-suggest`,
     {
       method: "POST",
       headers: { cookie: `${SESSION_COOKIE}=${session}` },

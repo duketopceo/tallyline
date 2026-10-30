@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { resolveProvider } from "../services/ai-providers.js";
-import { requireAi } from "../services/ai-seam.js";
+import { aiEnabledFor, requireAi } from "../services/ai-seam.js";
 import { createAssist } from "../services/assist.js";
 import { requireWorkspace } from "./workspaces.js";
 
@@ -17,8 +17,11 @@ export const assistRoutes = new Hono()
   .get("/workspaces/:ws/llm/status", async (c) => {
     const ws = await requireWorkspace(c);
     // model name is not a secret: the UI shows what it would call
+    // an unreadable saved key still counts as on, matching requireAi; calls
+    // then fail with the plain AI_KEY_UNREADABLE message
+    const enabled = await aiEnabledFor(ws.id);
     const p = await resolveProvider(ws.id).catch(() => null);
-    return c.json({ enabled: p !== null, model: p?.model ?? null, source: p?.source ?? null });
+    return c.json({ enabled, model: p?.model ?? null, source: p?.source ?? null });
   })
   .post("/workspaces/:ws/issues/:key/summarize", async (c) => {
     const ws = await requireWorkspace(c);

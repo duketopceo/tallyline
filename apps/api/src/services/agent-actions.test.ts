@@ -126,6 +126,8 @@ describe("break-down into sub-issues", () => {
           { title: "Invoices list", description: "download PDFs" },
           { title: "plans table", description: "duplicate, dropped" },
           { title: "", description: "no title, dropped" },
+          null,
+          "not an object",
         ],
       }),
     );
