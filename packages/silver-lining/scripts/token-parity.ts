@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildCss } from "../src/emit.ts";
+import { buildCss, buildSwift } from "../src/emit.ts";
 
 const sha = (s: string | Buffer): string => createHash("sha256").update(s).digest("hex");
 const here = (p: string) => fileURLToPath(new URL(`../${p}`, import.meta.url));
@@ -24,6 +24,14 @@ console.log(`generated      sha256 ${generated}`);
 console.log(`checked-in     sha256 ${checkedIn}`);
 if (generated !== checkedIn) {
   console.error("FAIL: packages/silver-lining/silver-lining.css is stale; run `pnpm --filter @tallyline/silver-lining generate`");
+  failed = true;
+}
+const swiftPath = resolve(repoRoot, "apps/ios/Sources/TallylineCore/SilverLiningTokens.generated.swift");
+const swiftGenerated = sha(buildSwift());
+const swiftCheckedIn = existsSync(swiftPath) ? sha(readFileSync(swiftPath)) : "missing";
+console.log(`ios swift      sha256 ${swiftCheckedIn}`);
+if (swiftGenerated !== swiftCheckedIn) {
+  console.error("FAIL: apps/ios SilverLiningTokens.generated.swift is stale; run `pnpm --filter @tallyline/silver-lining generate`");
   failed = true;
 }
 if (existsSync(vendoredPath)) {

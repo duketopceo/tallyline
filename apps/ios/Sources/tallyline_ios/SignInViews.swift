@@ -99,7 +99,7 @@ struct PairView: View {
             if let error = session.lastError {
                 Text(error)
                     .font(.callout)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Theme.urgent)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }

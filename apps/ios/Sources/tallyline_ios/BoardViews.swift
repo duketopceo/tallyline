@@ -3,23 +3,96 @@ import SwiftUI
 import TallylineCore
 import TallylineDesign
 
-/// Signed-in shell: Triage / My issues / Review / Settings tabs.
+/// Top-level destinations. Order drives the Command-1...4 shortcuts.
+enum HomeSection: String, CaseIterable, Identifiable, Hashable {
+    case triage, issues, review, settings
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .triage: "Triage"
+        case .issues: "Issues"
+        case .review: "Review"
+        case .settings: "Settings"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .triage: "tray"
+        case .issues: "list.bullet"
+        case .review: "checkmark.circle"
+        case .settings: "gearshape"
+        }
+    }
+
+    var shortcut: KeyEquivalent {
+        switch self {
+        case .triage: "1"
+        case .issues: "2"
+        case .review: "3"
+        case .settings: "4"
+        }
+    }
+}
+
+/// Signed-in shell. Tabs on iPhone; a sidebar split view on iPad and in
+/// wide multitasking, where Command-1...4 switch sections.
 struct HomeView: View {
     var session: SessionModel
     let credential: DeviceCredential
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var section: HomeSection = .triage
 
     var body: some View {
-        TabView {
-            IssueListView(session: session, credential: credential, state: .triage)
-                .tabItem { Label("Triage", systemImage: "tray") }
-            IssueListView(session: session, credential: credential, state: nil)
-                .tabItem { Label("Issues", systemImage: "list.bullet") }
-            ReviewQueueView(session: session, credential: credential)
-                .tabItem { Label("Review", systemImage: "checkmark.circle") }
-            SettingsView(session: session, credential: credential)
-                .tabItem { Label("Settings", systemImage: "gearshape") }
+        Group {
+            if sizeClass == .regular {
+                NavigationSplitView {
+                    List(HomeSection.allCases, selection: Binding(
+                        get: { section },
+                        set: { if let next = $0 { section = next } }
+                    )) { item in
+                        Label(item.title, systemImage: item.symbol).tag(item)
+                    }
+                    .navigationTitle(credential.workspaceName)
+                } detail: {
+                    sectionView(section)
+                }
+            } else {
+                TabView(selection: $section) {
+                    ForEach(HomeSection.allCases) { item in
+                        sectionView(item)
+                            .tabItem { Label(item.title, systemImage: item.symbol) }
+                            .tag(item)
+                    }
+                }
+            }
         }
         .tint(Theme.accent)
+        .background { sectionShortcuts }
+    }
+
+    @ViewBuilder
+    private func sectionView(_ item: HomeSection) -> some View {
+        switch item {
+        case .triage: IssueListView(session: session, credential: credential, state: .triage)
+        case .issues: IssueListView(session: session, credential: credential, state: nil)
+        case .review: ReviewQueueView(session: session, credential: credential)
+        case .settings: SettingsView(session: session, credential: credential)
+        }
+    }
+
+    /// Invisible buttons that carry the hardware-keyboard section shortcuts.
+    private var sectionShortcuts: some View {
+        ZStack {
+            ForEach(HomeSection.allCases) { item in
+                Button(item.title) { section = item }
+                    .keyboardShortcut(item.shortcut, modifiers: .command)
+            }
+        }
+        .opacity(0)
+        .frame(width: 0, height: 0)
+        .accessibilityHidden(true)
     }
 }
 
@@ -51,7 +124,14 @@ struct IssueListView: View {
                 IssueDetailView(session: session, credential: credential, issue: issue)
             }
             .toolbar {
+                Button { Task { await reload() } } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .keyboardShortcut("r", modifiers: .command)
+                .accessibilityLabel("Refresh")
                 Button { showCreate = true } label: { Image(systemName: "plus") }
+                    .keyboardShortcut("n", modifiers: .command)
+                    .accessibilityLabel("New issue")
             }
             .refreshable { await reload() }
             .task { await reload() }
@@ -94,8 +174,8 @@ struct IssueRow: View {
 
     private var priorityColor: Color {
         switch issue.priority {
-        case .urgent: .red
-        case .high: .orange
+        case .urgent: Theme.urgent
+        case .high: Theme.attention
         case .medium, .low: Theme.inkMuted
         case .none: Theme.inkSubtle
         }
@@ -104,10 +184,12 @@ struct IssueRow: View {
 
 /// Four-point star marking agent-authored or agent-held work.
 struct Glint: View {
+    var size: CGFloat = 12
+
     var body: some View {
-        Image(systemName: "sparkle")
-            .font(.caption2)
-            .foregroundStyle(Theme.glint)
+        GlintShape()
+            .fill(Theme.glint)
+            .frame(width: size, height: size)
             .accessibilityLabel("agent")
     }
 }
@@ -168,11 +250,13 @@ struct IssueDetailView: View {
                 }
                 HStack {
                     TextField("Comment…", text: $draft).textFieldStyle(.roundedBorder)
-                    Button("Post") { Task { await postComment() } }.disabled(draft.isEmpty)
+                    Button("Post") { Task { await postComment() } }
+                        .keyboardShortcut(.return, modifiers: .command)
+                        .disabled(draft.isEmpty)
                 }
             }
             if let actionError {
-                Section { Text(actionError).foregroundStyle(.red).font(.callout) }
+                Section { Text(actionError).foregroundStyle(Theme.urgent).font(.callout) }
             }
         }
         .navigationTitle(issue.key)
@@ -266,7 +350,7 @@ struct CreateIssueView: View {
                 Picker("Priority", selection: $priority) {
                     ForEach(IssuePriority.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                 }
-                if let error { Text(error).foregroundStyle(.red) }
+                if let error { Text(error).foregroundStyle(Theme.urgent) }
             }
             .navigationTitle("New issue")
             .toolbar {
@@ -302,6 +386,7 @@ struct SettingsView: View {
     var session: SessionModel
     let credential: DeviceCredential
     @State private var whoami: Whoami?
+    @AppStorage("appearance") private var appearance = SilverLiningAppearance.system.rawValue
 
     var body: some View {
         NavigationStack {
@@ -309,6 +394,13 @@ struct SettingsView: View {
                 Section("Workspace") {
                     LabeledContent("Name", value: credential.workspaceName)
                     LabeledContent("Server", value: credential.serverURL.host ?? credential.serverURL.absoluteString)
+                }
+                Section("Appearance") {
+                    Picker("Theme", selection: $appearance) {
+                        ForEach(SilverLiningAppearance.allCases, id: \.rawValue) { option in
+                            Text(option.label).tag(option.rawValue)
+                        }
+                    }
                 }
                 Section("You") {
                     LabeledContent("Signed in as", value: whoami?.name ?? whoami?.id ?? "—")
