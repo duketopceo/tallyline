@@ -1,4 +1,5 @@
 import { aiCmd } from "./ai.js";
+import { agentCmd } from "./agent/agent-cmd.js";
 import { doctorCmd } from "./doctor.js";
 import { backupCmd, resumeCmd, stopCmd, updateCmd } from "./ops/ops.js";
 import { setupCmd } from "./setup/setup.js";
@@ -1064,6 +1065,7 @@ export const commands: Record<string, Command> = {
   work: workCmd,
   "import-plan": importPlanCmd,
   init: initCmd,
+  agent: agentCmd,
   connect: connectCmd,
   doctor: doctorCmd,
   disconnect: disconnectCmd,

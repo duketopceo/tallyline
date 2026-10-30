@@ -145,3 +145,18 @@ test("settings tabs reach Agents and Tokens", async ({ page }) => {
     await expect(nav.getByRole("link", { name: label })).toHaveAttribute("aria-current", "page");
   }
 });
+
+test("connect a coding agent: same steps as the CLI, no key shown", async ({ page }) => {
+  await page.goto("/settings/agents");
+  await page.getByRole("link", { name: "Connect it in one step" }).click();
+  await expect(page.getByRole("heading", { name: "Connect a coding agent" })).toBeVisible();
+
+  await page.getByRole("radio", { name: "Codex" }).click();
+  await expect(page.getByRole("radio", { name: "Codex" })).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByLabel("command", { exact: true })).toHaveText("tallyline agent connect codex");
+  const config = page.getByLabel("config");
+  await expect(config).toContainText("[mcp_servers.tallyline]");
+  await expect(config).toContainText('scopes = ["read", "write"]');
+  await expect(config).not.toContainText("tly_");
+  await expect(page.getByText("Run: codex mcp login tallyline")).toBeVisible();
+});

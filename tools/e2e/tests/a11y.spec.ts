@@ -25,6 +25,7 @@ const APP_PAGES = [
   "/settings/providers",
   "/settings/ai",
   "/settings/ai/openrouter",
+  "/settings/agents/connect",
 ];
 
 const VIEWPORTS = [
