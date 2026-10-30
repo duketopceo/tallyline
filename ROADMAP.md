@@ -29,7 +29,7 @@ Every open item sits in exactly one of three lists: buildable by an agent, needs
 |---|---|
 | U2 backups | Age key custody, bucket object lock, enable the timer, run the restore drill (#165, #172, #178) |
 | U3 deploys | Restricted deploy user, first `ops/deploy.sh --assume-running` run (#188) |
-| U6 cluster2 housekeeping | Confirm deletions: orphan redis volume, dangling swarm records, `.env.bak-*` files |
+| U6 production host housekeeping | Confirm deletions: orphan redis volume, dangling swarm records, `.env.bak-*` files |
 | U11 Kate import | Provide the import credential (OQ5); approve each write |
 | U21 mobile web | Check the installed web app on a phone |
 | S1 CLI | Live check of `connect` and `doctor` against the hosted server |
