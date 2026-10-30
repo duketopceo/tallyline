@@ -47,6 +47,7 @@ export const agentInboxRoutes = new Hono()
       const agent = requireAgent(c);
       const { through } = c.req.valid("json");
       const ackedAt = await ackAgentInbox(ws.id, agent.agentId, new Date(through));
+      if (!ackedAt) throw new HttpError(404, "NOT_FOUND", "agent not found");
       return c.json({ ackedAt });
     },
   );

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/app/page-header";
 import { ProjectUpdateComposer } from "@/components/project-updates";
-import { EmptyState, ErrorState, RelativeTime } from "@/components/primitives";
+import { EmptyState, ErrorState, RelativeTime, Sparkle } from "@/components/primitives";
 import type { RoadmapProject } from "@/components/roadmap-client";
 import { getActorDirectory } from "@/lib/actors";
 import { api, type Me } from "@/lib/api";
@@ -67,7 +67,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                       </span>
                       <span className="text-ink-muted">
                         {author.name}
-                        {author.isAgent && <span className="ml-1.5 rounded-sm border border-lining px-1 font-mono text-[11px] text-ink-subtle">agent</span>}
+                        {author.isAgent && <span className="ml-1.5 inline-flex items-center gap-1 align-middle"><Sparkle size={12} label="agent" /><span className="font-mono text-[11px] text-ink-subtle">agent</span></span>}
                       </span>
                       <span className="ml-auto"><RelativeTime iso={u.createdAt} /></span>
                     </div>

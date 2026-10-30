@@ -125,6 +125,15 @@ describe("agent inbox (real postgres)", () => {
     });
     const again = await call(`${ws(A)}/agent-inbox`, { bearer: agentKey });
     expect(again.body.items.filter((i) => i.issueKey === issue.key)).toHaveLength(1);
+    // acknowledging the answer clears it
+    const ack = await call(`${ws(A)}/agent-inbox/ack`, {
+      method: "POST",
+      bearer: agentKey,
+      body: JSON.stringify({ through: mine[0]!.createdAt }),
+    });
+    expect(ack.status).toBe(200);
+    const afterAck = await call(`${ws(A)}/agent-inbox`, { bearer: agentKey });
+    expect(afterAck.body.items.filter((i) => i.issueKey === issue.key)).toHaveLength(0);
   });
 
   it("never moves the ack mark backwards or past now", async () => {
@@ -139,9 +148,15 @@ describe("agent inbox (real postgres)", () => {
   it("keeps one agent's inbox private from another's", async () => {
     const issue = await mkIssue(A);
     await mention(issue.key, A.agent.name, "only for the first agent");
+    const dispatch = await mkDispatch(A, issue.id);
+    const session = await mkAgentSession(A, dispatch.id, issue.id);
+    await humanPrompt(session.id, "only for the first agent");
     const other = await call(`${ws(A)}/agent-inbox`, { bearer: otherKey });
     expect(other.status).toBe(200);
     expect(other.body.items.filter((i) => i.issueKey === issue.key)).toHaveLength(0);
+    // the owner does see both kinds
+    const owner = await call(`${ws(A)}/agent-inbox`, { bearer: agentKey });
+    expect(owner.body.items.filter((i) => i.issueKey === issue.key).map((i) => i.kind).sort()).toEqual(["answer", "mention"]);
     expect(otherAgentId).not.toBe(A.agent.id);
   });
 

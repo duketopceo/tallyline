@@ -88,8 +88,10 @@ for (const vp of VIEWPORTS) {
         key = await issueKey(page);
         // a project with one status update, for the project page scan
         const made = await page.request.post("/api/projects", { headers: SAME_ORIGIN, data: { name: `a11y project ${Date.now()}` } });
+        expect(made.ok(), "a11y project fixture").toBeTruthy();
         projectId = ((await made.json()) as { id: string }).id;
-        await page.request.post(`/api/projects/${projectId}/updates`, { headers: SAME_ORIGIN, data: { health: "at_risk", body: "**a11y** fixture update" } });
+        const posted = await page.request.post(`/api/projects/${projectId}/updates`, { headers: SAME_ORIGIN, data: { health: "at_risk", body: "**a11y** fixture update" } });
+        expect(posted.status(), "a11y status update fixture").toBe(201);
         await ctx.close();
       });
 

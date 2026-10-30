@@ -79,6 +79,7 @@ export function ProjectUpdateComposer({ projectId }: { projectId: string }) {
             id={`${uid}-health`}
             value={health}
             onChange={(e) => setHealth(e.target.value as UpdateHealth)}
+            disabled={busy}
             className="mt-1 block h-8 rounded-sm border border-control bg-surface-2 px-2 text-[13px] text-ink"
           >
             {UPDATE_HEALTH.map((h) => (
@@ -101,6 +102,7 @@ export function ProjectUpdateComposer({ projectId }: { projectId: string }) {
           id={`${uid}-body`}
           value={body}
           onChange={(e) => setBody(e.target.value)}
+          readOnly={busy}
           rows={5}
           maxLength={20_000}
           onKeyDown={(e) => {

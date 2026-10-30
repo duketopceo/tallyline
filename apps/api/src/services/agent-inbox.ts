@@ -4,7 +4,7 @@
 // answered question is a human `prompt` activity on one of the agent's
 // sessions (the elicitation reply path). The agent's `inbox_acked_at` mark
 // hides what it has already handled; it only moves forward.
-import { and, asc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import {
   agentActivities,
@@ -59,7 +59,7 @@ export async function listAgentInbox(
         eq(dispatches.workspaceId, workspaceId),
         eq(dispatches.agentId, agentId),
         eq(dispatches.trigger, "mention"),
-        mark ? gt(dispatches.createdAt, mark) : undefined,
+        mark ? sql`date_trunc('milliseconds', ${dispatches.createdAt}) > ${mark.toISOString()}::timestamptz` : undefined,
       ),
     )
     .orderBy(asc(dispatches.createdAt))
@@ -82,7 +82,7 @@ export async function listAgentInbox(
         eq(agentSessions.agentId, agentId),
         eq(agentActivities.type, "prompt"),
         eq(agentActivities.actorType, "human"),
-        mark ? gt(agentActivities.createdAt, mark) : undefined,
+        mark ? sql`date_trunc('milliseconds', ${agentActivities.createdAt}) > ${mark.toISOString()}::timestamptz` : undefined,
       ),
     )
     .orderBy(asc(agentActivities.createdAt))
@@ -119,7 +119,7 @@ export async function ackAgentInbox(
   workspaceId: string,
   agentId: string,
   through: Date,
-): Promise<string> {
+): Promise<string | null> {
   const target = through.getTime() > Date.now() ? new Date() : through;
   const [row] = await db
     .update(agents)
@@ -128,5 +128,6 @@ export async function ackAgentInbox(
     })
     .where(and(eq(agents.id, agentId), eq(agents.workspaceId, workspaceId)))
     .returning({ ackedAt: agents.inboxAckedAt });
-  return row!.ackedAt!.toISOString();
+  // null when the agent row is gone (concurrent cleanup)
+  return row?.ackedAt?.toISOString() ?? null;
 }
