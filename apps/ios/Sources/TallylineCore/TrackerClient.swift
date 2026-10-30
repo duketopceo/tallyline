@@ -12,6 +12,12 @@ public struct IssueCreate: Encodable, Sendable {
     public var parentId: String?
     public var delegateId: String?
     public var delegateType: String?
+
+    public init(title: String = "", description: String? = nil, teamId: String = "", priority: IssuePriority? = nil, projectId: String? = nil, cycleId: String? = nil, parentId: String? = nil, delegateId: String? = nil, delegateType: String? = nil) {
+        self.title = title; self.description = description; self.teamId = teamId; self.priority = priority
+        self.projectId = projectId; self.cycleId = cycleId; self.parentId = parentId
+        self.delegateId = delegateId; self.delegateType = delegateType
+    }
 }
 
 public struct IssuePatch: Encodable, Sendable {
@@ -25,11 +31,21 @@ public struct IssuePatch: Encodable, Sendable {
     public var delegateType: String?
     public var projectId: String?
     public var cycleId: String?
+
+    public init(title: String? = nil, description: String? = nil, state: IssueState? = nil, priority: IssuePriority? = nil, estimate: Int? = nil, assigneeId: String? = nil, delegateId: String? = nil, delegateType: String? = nil, projectId: String? = nil, cycleId: String? = nil) {
+        self.title = title; self.description = description; self.state = state; self.priority = priority; self.estimate = estimate
+        self.assigneeId = assigneeId; self.delegateId = delegateId; self.delegateType = delegateType
+        self.projectId = projectId; self.cycleId = cycleId
+    }
 }
 
 public struct CommentCreate: Encodable, Sendable {
     public var body: String
     public var actorType: String = "human"
+
+    public init(body: String, actorType: String = "human") {
+        self.body = body; self.actorType = actorType
+    }
 }
 
 extension APIClient {
