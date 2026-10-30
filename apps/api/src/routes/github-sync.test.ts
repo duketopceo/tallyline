@@ -582,11 +582,17 @@ describe("outbound: tallyline → github mirror", () => {
     ) as { iss: string };
     expect(payload.iss).toBe(APP_ID);
 
-    const [l] = await db
-      .select()
-      .from(githubIssueLinks)
-      .where(eq(githubIssueLinks.id, link.id));
-    expect(l!.ghState).toBe("closed");
+    // the link row is written after the GH call returns; wait for it
+    await vi.waitFor(
+      async () => {
+        const [l] = await db
+          .select()
+          .from(githubIssueLinks)
+          .where(eq(githubIssueLinks.id, link.id));
+        expect(l!.ghState).toBe("closed");
+      },
+      { timeout: 3000 },
+    );
   });
 
   it("non-terminal transitions on an open GH issue skip the API entirely", async () => {
