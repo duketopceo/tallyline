@@ -1,55 +1,64 @@
 # Roadmap
 
-The single roadmap and status ledger is [docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md](./docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md). It supersedes the old "Now / Next / Later" table that lived here.
+Goal: Tallyline is the tracker Luke runs his projects on (Kate first, then Cairn and the rest), and a serious self-hosted Linear replacement with a non-technical setup path, bring-your-own AI, and an iPhone app.
 
-## Status (2026-10-27)
+Status is read from `main` and merged PRs as of 2026-10-30. Unit specs live in two plans:
 
-Goal: Tallyline is the tool Luke runs his projects on, Kate first, then Cairn and the rest. Status below is read from `main` and the open PRs; the unit specs and requirements live in the plan linked above.
+- PM-ready program (U1 to U25): [docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md](./docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md)
+- Self-hosted program (S1 to S7): [docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md](./docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md), from the [requirements](./docs/brainstorms/2026-10-28-self-hosted-linear-ios-agent-providers-cli-requirements.md)
 
-| Phase | Unit | Status | Evidence |
-|---|---|---|---|
-| 0 Safe | U1 middleware fix | done | #113 |
-| 0 Safe | U2 scheduled backups, restore drill | repo side done; operator steps open (age key, bucket lock, enable timer, restore drill) | #165 |
-| 0 Safe | U3 deploy lock and provenance | repo side done (script, labels, docs, tests); operator steps open (restricted deploy user, first `--assume-running` run) | this PR |
-| 0 Safe | U4 webhook-event retention | done | #142 |
-| 0 Safe | U5 key revoke, rotate, expiry | done | #141 |
-| 0 Safe | U6 cluster2 housekeeping | open, operator (needs Luke to confirm deletions) | n/a |
-| 0 Safe | U7 clear the PR queue | partial: #133, #137, #138 landed; #158, #159, #161-#163 open | PR list |
-| 0 Safe | U8 docs and stub reconciliation | done | #154 |
-| 1 PM-ready | U9 plan import core | done | #140, #150 |
-| 1 PM-ready | U10 import CLI, MCP tools, skill step | done | #143 |
-| 1 PM-ready | U11 Kate import run | open, operator (OQ5 credential, Luke approves each write) | n/a |
-| 1 PM-ready | U12 repo-to-project binding | done | #145 |
-| 1 PM-ready | U13 project pages, portfolio overview | partial: project health page in PR | #158 |
-| 1 PM-ready | U15 weekly cycle auto-schedule | done | #147 |
-| 1 PM-ready | U16 milestone-issue link, labels | done | #146 |
-| 1b Daily use | U14 project status updates | done (API, MCP and web feed on the project page; Luke posts the first real update) | #170 |
-| 1b Daily use | U17 PR-to-issue mapping v2 | todo (branch-name push mapping exists) | none |
-| 1b Daily use | U18 workspace search | done | #166 |
-| 1b Daily use | U19 issue relations | landed in #155, not re-verified per unit | #155 |
-| 1b Daily use | U20 agent inbox, ready excludes blocked | done (assigned, mentions, answered questions, ack; mentions and answers are derived, not notification rows) | #169 |
-| 1b Daily use | U21 mobile web and installable PWA | done (device check by Luke pending) | #167 |
-| 2 Agent protocol | U22 sessions and delegate, U23 elicitation and PR links, U25 suggestions | landed in #155, not re-verified per unit | #133, #155 |
-| 2 Agent protocol | U24 automated intake | done | #149 |
+Every open item sits in exactly one of three lists: buildable by an agent, needs Luke, or deferred.
 
-Also open: release PR #159 (v2.0.0).
+## Open: buildable by an agent
 
-Deferred with revisit triggers: loops, skills registry, WordInk intake, entitlements, account lifecycle, multi-workspace, integration trimming, templates, virtualization.
+| Unit | What ships | Notes |
+|---|---|---|
+| S3-U1 | Provider spike doc: OpenRouter PKCE, Hermes interface, ChatGPT-plan eligibility | Read-only. Decides S3-U5 |
+| S3-U3 | Connect OpenRouter (PKCE) and any OpenAI-compatible endpoint, from web and CLI | Live check needs a capped test key from Luke |
+| S3-U4 | Agent actions v1 on the provider seam: summarize, triage, dup-check, break-down, update and PR-brief drafts | Suggestions mechanism from #155 exists (`routes/issues/suggestions.ts`) |
+| S3-U6 | Connect a coding agent in one flow (Claude Code, Codex, Cursor, opencode) | Merges only the `tallyline` entry; backup and undo |
+| S3-U7 | Settings → AI page and a first-run checklist step | Depends on S3-U3 |
+| S4-U3 | Push relay and device tokens, content-free payloads | Off unless configured. Enabling in prod needs Luke |
+| S5-U7 | Silver Lining theme and iPad layout for the iOS app | Needs the Mac toolchain to build and test |
+| S6-U1 to U6 | iOS offline outbox, push, widgets, share sheet, App Intents, accessibility | Needs the Mac toolchain; push needs S4-U3 |
+| Re-verify | U19 relations, U22 sessions and delegate, U23 elicitation and PR links, U25 suggestions | Landed in #155; not yet checked unit by unit |
 
-## Next: self-hosted Linear program (planned 2026-10-28)
+## Open: needs Luke
 
-Tallyline as a serious Linear replacement you host yourself, with a non-technical setup path, AI providers you bring, and a full-quality iPhone app. Requirements: [docs/brainstorms/2026-10-28-self-hosted-linear-ios-agent-providers-cli-requirements.md](./docs/brainstorms/2026-10-28-self-hosted-linear-ios-agent-providers-cli-requirements.md). Staged plan: [docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md](./docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md). It supersedes the iOS plan of 2026-10-12 in part; the native iOS app and delta sync leave the Deferred list and live in S4 to S7.
+| Item | Action |
+|---|---|
+| U2 backups | Age key custody, bucket object lock, enable the timer, run the restore drill (#165, #172, #178) |
+| U3 deploys | Restricted deploy user, first `ops/deploy.sh --assume-running` run (#188) |
+| U6 cluster2 housekeeping | Confirm deletions: orphan redis volume, dangling swarm records, `.env.bak-*` files |
+| U11 Kate import | Provide the import credential (OQ5); approve each write |
+| U21 mobile web | Check the installed web app on a phone |
+| S1 CLI | Live check of `connect` and `doctor` against the hosted server |
+| S2 install | Publish images and make them public, host and pin the installer, Homebrew tap, Railway template, clean-machine run, S2-U6 reachability spike |
+| S3 providers | Answer open questions 4 and 5 (OpenAI participation, which Hermes); spend cap |
+| S5 iOS | S5-U1 Apple setup (App ID, signing), S5-U8 first TestFlight build (pipeline in `apps/ios`, 897088d) |
+| S7 App Store | External TestFlight, listing, submission |
 
-| Stage | Ships | Status | Depends on |
-|---|---|---|---|
-| S1 Polished CLI | Branded home screen, `doctor`, `config`, `connect` (browser sign-in via device authorization, or a pasted token), plain-language errors | built; live check against the hosted server pending | none |
-| S2 Zero-skill install and onboarding | `tallyline setup`, one-line installer, first-run checklist (status endpoint and `/welcome` page built), one-click deploy | S2-U1 `setup`, S2-U5 `stop`/`resume`/`backup`/`update`, S2-U2 installer script and S2-U4 Railway config built (repo side); S2-U3 built; open for Luke: publish images and make them public, pin and host the installer, Homebrew tap, Railway template, clean-machine run, S2-U6 reachability spike | S1 |
-| S3 AI providers and agent connection | OpenRouter and OpenAI-compatible providers, suggestions, one-flow coding-agent connect, ChatGPT plan if the spike passes | planned | S1, S2 |
-| S4 Mobile server groundwork | QR pairing, devices, push relay, delta sync, idempotent writes, native redirect schemes | planned | none |
-| S5 iOS v1 | TestFlight build with the core loop and review queue | planned; needs Luke for Apple setup | S4 |
-| S6 iOS full quality | Offline and outbox, push, widgets, share sheet, App Intents, accessibility | planned | S5 |
-| S7 App Store | External TestFlight and public listing | planned; Luke decides | S6 |
+The full open-question list is at the end of the requirements document.
 
-Open questions that only Luke can answer are listed at the end of the requirements document.
+## Done
 
-Earlier history is in [CHANGELOG.md](./CHANGELOG.md). The original product requirements (R1-R25) are in [plans/2026-10-08-1647-feat-docketry-plan.md](./plans/2026-10-08-1647-feat-docketry-plan.md). Research: [docs/research/2026-10-10-landscape.md](./docs/research/2026-10-10-landscape.md).
+| Area | Units | Evidence |
+|---|---|---|
+| Safety | U1 middleware fix, U4 webhook retention, U5 key revoke/rotate/expiry, U7 PR queue, U8 docs reconciliation; U2 and U3 repo side | #113, #142, #141, #154, #165, #188 |
+| PM-ready | U9 plan import, U10 import CLI/MCP, U12 repo-to-project binding, U13 project pages and portfolio overview, U15 weekly cycles, U16 milestone links and labels | #140, #143, #145, #147, #146, #150, #158, #197 |
+| Daily use | U14 status updates (API, MCP, web feed), U17 PR-to-issue mapping, U18 search, U20 agent inbox with mentions and answers, U21 installable web app | #170, #171, #166, #169, #167, #197 |
+| Agent protocol | U22, U23, U25 (see re-verify above), U24 automated intake | #155, #149 |
+| S1 CLI | Home screen, grouped help, keychain config, `connect`, `doctor`, browser sign-in | #179, #180, #181, #183, #189 |
+| S2 install | `setup`, `stop`/`resume`/`backup`/`update`, installer script, Railway config, status endpoint and `/welcome` checklist | #190, #194 |
+| S3 providers | S3-U2 bring-your-own provider, sealed keys, monthly spend limit | #187 |
+| S4 mobile server | S4-U1 redirect schemes, S4-U2 QR pairing and devices, S4-U4 delta reads and idempotent writes | #182, #186, #184 |
+| S5 iOS | S5-U2/U3 scaffold and pairing, S5-U4 typed client, S5-U5/U6 issue loop, review queue, board tabs; TestFlight build path | #191, #192, #193, 897088d |
+| Release | v2.0.0 | #159 |
+
+## Deferred
+
+Revisit when a trigger in the PM-ready plan's Deferred ledger fires: loops, skills registry, WordInk intake, entitlements, account lifecycle, multi-workspace, integration trimming, templates, virtualization. S3-U5 (ChatGPT-plan provider) waits on the S3-U1 decision.
+
+## History
+
+[CHANGELOG.md](./CHANGELOG.md). Original product requirements R1 to R25: [plans/2026-10-08-1647-feat-docketry-plan.md](./plans/2026-10-08-1647-feat-docketry-plan.md). Research: [docs/research/2026-10-10-landscape.md](./docs/research/2026-10-10-landscape.md).
