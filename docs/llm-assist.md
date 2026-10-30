@@ -51,6 +51,23 @@ environment variables:
 | `DELETE /v1/workspaces/:ws/ai/provider` | disconnect |
 | `POST /v1/workspaces/:ws/ai/provider/test` | one tiny real call; answers `{ok, message}` in plain words. 6 per minute |
 | `GET /v1/workspaces/:ws/ai/usage` | this month's spend and the most recent calls |
+| `POST /v1/workspaces/:ws/ai/openrouter/start` | begin "Connect OpenRouter" (PKCE). Returns the sign-in URL and a sealed state |
+| `POST /v1/workspaces/:ws/ai/openrouter/complete` | finish it: `{code, state}`. The key is fetched server-side and never shown |
+
+### Connect OpenRouter without copying a key
+
+Settings > AI > Connect OpenRouter sends you to OpenRouter, you approve, and you
+land back on `/settings/ai/openrouter`. The server trades the one-time code for a
+key and seals it. You never see or paste the key.
+
+- The PKCE verifier lives only inside the sealed `state` (AES-256-GCM). The
+  state only finishes for the person and workspace that started it, within 10
+  minutes. The OpenRouter code itself is single-use.
+- Headless (`tallyline ai connect openrouter`): the CLI prints the URL, you
+  approve in any browser, then paste the code shown. No callback server needed.
+- A used or wrong code answers `400 CONNECT_CODE_REJECTED`; an old state
+  answers `410 CONNECT_EXPIRED`. Nothing is saved on failure.
+- New connections start on `google/gemini-2.5-flash-lite` with a $10 monthly limit.
 
 How it behaves:
 

@@ -895,6 +895,43 @@ const basePaths = {
         responses: { "200": { description: "Disconnected" }, "404": { description: "No provider of its own" } },
       },
     },
+    "/v1/workspaces/{ws}/ai/openrouter/start": {
+      post: {
+        summary:
+          "Start connecting OpenRouter with PKCE. Returns the OpenRouter sign-in URL and a sealed state that only finishes for the same person and workspace within 10 minutes. headless mode leaves the callback out, for a pasted code (the CLI); admin, signed-in person only",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          properties: {
+            mode: { type: "string", enum: ["redirect", "headless"], description: "default redirect (back to /settings/ai/openrouter)" },
+            model: { type: "string", description: "default google/gemini-2.5-flash-lite" },
+            monthlyCapCents: { type: "integer", description: "monthly spend ceiling in cents; default 1000" },
+          },
+        }),
+        responses: {
+          "200": { description: "{authUrl, state, expiresAt}" },
+          "503": { description: "Server has no AUTH_SECRET_KEY to seal keys with" },
+        },
+      },
+    },
+    "/v1/workspaces/{ws}/ai/openrouter/complete": {
+      post: {
+        summary:
+          "Finish connecting OpenRouter: trade the one-time code for a key (kept sealed, never returned) and save it as the workspace provider; admin, signed-in person only",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["code", "state"],
+          properties: { code: { type: "string" }, state: { type: "string" } },
+        }),
+        responses: {
+          "200": { description: "{provider}: the saved provider view" },
+          "400": { description: "CONNECT_STATE_INVALID or CONNECT_CODE_REJECTED" },
+          "410": { description: "CONNECT_EXPIRED: start again" },
+          "502": { description: "OpenRouter could not be reached or answered with an error" },
+        },
+      },
+    },
     "/v1/workspaces/{ws}/ai/provider/test": {
       post: {
         summary:

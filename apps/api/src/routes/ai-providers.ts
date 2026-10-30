@@ -13,6 +13,7 @@ import {
   saveProvider,
   viewOf,
 } from "../services/ai-providers.js";
+import { completeOpenRouterConnect, startOpenRouterConnect } from "../services/openrouter-connect.js";
 import { apiError, HttpError } from "../lib/errors.js";
 import { createKeyedLimiter } from "../lib/rate-limit.js";
 import { requireWorkspace } from "./workspaces.js";
@@ -26,6 +27,20 @@ const putSchema = z.object({
   apiKey: z.string().max(500).optional(),
   monthlyCapCents: z.number().int().min(0).max(MAX_MONTHLY_CAP_CENTS).nullable().optional(),
 });
+
+const connectStartSchema = z.object({
+  mode: z.enum(["redirect", "headless"]).default("redirect"),
+  model: z.string().min(1).max(200).optional(),
+  monthlyCapCents: z.number().int().min(0).max(MAX_MONTHLY_CAP_CENTS).optional(),
+});
+
+const connectCompleteSchema = z.object({
+  code: z.string().min(1).max(500),
+  state: z.string().min(1).max(4000),
+});
+
+// starting and finishing a connect is cheap but each finish hits OpenRouter
+export const aiConnectLimiter = createKeyedLimiter(10, 60_000, { prefix: "ai-connect" });
 
 // the test button makes a real (paid) call: keep a stuck script from spamming it
 export const aiTestLimiter = createKeyedLimiter(6, 60_000, { prefix: "ai-test" });
@@ -69,6 +84,38 @@ export const aiProviderRoutes = new Hono()
     const removed = await removeProvider(ws.id, actorId);
     if (!removed) throw new HttpError(404, "NOT_FOUND", "this workspace has no AI provider of its own to disconnect");
     return c.json({ ok: true });
+  })
+  // S3-U3: OpenRouter PKCE. A person (never an agent key) starts it; the
+  // returned state is sealed and only finishes for that person and workspace.
+  .post("/workspaces/:ws/ai/openrouter/start", zValidator("json", connectStartSchema), async (c) => {
+    const ws = await requireWorkspace(c);
+    requireRole(c, "admin");
+    const userId = c.get("session")?.userId;
+    if (!userId) return apiError(c, 403, "FORBIDDEN", "connecting a provider needs a signed-in person");
+    const limited = await aiConnectLimiter.hit(c, ws.id);
+    if (limited) return limited;
+    const body = c.req.valid("json");
+    return c.json(
+      startOpenRouterConnect({
+        workspaceId: ws.id,
+        userId,
+        mode: body.mode,
+        model: body.model,
+        monthlyCapCents: body.monthlyCapCents,
+      }),
+    );
+  })
+  .post("/workspaces/:ws/ai/openrouter/complete", zValidator("json", connectCompleteSchema), async (c) => {
+    const ws = await requireWorkspace(c);
+    requireRole(c, "admin");
+    const userId = c.get("session")?.userId;
+    if (!userId) return apiError(c, 403, "FORBIDDEN", "connecting a provider needs a signed-in person");
+    const limited = await aiConnectLimiter.hit(c, ws.id);
+    if (limited) return limited;
+    const body = c.req.valid("json");
+    await completeOpenRouterConnect({ workspaceId: ws.id, userId, code: body.code.trim(), state: body.state });
+    const p = await resolveProvider(ws.id);
+    return c.json({ provider: p ? viewOf(p) : null });
   })
   .post("/workspaces/:ws/ai/provider/test", async (c) => {
     const ws = await requireWorkspace(c);

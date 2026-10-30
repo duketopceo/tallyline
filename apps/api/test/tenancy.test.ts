@@ -46,6 +46,7 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
       "PUT /v1/workspaces/{ws}/ai/provider",
       "DELETE /v1/workspaces/{ws}/ai/provider",
       "POST /v1/workspaces/{ws}/ai/provider/test",
+      "POST /v1/workspaces/{ws}/ai/openrouter/complete",
     ],
   },
   ai_usage_ledger: { ops: ["GET /v1/workspaces/{ws}/ai/usage", "GET /v1/workspaces/{ws}/ai/provider"] },

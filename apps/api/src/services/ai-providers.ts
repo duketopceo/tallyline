@@ -305,6 +305,11 @@ export type AiFetch = (
 let fetchImpl: AiFetch = (url, init) =>
   safeFetchText(url, { ...init, timeoutMs: TIMEOUT_MS, maxBytes: MAX_RESPONSE_BYTES });
 
+/** The guarded network call, also used by the OpenRouter key exchange. */
+export function aiFetch(url: string, init: Parameters<AiFetch>[1]): ReturnType<AiFetch> {
+  return fetchImpl(url, init);
+}
+
 /** test hook: replace the network */
 export function __setAiFetchForTests(f: AiFetch | null): void {
   fetchImpl =

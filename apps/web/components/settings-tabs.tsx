@@ -13,6 +13,7 @@ const TABS = [
   { href: "/settings/projects", label: "Projects" },
   { href: "/settings/cycles", label: "Cycles" },
   { href: "/settings/integrations", label: "Integrations" },
+  { href: "/settings/ai", label: "AI" },
   { href: "/settings/providers", label: "Providers" },
   { href: "/settings/workspace", label: "Workspace" },
   { href: "/settings/account", label: "Account" },

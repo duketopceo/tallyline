@@ -53,6 +53,11 @@ describe("adminChecklist", () => {
     const s = by({ ...healthy, ai: { configured: false, provider: null, problem: "AI_KEY_UNREADABLE" } }, "ai");
     expect(s.state).toBe("attention");
     expect(s.action).toBe("Fix");
+    expect(s.href).toBe("/settings/ai");
+  });
+  it("an unconnected AI provider links to Settings > AI", () => {
+    const s = by({ ...healthy, ai: { configured: false, provider: null, problem: null } }, "ai");
+    expect(s).toMatchObject({ state: "todo", optional: true, href: "/settings/ai", action: "Connect" });
   });
   it("a workspace of one invites people", () => {
     expect(by({ ...healthy, workspace: { members: 1, agents: 0, issues: 0 } }, "people").href).toBe("/settings/invites");

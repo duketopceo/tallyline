@@ -168,6 +168,31 @@ interface ErrorPayload {
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+export interface AiProviderView {
+  source: "workspace" | "environment";
+  kind: "openrouter" | "openai_compatible";
+  label: string;
+  baseUrl: string | null;
+  model: string;
+  hasKey: boolean;
+  monthlyCapCents: number | null;
+  editable: boolean;
+}
+
+export interface AiProviderState {
+  provider: AiProviderView | null;
+  defaultMonthlyCapCents: number;
+  usage: { periodStart: string; periodEnd: string; spentCents: number; calls: number };
+}
+
+export interface AiTestResult {
+  ok: boolean;
+  model?: string;
+  code?: string;
+  message?: string;
+  ms: number;
+}
+
 export class ApiClient {
   readonly apiUrl: string;
   readonly workspace: string;
@@ -287,6 +312,43 @@ export class ApiClient {
         limit: query.limit,
       },
     });
+  }
+
+  // --- workspace AI provider (S3-U3); responses never carry the key ---
+
+  aiProvider(): Promise<AiProviderState> {
+    return this.req("GET", "/ai/provider");
+  }
+
+  putAiProvider(body: {
+    kind: "openrouter" | "openai_compatible";
+    label: string;
+    model: string;
+    baseUrl?: string;
+    apiKey?: string;
+    monthlyCapCents?: number | null;
+  }): Promise<AiProviderView> {
+    return this.req("PUT", "/ai/provider", { body });
+  }
+
+  deleteAiProvider(): Promise<unknown> {
+    return this.req("DELETE", "/ai/provider");
+  }
+
+  testAiProvider(): Promise<AiTestResult> {
+    return this.req("POST", "/ai/provider/test", { body: {} });
+  }
+
+  startOpenRouterConnect(body: {
+    mode: "headless";
+    model?: string;
+    monthlyCapCents?: number;
+  }): Promise<{ authUrl: string; state: string; expiresAt: string }> {
+    return this.req("POST", "/ai/openrouter/start", { body });
+  }
+
+  completeOpenRouterConnect(body: { code: string; state: string }): Promise<{ provider: AiProviderView | null }> {
+    return this.req("POST", "/ai/openrouter/complete", { body });
   }
 
   listTeams(): Promise<{ teams: Team[] }> {

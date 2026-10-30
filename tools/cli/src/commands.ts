@@ -1,3 +1,4 @@
+import { aiCmd } from "./ai.js";
 import { doctorCmd } from "./doctor.js";
 import { backupCmd, resumeCmd, stopCmd, updateCmd } from "./ops/ops.js";
 import { setupCmd } from "./setup/setup.js";
@@ -1073,4 +1074,5 @@ export const commands: Record<string, Command> = {
   backup: backupCmd,
   update: updateCmd,
   config: configCmd,
+  ai: aiCmd,
 };
