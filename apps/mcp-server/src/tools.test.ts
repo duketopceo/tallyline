@@ -414,6 +414,26 @@ describe("tool surface over the real API", () => {
     expect(await inboxKeys()).toContain(blocked);
   });
 
+  it("inbox lists mentions and answered questions and ack clears them", async () => {
+    const me = await call("whoami", {});
+    const agentName = me.data.name as string;
+    await call("create_issue", { title: "mention u20" });
+    const key = ((await call("list_issues", { search: "mention u20" })).data.issues as { key: string }[])[0]!.key;
+    await call("comment", { key, body: `@${agentName} look here` });
+    const first = await call("inbox", {});
+    const mentions = first.data.mentions as { issueKey: string; excerpt: string; createdAt: string }[];
+    const mine = mentions.filter((m) => m.issueKey === key);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]!.excerpt).toContain("look here");
+    expect(first.data.answers).toEqual([]);
+
+    const through = mentions.at(-1)!.createdAt;
+    const acked = await call("ack", { through });
+    expect(acked.res.isError).toBeFalsy();
+    const after = await call("inbox", {});
+    expect((after.data.mentions as { issueKey: string }[]).filter((m) => m.issueKey === key)).toHaveLength(0);
+  });
+
   it("draft_project_update reads the log and post_project_update records an agent-authored update", async () => {
     const proj = await call("create_project", { name: "update-tool-project" });
     const projectId = proj.data.id as string;
@@ -822,6 +842,7 @@ describe("MCP protocol end-to-end (InMemoryTransport)", () => {
       "claim",
       "ready",
       "inbox",
+      "ack",
       "relate_issues",
       "list_agents",
       "list_members",

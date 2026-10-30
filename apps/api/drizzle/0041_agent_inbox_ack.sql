@@ -1,0 +1,1 @@
+ALTER TABLE "agents" ADD COLUMN "inbox_acked_at" timestamp with time zone;

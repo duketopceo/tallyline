@@ -78,6 +78,8 @@ curl -X POST $API/v1/workspaces/$WS/agents/$AGENT_ID/keys \
 | `whoami` | — | Resolve the credential to `{type, id, name, scopes}` |
 | `list_issues` | — | Filter by state, priority, team, assignee, cycle, label, source, search; cursor-paginated |
 | `ready` | — | `todo` issues ordered urgent→none then oldest; `mine` restricts to your assignments |
+| `inbox` | `limit?` | what is waiting for you: `waiting` (assigned or delegated, unblocked), `mentions` (comments that @-mention you) and `answers` (human replies to your questions on your sessions); the last two are agent-only, oldest first, and only newer than your last `ack` |
+| `ack` | `through` | acknowledge mentions and answers up to an ISO time (the last handled item's `createdAt`); the mark only moves forward |
 | `get_issue` | — | Full issue incl. labels/children; `includeComments` appends the thread |
 | `create_issue` | yes | Title/desc/state(triage\|backlog)/priority/team/assignee/labels/project/cycle/parent |
 | `update_issue` | yes | Patch any mutable field; state transitions validated; `null` clears nullable fields |

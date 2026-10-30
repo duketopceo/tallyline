@@ -41,6 +41,7 @@ import { buildMcpOAuthRoutes } from "./routes/mcp-oauth.js";
 import { mcpOAuthAdminRoutes } from "./routes/mcp-oauth-admin.js";
 import { oauthRoutes } from "./routes/oauth.js";
 import { providerRoutes } from "./routes/providers.js";
+import { agentInboxRoutes } from "./routes/agent-inbox.js";
 import { projectUpdateRoutes } from "./routes/project-updates.js";
 import { resourceRoutes } from "./routes/resources.js";
 import { slackRoutes } from "./routes/slack.js";
@@ -114,6 +115,7 @@ export const app = new Hono()
   .route("/v1", agentRoutes)
   .route("/v1", resourceRoutes)
   .route("/v1", projectUpdateRoutes)
+  .route("/v1", agentInboxRoutes)
   .route("/v1", tokenRoutes)
   .route("/v1", deviceAuthWorkspaceRoutes)
   .route("/v1", deviceRoutes)

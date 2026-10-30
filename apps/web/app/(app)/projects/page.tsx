@@ -60,7 +60,7 @@ export default async function ProjectsPage() {
             return (
               <li key={p.id} className="flex flex-col gap-3 rounded-md border border-lining-faint bg-surface-2 p-4">
                 <div className="flex items-baseline gap-2">
-                  <h2 className="text-[14px] font-semibold">{p.name}</h2>
+                  <h2 className="text-[14px] font-semibold"><Link href={`/projects/${p.id}`} className="hover:underline">{p.name}</Link></h2>
                   <span className="font-mono text-[11px] uppercase text-ink-subtle">{p.status}</span>
                 </div>
                 {failed && <p className="text-[12px] text-attention">Issues did not load for this project; counts are unknown.</p>}
