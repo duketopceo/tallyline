@@ -1104,6 +1104,27 @@ const basePaths = {
         responses: { "200": { description: "Draft" } },
       },
     },
+    "/v1/workspaces/{ws}/agent-inbox": {
+      get: {
+        summary:
+          "The calling agent's inbox beyond assigned work: mentions (an @agent comment) and answered questions (a human reply on one of its sessions) newer than its ack mark, oldest first (limit 1-200, default 50). Agent keys only",
+        parameters: [wsParam],
+        responses: { "200": { description: "Items and the current ack mark" } },
+      },
+    },
+    "/v1/workspaces/{ws}/agent-inbox/ack": {
+      post: {
+        summary:
+          "Acknowledge inbox items up to `through` (ISO time, usually the last item's createdAt); the mark only moves forward. Agent keys only",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["through"],
+          properties: { through: { type: "string", format: "date-time" } },
+        }),
+        responses: { "200": { description: "The new ack mark" } },
+      },
+    },
     "/v1/workspaces/{ws}/projects/{id}/milestones/{mid}": {
       patch: {
         summary: "Update a milestone (title, targetDate, sortOrder, done)",

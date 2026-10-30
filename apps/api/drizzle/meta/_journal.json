@@ -288,6 +288,13 @@
       "when": 1793200721239,
       "tag": "0040_ai_providers",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793390966260,
+      "tag": "0041_agent_inbox_ack",
+      "breakpoints": true
     }
   ]
 }

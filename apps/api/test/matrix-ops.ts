@@ -441,6 +441,8 @@ export const OPERATIONS: Record<string, Builder> = {
   "GET /v1/workspaces/{ws}/milestones": get((t) => `${base(t)}/milestones`),
   "GET /v1/workspaces/{ws}/projects/{id}/milestones": projectOp("GET", "/milestones"),
   "POST /v1/workspaces/{ws}/projects/{id}/milestones": projectOp("POST", "/milestones", { title: "M1" }),
+  "GET /v1/workspaces/{ws}/agent-inbox": get((t) => `${base(t)}/agent-inbox`),
+  "POST /v1/workspaces/{ws}/agent-inbox/ack": simple("POST", (t) => `${base(t)}/agent-inbox/ack`, { through: "2026-01-01T00:00:00.000Z" }),
   "GET /v1/workspaces/{ws}/projects/{id}/updates": projectOp("GET", "/updates"),
   "POST /v1/workspaces/{ws}/projects/{id}/updates": projectOp("POST", "/updates", { health: "on_track", body: "Matrix update" }),
   "GET /v1/workspaces/{ws}/projects/{id}/update-draft": projectOp("GET", "/update-draft"),

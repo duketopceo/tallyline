@@ -116,6 +116,9 @@ export const agents = pgTable(
     endpointSecret: text("endpoint_secret"),
     capabilities: jsonb("capabilities").$type<string[]>().default([]).notNull(),
     skills: jsonb("skills").$type<string[]>().notNull().default([]),
+    // U20: inbox items (mentions, answered questions) at or before this
+    // instant are acknowledged; the mark only moves forward
+    inboxAckedAt: timestamp("inbox_acked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
