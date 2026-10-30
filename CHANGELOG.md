@@ -7,6 +7,10 @@ All notable changes to Tallyline (formerly docketry). Format loosely follows
 
 ### Added
 
+- **Zero-skill self-host: `tallyline setup`, `stop`, `resume`, `backup`, `update`** (S2-U1, S2-U5; see `docs/deploy.md`): a guided wizard that checks the computer, offers (never silently runs) a Docker install, generates keys into `~/.tallyline/` at mode 0600, starts the published images, waits for `/health` and opens `/bootstrap`. Re-running offers repair or update and never deletes volumes. The keys screen cannot be passed without confirming a copy is kept, and `backup` keeps asking until then. `update` backs up first and rolls back to the previous release on failure. The server-side `start` verb is `resume` because `tallyline start <KEY>` already moves an issue to in progress.
+- **Pinned installer** (S2-U2, repo side): `tools/install/install.sh` verifies the release tarball against an embedded SHA-512 and refuses to run until `tools/install/pin.sh` pins it after the npm publish; `publish.yml` gains an `images` job pushing `ghcr.io/duketopceo/tallyline-{api,web}`.
+- **Railway one-click deploy config** (S2-U4, repo side): `deploy/railway/` config-as-code and the template variable contract. The published button is an operator step.
+
 - **Native app redirect schemes** (OAuth for `/mcp`): `redirect_uris` may now be an RFC 8252 §7.1 private-use scheme (reverse-domain, for example `app.tallyline.ios:/oauth/callback`). Matched by exact string, PKCE only; schemes without a dot (`javascript:`, `data:`, `file:`) stay rejected. Groundwork for the iOS client.
 - **Offline-client groundwork** (see `docs/offline-sync.md`): `GET /issues?updatedSince=` delta reads with stable keyset paging, and `Idempotency-Key` on issue create, issue update and comment create (migration `0038_idempotency_keys`).
 - **QR pairing and a device registry for the mobile app** (see `docs/auth.md`): members mint a five-minute single-use pairing code, the phone redeems it for a 90-day device credential, rotates it, and people list and revoke their devices (`/devices/pairing`, `/auth/pair/redeem`, `/devices`; migration `0039_device_pairing`).

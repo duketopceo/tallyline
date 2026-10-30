@@ -44,6 +44,8 @@ jobs:
           pnpm test:token-parity
       - name: Deploy script tests
         run: bash ops/deploy.test.sh
+      - name: Installer tests
+        run: bash tools/install/install.test.sh
       - name: Plugin and marketplace manifests
         run: |
           npm install --global @anthropic-ai/claude-code@2.1.296

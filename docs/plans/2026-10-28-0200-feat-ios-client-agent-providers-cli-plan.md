@@ -291,6 +291,7 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 - **Approach:** Preflight (OS, memory, disk, ports, Docker presence and running); plain-language offer to install Docker Desktop via Homebrew or the official installer link (never silently); generate secrets; write `~/.tallyline/`; `docker compose up -d`; wait on `/health` with a spinner and a friendly timeout; open the browser to `/bootstrap`; print the ready screen with QR (only when S4-U2 has shipped; before then the screen shows the plain address, so S2 does not depend on S4) and next steps. Re-runnable and idempotent: detects an existing install and offers repair or upgrade instead of reinstalling. Never deletes volumes without a typed confirmation.
 - **Test scenarios:** Docker missing, Docker installed but stopped, port 3100 in use, low disk, interrupted mid-run then resumed, second run on an existing install; secrets never printed except the backup-key screen, which cannot be dismissed until the user confirms it is saved (copy to clipboard, save to a file with 0600, or print) and re-asks at `backup` and `doctor` while no confirmation is recorded.
 - **Verification:** AE1 on clean machines.
+- **Shipped (repo side, 2026-10-29):** `tools/cli/src/setup/` (`setup.ts`, `preflight.ts`, `home.ts`, `compose.ts`, `run.ts`, `sys.ts`) with scripted-`Sys` tests for each listed scenario. Deviations: the compose template is a string in `compose.ts` (esbuild bundles one file; a `.yml` would not ship), it runs published `ghcr.io/duketopceo/tallyline-{api,web}` images (the `images` job in `publish.yml` pushes them), and the "backup key" is the install's own keys (`JWT_SECRET`, `AUTH_SECRET_KEY`, DB password) since local backups here are unencrypted dumps; the age-key flow stays with `ops/backup.sh`. Not yet: the terminal QR (needs a QR renderer and a signed-in account), `doctor` re-asking while keys are unconfirmed, OrbStack evaluation. **Needs Luke:** make the ghcr packages public after the first tag; AE1 run on clean macOS and Ubuntu machines; usability pass with a non-technical person.
 
 #### S2-U2. Installer, Homebrew, npx, binaries
 - **Requirements:** R25.
@@ -298,6 +299,7 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 - **Approach:** One-line installer that verifies a pinned checksum, never follows "latest". Single-file binaries via Node single-executable or bun compile (spike one day, keep whichever passes smoke on macOS arm64 and x64, Linux x64 and arm64). Homebrew tap formula. `npx @tallyline/cli setup` documented as the alternate; first verify `@tallyline/cli` is published on npm at the current version (the 2.0.0 publish is tracked separately) and do not ship `install.sh` before it is. Windows: WSL guidance page.
 - **Test scenarios:** checksum mismatch aborts; dry run; upgrade in place; PATH advice printed in plain words.
 - **Verification:** install smoke in a clean container and on a Mac.
+- **Shipped (repo side, 2026-10-29):** `tools/install/install.sh` (pinned version plus SHA-512, `--dry-run`, no sudo, PATH advice), `pin.sh`, `install.test.sh` (in CI), `docs/releasing.md` steps. **Not done, needs Luke or a spike:** pin and host the script after the npm publish is confirmed (`@tallyline/cli` presence on npm unchecked here), Homebrew tap repo, single-file binary spike, WSL guidance page.
 
 #### S2-U3. Server status endpoint and web first-run checklist
 - **Requirements:** R2, R4.
@@ -312,12 +314,14 @@ recorded; `pnpm --filter @tallyline/cli test lint typecheck` green.
 - **Files:** `docs/deploy.md` (new section), `deploy/railway/` template config, README button.
 - **Approach:** Railway template provisioning Postgres, API and web with generated secrets, mapped to the same env contract. Verify against Railway's current template mechanism at build time (docs read then, not now).
 - **Verification:** deploy from the button into a scratch project and reach `/bootstrap`; tear down.
+- **Shipped (repo side, 2026-10-29):** `deploy/railway/{api,web}.json` and the variable contract in `deploy/railway/README.md`, linked from `docs/deploy.md`. Railway docs were not read live. **Needs Luke:** publish the template from a Railway account, add the README button, scratch-project deploy and teardown.
 
 #### S2-U5. `start`, `stop`, `status`, `update`, `backup`
 - **Requirements:** R20.
 - **Files:** `tools/cli/src/ops/`.
 - **Approach:** Thin guided wrappers over compose and the existing backup scripts (`ops/`, U2). `backup` shows last backup, runs one now, explains the key. `update` pulls the pinned release, backs up first, migrates, health-checks, rolls back on failure with a plain message. Depends on the U2 backup operator steps being done for the restore-test claim in `doctor`.
 - **Verification:** update from 2.0.0 to the next tag on a scratch install; forced failure rolls back.
+- **Shipped (repo side, 2026-10-29):** `tools/cli/src/ops/ops.ts`: `stop`, `resume`, `backup`, `update`. `tallyline start` is already the issue-to-in-progress command, so the server verb is `resume`. `status` still reports the connection only (local container state not added). Rollback tested with a scripted failure; the real 2.0.0 to next-tag run needs published images.
 
 #### S2-U6. Reachability guide (spike)
 - **Goal:** Let the phone reach a home server.
