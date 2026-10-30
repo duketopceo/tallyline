@@ -62,6 +62,8 @@ class Nonces {
   fresh(key: string): boolean {
     const t = this.now();
     if (this.seen.size > 100_000) for (const [k, exp] of this.seen) if (exp < t) this.seen.delete(k);
+    // hard ceiling: a flood of unique nonces is refused, not stored
+    if (this.seen.size > 200_000) return false;
     const exp = this.seen.get(key);
     if (exp !== undefined && exp >= t) return false;
     this.seen.set(key, t + 2 * MAX_SKEW_MS);
