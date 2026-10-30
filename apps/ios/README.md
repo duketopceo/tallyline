@@ -13,7 +13,7 @@ Native Tallyline client for iPhone and iPad — SwiftUI, SwiftPM package plus an
   code ships from the package.
 - `project.yml` — `xcodegen generate` produces `Tallyline.xcodeproj` (not committed).
 - `scripts/testflight.sh` — archive, export, dSYM keep, upload (macOS only,
-  run via `~/bin/testflight tallyline` on the release machine).
+  run by `.github/workflows/ios-release.yml`, or by hand on any Mac).
 - `scripts/xcode-plist.sh` — writes `build/Info.xcode.plist` with build-setting
   variables before every xcodebuild.
 
@@ -27,7 +27,9 @@ to `/mcp` and cannot call `/v1`, so there is no in-app OAuth flow.
 
 ## Building
 
-Shipping builds run on the Mac mini over `ssh mini` (Xcode + `xcodegen` +
-App Store Connect API key); `xtool` on omarchy-max stays the inner-loop install
-to a registered phone. See the S5 stage in
+Shipping builds run in GitHub Actions on a macOS runner (`.github/workflows/ios-release.yml`,
+Xcode + `xcodegen` + an App Store Connect API key held as repository secrets).
+Every pull request that touches `apps/ios` is compiled and tested by
+`.github/workflows/ios.yml`. `xtool` on a Linux machine stays the inner-loop
+install to a registered phone. See the S5 stage in
 `docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md`.

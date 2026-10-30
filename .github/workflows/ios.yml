@@ -1,0 +1,86 @@
+name: ios
+
+# Compiles and tests apps/ios on every change to it. Public repo: pull_request
+# (never pull_request_target), read-only token, no secrets, no signing.
+on:
+  push:
+    branches: [main]
+    paths: ["apps/ios/**", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["apps/ios/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/ios
+
+jobs:
+  core-linux:
+    name: core tests (linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container: swift:6.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Foundation-only targets: the API client, pairing and models
+      - run: TALLYLINE_CORE_ONLY=1 swift test
+
+  app-macos:
+    name: app build and tests (macos)
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          brew install xcodegen
+      - name: Core tests on macOS
+        run: TALLYLINE_CORE_ONLY=1 swift test
+      - name: Generate project
+        run: |
+          bash scripts/xcode-plist.sh
+          xcodegen generate
+      - name: Pick a simulator
+        id: sim
+        run: |
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)["devices"]
+          ios = sorted((k for k in d if "iOS" in k), reverse=True)
+          print(next(x["udid"] for k in ios for x in d[k] if x["name"].startswith("iPhone")))')
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+      - name: Build app and UI tests (simulator, unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing \
+            -project Tallyline.xcodeproj -scheme Tallyline \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO > build/xcodebuild.log 2>&1 \
+            || { grep -E "error:" build/xcodebuild.log | head -50; exit 1; }
+          tail -3 build/xcodebuild.log
+      - name: Release build compiles (device SDK, unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild build -project Tallyline.xcodeproj -scheme Tallyline -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath build/dd-release \
+            CODE_SIGNING_ALLOWED=NO | tail -5
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: xcodebuild-log
+          path: apps/ios/build/xcodebuild.log
+          if-no-files-found: ignore
+          retention-days: 7

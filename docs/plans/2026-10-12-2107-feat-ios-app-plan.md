@@ -8,7 +8,7 @@ execution: code
 
 # iOS App — Tallyline companion
 
-> **Superseded in part (2026-10-28).** The staged program in [2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md](./2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md) carries these units forward (see its mapping table), builds on the Mac mini instead of xtool alone, and brings push, widgets, share sheet and offline writes into scope.
+> **Superseded in part (2026-10-28).** The staged program in [2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md](./2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md) carries these units forward (see its mapping table), builds on the macOS build host instead of xtool alone, and brings push, widgets, share sheet and offline writes into scope.
 
 ## Goal Capsule
 

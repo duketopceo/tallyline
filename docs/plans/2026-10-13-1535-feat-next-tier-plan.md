@@ -132,7 +132,7 @@ automation/rule engine, anything requiring Redis back.
   `tools/e2e/docker-compose.e2e.yml`, `.github/workflows/check.yml`,
   `docs/deploy.md`, `CONTRIBUTING.md`, `apps/api/package.json` (ioredis),
   `apps/api/scripts/mcp-sdk-conformance.ts`, `apps/api/test/db-guard.*`.
-  Deploy note: cluster2's running stack loses the `tallyline-redis-1`
+  Deploy note: the production host's running stack loses the `tallyline-redis-1`
   container and the api's `REDIS_URL` — compose recreate required.
 - **KTD2 — Shared poller as a module-level registry.** One
   `setInterval`-driven loop in `apps/api/src/routes/events.ts` (or a new
@@ -192,7 +192,7 @@ notifications UI.
 
 ### Assumptions
 
-- Cluster2's compose stack is maintained outside this repo (or generated);
+- The production host's compose stack is maintained outside this repo (or generated);
   removing redis there is an operational step paired with the U1 deploy, not
   a code change.
 - Agent `@mention` parsing verified at `issues.ts` ~L602 (agents-only);
@@ -487,7 +487,7 @@ zero.
   Lining; allowlist only ever ratchets down.
 - `pnpm e2e` — Playwright specs must pass; U2/U5 explicitly covered by the
   connection-count and board-overflow checks.
-- Deploy gate: U1 requires recreating the cluster2 stack (redis container
+- Deploy gate: U1 requires recreating the production host stack (redis container
   removed, `REDIS_URL` gone) — pair the deploy with a `docker compose ps`
   check and `/health` verification.
 

@@ -39,3 +39,27 @@ Check after release: `npm view @tallyline/mcp-server dist.attestations.url` and
   and a binary spike (Node single-executable vs bun compile on macOS arm64/x64 and
   Linux x64/arm64). The npm route above is the supported one meanwhile.
 - **Railway template.** See `deploy/railway/README.md` for the publishing steps.
+
+## iOS (TestFlight)
+
+- **Every PR touching `apps/ios`** runs `.github/workflows/ios.yml`: core tests on
+  Linux, then on a `macos-26` runner the core tests, `xcodegen`, an unsigned
+  simulator `build-for-testing` (app plus UI tests) and an unsigned Release build
+  for the device SDK. No secrets are used.
+- **Uploads** run `.github/workflows/ios-release.yml`, by hand (Actions → ios-release →
+  Run workflow, with a marketing version) or by pushing an `ios-vX.Y` tag. The job
+  waits for approval on the `testflight` environment, then runs
+  `apps/ios/scripts/testflight.sh` and keeps the build's dSYMs as a 90-day artifact.
+
+One-time owner setup:
+
+1. Settings → Environments → New environment `testflight`; add yourself as a
+   required reviewer and limit it to `main` and `ios-v*` tags.
+2. Add the environment secrets `ASC_KEY_ID`, `ASC_ISSUER_ID`, `APPLE_TEAM_ID` and
+   `ASC_KEY_P8_BASE64` (`base64 -i AuthKey_<id>.p8 | pbcopy`). Use an App Store
+   Connect API key with the App Manager role.
+3. Optional: add the repository secret `PRIVACY_DENYLIST` (one term per line) so the
+   privacy scan also checks names specific to you.
+
+`apps/ios/scripts/xtool-testflight.sh` is a fallback from a Linux machine; it reads
+its host, signing directory and app ID from the environment.

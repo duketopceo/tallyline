@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build a signed Release archive and upload to TestFlight (internal).
-# Run on Luke's Mac with release Xcode — not on Linux CI.
+# Runs on macOS with a release Xcode: .github/workflows/ios-release.yml, or any Mac by hand.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -61,7 +61,7 @@ xcodebuild \
 
 # Keep this build's dSYMs: crashes can only be read against the dSYM of the exact build.
 # Stops before upload so no build ships without its dSYMs.
-DSYM_DEST="$HOME/tallyline-dsyms/${MARKETING_VERSION}-${BUILD_NUMBER}"
+DSYM_DEST="${DSYM_DIR:-$HOME/tallyline-dsyms}/${MARKETING_VERSION}-${BUILD_NUMBER}"
 shopt -s nullglob
 DSYMS=("$ARCHIVE"/dSYMs/*.dSYM)
 shopt -u nullglob

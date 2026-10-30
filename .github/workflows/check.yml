@@ -34,6 +34,19 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - name: Privacy scan (no personal hosts, paths or names in a public repo)
+        env:
+          # newline-separated terms; a secret so the terms never land in the repo.
+          # Fork PRs get no secrets and run the generic rules only.
+          PRIVACY_DENYLIST: ${{ secrets.PRIVACY_DENYLIST }}
+        run: bash tools/ci/privacy-scan.sh
+      - name: Workflow lint
+        run: |
+          v=1.7.12
+          curl -fsSL -o /tmp/al.tgz "https://github.com/rhysd/actionlint/releases/download/v$v/actionlint_${v}_linux_amd64.tar.gz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  /tmp/al.tgz" | sha256sum -c -
+          tar -xzf /tmp/al.tgz -C /tmp actionlint
+          /tmp/actionlint -color
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run typecheck lint
       - run: pnpm turbo run build

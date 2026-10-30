@@ -8,7 +8,7 @@ const out = process.argv[2];
 mkdirSync(out, { recursive: true });
 const browser = await chromium.launch();
 const c0 = await browser.newContext({ baseURL: WEB });
-const login = await c0.request.post("/api/login", { data: { email: "luke@tallyline.test", password: "demo-password-4242" } });
+const login = await c0.request.post("/api/login", { data: { email: "demo@tallyline.test", password: "demo-password-4242" } });
 if (!login.ok()) throw new Error("login failed");
 const state = await c0.storageState();
 await c0.close();

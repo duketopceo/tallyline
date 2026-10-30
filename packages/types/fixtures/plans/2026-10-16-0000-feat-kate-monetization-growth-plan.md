@@ -516,7 +516,7 @@ Code read: `src/lib/plus/*`, `src/lib/limits/*`, `drizzle/migrations/0044_crew_u
 - Planner: owner of free crew with `limit: storage` yields moment `limit_storage`, yearly default, intro line only when eligible.
 - Planner: member, owner tier, `plus` active and unavailable entitlement each yield no purchase UI.
 - Planner: non-US storefront or `webCheckoutAvailable == false` hides the web option; US shows it.
-- Covers AE14 in a UI test with the StoreKit configuration fixture on the Mac mini.
+- Covers AE14 in a UI test with the StoreKit configuration fixture on the macOS build host.
 - A refused video upload in the outbox surfaces one paywall, not one per retry.
 - Covers R48. A KateCore copy test fails on any of `countdown`, `ends in`, `only N left`, `hours left` outside the U29 counter path, on a paywall variant missing price, period, renewal line, Terms, Privacy or Restore, and on a refund promise.
 - The member sheet's share message contains no price and is not sent without the share-sheet confirmation.
@@ -589,7 +589,7 @@ Code read: `src/lib/plus/*`, `src/lib/limits/*`, `drizzle/migrations/0044_crew_u
 - Verifier fixture matrix: unreachable, plain HTTP, `schemaReady: false`, old version, setup open, all good; each maps to its message and only all-good enables Switch.
 - Covers AE16 end to end in a UI test with a local stub server.
 
-**Verification:** Linux `swift test` for the verifier and shell tests; UI test on the Mac mini; docs page renders in the web screenshot run.
+**Verification:** Linux `swift test` for the verifier and shell tests; UI test on the macOS build host; docs page renders in the web screenshot run.
 
 ### U26. Monetization release gate and Luke checklist
 
@@ -850,10 +850,10 @@ Same gates as the launch plan, with these additions.
 |---|---|---|---|
 | Lint, types, unit tests | `npm run lint`, `npm run typecheck`, `npm test` | `KATE_CORE_ONLY=1 swift test` | every unit |
 | D1 migration check | `scripts/test/d1-migrations-check.sh` | none | U16, U17, U19, U29 (U20 and U24 read the 0057 table) |
-| Build | `npm run build` and `npm run build:cloudflare` | `xcodebuild build` on the Mac mini, with and without `KATE_PLUS=1` | every unit |
+| Build | `npm run build` and `npm run build:cloudflare` | `xcodebuild build` on the macOS build host, with and without `KATE_PLUS=1` | every unit |
 | Web e2e | `npx playwright test -c e2e` | none | U22, U20 return page, U25 docs, U28 return state, U32 landing page |
 | No tracker in the app | `scripts/test/no-pixel-in-app.sh` | the same scan over the iOS target | U32 and every unit (CI) |
-| iOS UI tests | none | `xcodebuild test -scheme kate_iosUITests` on the Mac mini | U23, U25, U31 |
+| iOS UI tests | none | `xcodebuild test -scheme kate_iosUITests` on the macOS build host | U23, U25, U31 |
 | Determinism | each suite three times on one commit | same | U20, U23, U29, U31 |
 | Production preflight | `scripts/ops/preflight.sh` | none | U26, before every production step |
 
