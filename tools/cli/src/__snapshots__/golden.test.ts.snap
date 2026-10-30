@@ -96,6 +96,9 @@ feed:
 setup:
   init        init --workspace <slug> [--api-url u] [--agent-id id]
               writes ./.tallyline/config.json + agent.md
+  agent       agent [list] | agent connect <claude|codex|cursor|opencode> [--project]
+              [--dry-run] [--print] | agent undo <agent>
+              adds only the tallyline entry; backup kept; sign-in in the agent
 
 account:
   doctor      doctor [--fix] [--yes] — check server, sign-in and this computer
@@ -197,6 +200,9 @@ feed:
 setup:
   init        init --workspace <slug> [--api-url u] [--agent-id id]
               writes ./.tallyline/config.json + agent.md
+  agent       agent [list] | agent connect <claude|codex|cursor|opencode> [--project]
+              [--dry-run] [--print] | agent undo <agent>
+              adds only the tallyline entry; backup kept; sign-in in the agent
 
 account:
   doctor      doctor [--fix] [--yes] — check server, sign-in and this computer

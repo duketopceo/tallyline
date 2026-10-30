@@ -35,6 +35,7 @@ export const GROUPS: { title: string; items: [name: string, what: string][] }[] 
       ["session", "post progress from a running agent"],
       ["work", "run dispatched work in this repo"],
       ["ai", "connect the workspace's AI provider"],
+      ["agent", "connect Claude Code, Codex, Cursor or opencode"],
     ],
   },
   {

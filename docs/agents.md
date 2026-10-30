@@ -4,6 +4,40 @@ Give an agent three things and it can work the board: the API URL, a scoped
 key, and the workspace slug. This page is the whole path — mint the key,
 then pick a surface (MCP tools or the CLI).
 
+## Fastest path: connect in one step
+
+For Claude Code, Codex, Cursor or opencode you don't need a key. Run:
+
+```bash
+tallyline agent connect claude     # or codex, cursor, opencode
+```
+
+It adds only a `tallyline` entry pointing at `<API_URL>/mcp`, keeps a backup
+next to the file, and leaves every other server alone. The agent then signs
+in as you through the browser (OAuth), with read and write. Review is never
+offered to an agent.
+
+| Agent | File it edits | Sign in |
+|---|---|---|
+| Claude Code | `.mcp.json` in the project folder | `/mcp` in a session |
+| Codex | `~/.codex/config.toml` | `codex mcp login tallyline` |
+| Cursor | `~/.cursor/mcp.json` | Settings, MCP, Connect |
+| opencode | `~/.config/opencode/opencode.json` | `opencode mcp auth tallyline` |
+
+- `--project` writes the project file instead (`.codex/config.toml`,
+  `.cursor/mcp.json`, `opencode.json`).
+- `--dry-run` shows the new file without writing. `--print` shows only the
+  entry, to paste by hand.
+- `tallyline agent undo <agent>` puts the `tallyline` entry back the way it
+  was. Other edits made since stay.
+- `tallyline agent list` shows which agents are found and connected.
+- If the agent isn't installed, nothing is written; you get the entry to
+  paste later. Files with comments (JSONC) are refused, not rewritten.
+
+The web shows the same steps at Settings, Agents, "Connect it in one step"
+(`/settings/agents/connect`). Use the key path below for other agents, CI,
+or anything that can't open a browser.
+
 ## 1. Register the agent + mint a key
 
 Agent registration and key minting require a human session with the
