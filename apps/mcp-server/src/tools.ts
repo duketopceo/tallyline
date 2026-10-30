@@ -453,11 +453,21 @@ export const toolDefs: ToolDef[] = [
     handler: async (args, client) => {
       const me = await client.whoami();
       const base = { state: "todo,in_progress", unblocked: "true", limit: 200 };
-      const [assigned, delegated] = await Promise.all([
+      // mentions and answered questions are an agent-only feed (U20); fetched
+      // alongside the issue lists, not after them
+      const feedPromise =
+        me.type === "agent"
+          ? client.apiGet<{ items: InboxItem[]; ackedAt: string | null }>(
+              "/agent-inbox",
+              { limit: args.limit ?? 20 },
+            )
+          : Promise.resolve({ items: [] as InboxItem[], ackedAt: null });
+      const [assigned, delegated, feed] = await Promise.all([
         client.apiGet<{ issues: IssueRow[] }>("/issues", { ...base, assignee: me.id }),
         me.type === "agent"
           ? client.apiGet<{ issues: IssueRow[] }>("/issues", { ...base, delegate: me.id })
           : Promise.resolve({ issues: [] as IssueRow[] }),
+        feedPromise,
       ]);
       const byKey = new Map<string, IssueRow>();
       for (const i of [...assigned.issues, ...delegated.issues]) byKey.set(i.key, i);
@@ -468,14 +478,6 @@ export const toolDefs: ToolDef[] = [
             Date.parse(a.createdAt) - Date.parse(b.createdAt),
         )
         .slice(0, args.limit ?? 20);
-      // mentions and answered questions are an agent-only feed (U20)
-      const feed =
-        me.type === "agent"
-          ? await client.apiGet<{ items: InboxItem[]; ackedAt: string | null }>(
-              "/agent-inbox",
-              { limit: args.limit ?? 20 },
-            )
-          : { items: [] as InboxItem[], ackedAt: null };
       return {
         waiting: waiting.map(slimIssue),
         mentions: feed.items.filter((i) => i.kind === "mention"),

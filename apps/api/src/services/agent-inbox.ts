@@ -44,7 +44,7 @@ export async function listAgentInbox(
     .where(and(eq(agents.id, agentId), eq(agents.workspaceId, workspaceId)));
   const mark = agent?.ackedAt ?? null;
 
-  const mentionRows = await db
+  const mentionQuery = db
     .select({
       id: dispatches.id,
       body: dispatches.commentBody,
@@ -65,7 +65,7 @@ export async function listAgentInbox(
     .orderBy(asc(dispatches.createdAt))
     .limit(limit);
 
-  const answerRows = await db
+  const answerQuery = db
     .select({
       id: agentActivities.id,
       content: agentActivities.content,
@@ -87,6 +87,8 @@ export async function listAgentInbox(
     )
     .orderBy(asc(agentActivities.createdAt))
     .limit(limit);
+
+  const [mentionRows, answerRows] = await Promise.all([mentionQuery, answerQuery]);
 
   const items: AgentInboxItem[] = [
     ...mentionRows.map((r) => ({

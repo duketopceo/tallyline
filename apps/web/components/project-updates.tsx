@@ -46,8 +46,7 @@ export function ProjectUpdateComposer({ projectId }: { projectId: string }) {
     }
   }
 
-  async function post(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit() {
     if (!body.trim() || busy) return;
     setBusy(true);
     setStatus(null);
@@ -72,7 +71,7 @@ export function ProjectUpdateComposer({ projectId }: { projectId: string }) {
   }
 
   return (
-    <form onSubmit={post} className="flex flex-col gap-3 rounded-md border border-lining-faint bg-surface-2 p-4" aria-label="Post a status update">
+    <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="flex flex-col gap-3 rounded-md border border-lining-faint bg-surface-2 p-4" aria-label="Post a status update">
       <div className="flex flex-wrap items-end gap-3">
         <label htmlFor={`${uid}-health`} className="text-[12px] text-ink-subtle">
           Health
@@ -107,7 +106,7 @@ export function ProjectUpdateComposer({ projectId }: { projectId: string }) {
           onKeyDown={(e) => {
             if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
               e.preventDefault();
-              void post(e as unknown as React.FormEvent);
+              void submit();
             }
           }}
           className="mt-1 w-full resize-y rounded-sm border border-control bg-surface-2 px-3 py-2 text-[13px] text-ink"
