@@ -86,11 +86,9 @@ export const relationRoutes = new Hono()
             ),
           );
         if (!found) {
-          throw new HttpError(
-            422,
-            "INVALID_TARGET",
-            "target issue not in workspace",
-          );
+          // same answer as an unknown key: another workspace's issue ids
+          // must not be distinguishable from ids that don't exist
+          throw new HttpError(404, "NOT_FOUND", "target issue not found");
         }
         target = found;
       } else if (targetKey) {

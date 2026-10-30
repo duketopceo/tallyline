@@ -7,6 +7,8 @@ All notable changes to Tallyline (formerly docketry). Format loosely follows
 
 ### Added
 
+- **Agent questions reach a person** (U23): when an agent asks for input, the issue's assignee (or creator, or staff) gets a notification, at most one a minute per issue. An unanswered question goes stale after `SESSION_INPUT_TIMEOUT_MS` (default 24h).
+- **Duplicate suggestions by title** (U25): generating suggestions now proposes up to three issues with similar titles (pg_trgm), with no model needed. The "first workspace label" fallback is gone.
 - **Connect OpenRouter without copying a key, and Settings > AI** (S3-U3, S3-U7; see `docs/llm-assist.md`): admins click Connect OpenRouter, approve on OpenRouter and land back on `/settings/ai/openrouter`; the server trades the one-time code for a key through PKCE and seals it. The verifier only exists inside a sealed state bound to the person and workspace, valid for 10 minutes (`/ai/openrouter/start`, `/ai/openrouter/complete`). Settings > AI shows the provider, this month's spend and limit, and adds a compatible-endpoint form, Test and Disconnect. The CLI gains `tallyline ai status | test | disconnect | connect openrouter | connect compatible`; OpenRouter runs headless (print the URL, paste the code) and a compatible key is read from a hidden prompt or stdin, never from arguments. The `/welcome` AI step now links to Settings > AI.
 - **Connect a coding agent in one step** (S3-U6): `tallyline agent connect <claude|codex|cursor|opencode>` adds only a `tallyline` entry for the OAuth `/mcp` endpoint to the agent's own config, backs the file up first, and `tallyline agent undo` restores the old entry. Codex's TOML is edited line by line so comments survive; JSONC files are refused. No key is written; the agent signs in through the browser with read and write. The web shows the same steps at `/settings/agents/connect`.
 - **Agent actions v1** (S3-U4): summarize, triage suggestions and duplicate checks now run on the workspace's own AI provider (or the server's), so the monthly limit and usage ledger cover them. New break-down action proposes up to 8 sub-issues (`POST /issues/:key/breakdown-suggest`, MCP `suggest_sub_issues`, web "Suggest sub-issues"); nothing is created until a person clicks Create. Provider errors show their plain reason on the page.
@@ -26,6 +28,7 @@ All notable changes to Tallyline (formerly docketry). Format loosely follows
 
 ### Fixed
 
+- Linking to an issue id from another workspace answers 404, the same as an unknown key (U19).
 - Oversized AI provider responses are rejected instead of resolving with an empty body.
 
 ## [2.0.0] — 2026-10-26

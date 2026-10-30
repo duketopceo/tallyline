@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lt, or } from "drizzle-orm";
 import {
   nextSessionStatus,
   TERMINAL_SESSION_STATUSES,
@@ -12,8 +12,10 @@ import {
   agentSessions,
   comments,
   events,
+  notifications,
 } from "../db/schema.js";
 import { clock } from "./clock.js";
+import { dispatchFailureTargets, notifyUsers } from "./notifications.js";
 import { queueDeliveries } from "./outbound.js";
 
 // ── Agent sessions (plan L1) ─────────────────────────────────────
@@ -199,8 +201,40 @@ export async function postActivity(
       ...(input.signal ? { signal: input.signal } : {}),
     },
   );
+  if (type === "elicitation") await notifyAsked(updated.workspaceId, updated.issueId);
 
   return { session: updated, activity };
+}
+
+/** an agent asking several questions in a row sends one notification */
+export const ELICITATION_COALESCE_MS = 60_000;
+
+// U23: the person who handed the issue over hears that the agent is
+// waiting on them. Same targets as a failed dispatch: assignee, then creator,
+// then staff. Anyone already told about this issue within the window is
+// skipped, so a burst of questions is one ping.
+async function notifyAsked(workspaceId: string, issueId: string): Promise<void> {
+  const targets = await dispatchFailureTargets(workspaceId, issueId);
+  if (targets.length === 0) return;
+  const since = new Date(clock.now().getTime() - ELICITATION_COALESCE_MS);
+  const recent = await db
+    .select({ userId: notifications.userId })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.workspaceId, workspaceId),
+        eq(notifications.issueId, issueId),
+        eq(notifications.kind, "mention"),
+        inArray(notifications.userId, targets),
+        gte(notifications.createdAt, since),
+      ),
+    );
+  const told = new Set(recent.map((r) => r.userId));
+  await notifyUsers(
+    workspaceId,
+    targets.filter((u) => !told.has(u)),
+    { kind: "mention", issueId },
+  );
 }
 
 export async function setSessionPlan(
@@ -223,13 +257,15 @@ export async function setSessionPlan(
 }
 
 // Sweeper: `pending` sessions past the ack window never produced a first
-// activity; `active`/`awaitingInput` sessions quiet past the idle window
-// are abandoned. Both become `stale` with a feed entry. The dispatch row is
-// left alone — sweepStaleDispatches owns that lifecycle.
+// activity; `active`/`stopping` sessions quiet past the idle window are
+// abandoned, and `awaitingInput` sessions unanswered past the input
+// window. All become `stale` with a feed entry. The dispatch row is left
+// alone — sweepStaleDispatches owns that lifecycle.
 export async function sweepStaleSessions(
   ackMs = config_.sessionAckTimeoutMs,
   idleMs = config_.sessionIdleTimeoutMs,
   now = clock.now(),
+  inputMs = config_.sessionInputTimeoutMs,
 ): Promise<number> {
   const conds = [];
   if (ackMs > 0) {
@@ -246,6 +282,14 @@ export async function sweepStaleSessions(
       and(
         inArray(agentSessions.status, ["active", "stopping"]),
         lt(agentSessions.lastActivityAt, new Date(now.getTime() - idleMs)),
+      ),
+    );
+  }
+  if (inputMs > 0) {
+    conds.push(
+      and(
+        eq(agentSessions.status, "awaitingInput"),
+        lt(agentSessions.lastActivityAt, new Date(now.getTime() - inputMs)),
       ),
     );
   }
@@ -273,7 +317,9 @@ export async function sweepStaleSessions(
         reason:
           s.status === "pending"
             ? `no activity within ${Math.round(ackMs / 1000)}s`
-            : `idle for ${Math.round(idleMs / 1000)}s`,
+            : s.status === "awaitingInput"
+              ? `no answer within ${Math.round(inputMs / 1000)}s`
+              : `idle for ${Math.round(idleMs / 1000)}s`,
       },
     );
     swept++;

@@ -6,6 +6,7 @@ import {
   notifications,
   workspaceMembers,
 } from "../db/schema.js";
+import { clock } from "./clock.js";
 import type { Actor } from "./issues.js";
 
 export type NotificationKind = (typeof notificationKinds)[number];
@@ -39,6 +40,7 @@ export async function notifyUsers(
         eventId: input.eventId ?? null,
         actorType: input.actor?.type ?? "system",
         actorId: input.actor?.id ?? null,
+        createdAt: clock.now(),
       })),
     )
     .returning({ id: notifications.id });

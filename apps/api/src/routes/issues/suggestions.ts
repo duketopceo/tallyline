@@ -1,7 +1,7 @@
 // Issue suggestions (plan L4) — agent- or human-proposed field changes a
 // reviewer can accept or dismiss; the audit trail lives in issue_suggestions.
 import { zValidator } from "@hono/zod-validator";
-import { and, asc, eq, or } from "drizzle-orm";
+import { and, asc, eq, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../../db/client.js";
@@ -22,6 +22,10 @@ import { actorFromHeaders } from "../../lib/actor.js";
 import { apiError, HttpError } from "../../lib/errors.js";
 import { requireWorkspace } from "../workspaces.js";
 import { findIssue } from "./shared.js";
+
+/** pg_trgm title similarity at or above this reads as a likely duplicate */
+export const DUPLICATE_THRESHOLD = 0.6;
+const MAX_DUPLICATES = 3;
 
 export const suggestionRoutes = new Hono()
   // ── Plan L4: Issue suggestions ─────────────────────────────────
@@ -208,11 +212,19 @@ export const suggestionRoutes = new Hono()
           });
         }
       }
-      if (candidates.length === 0 && wsLabels[0]) {
+      // U25: likely duplicates by title similarity (pg_trgm), newest first
+      // among equals; no model involved
+      const dupes = await db.execute(sql`
+        select id, key, title from issues
+        where workspace_id = ${ws.id} and id <> ${issue.id}
+          and similarity(lower(title), lower(${issue.title})) >= ${DUPLICATE_THRESHOLD}
+        order by similarity(lower(title), lower(${issue.title})) desc, created_at desc
+        limit ${MAX_DUPLICATES}`);
+      for (const d of dupes.rows as unknown as { id: string; key: string; title: string }[]) {
         candidates.push({
-          kind: "label",
-          suggestedValue: wsLabels[0].name,
-          reason: "workspace label candidate",
+          kind: "duplicate",
+          suggestedValue: d.id,
+          reason: `similar title to ${d.key} "${d.title.slice(0, 80)}"`,
         });
       }
       const wsProjects = await db
