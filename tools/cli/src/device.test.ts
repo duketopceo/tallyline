@@ -66,7 +66,7 @@ function fake(answers: Response[], over: Partial<Fake> = {}): Fake {
       }
       if (u.pathname === "/v1/whoami") {
         return req.headers.get("authorization") === `Bearer ${TOKEN}`
-          ? json(200, { type: "human", id: "u1", name: "Luke", scopes: ["read", "write"], workspaceSlug: "acme", role: "owner" })
+          ? json(200, { type: "human", id: "u1", name: "Ada", scopes: ["read", "write"], workspaceSlug: "acme", role: "owner" })
           : json(401, { error: { code: "UNAUTHENTICATED", message: "no" } });
       }
       return new Response("<html/>", { status: 200 });
@@ -170,7 +170,7 @@ describe("connect --browser", () => {
     expect(err.join("\n")).toContain("BCDF-GHJK");
     expect(err.join("\n")).toContain("https://app.example.test/device");
     expect(opened).toEqual(["https://app.example.test/device?code=BCDF-GHJK"]);
-    expect(out.join("")).toContain("connected to https://api.example.test as Luke (acme)");
+    expect(out.join("")).toContain("connected to https://api.example.test as Ada (acme)");
     expect(out.join("")).not.toContain(TOKEN);
     expect(err.join("")).not.toContain(TOKEN);
     expect(await io.tokens!.get("https://api.example.test")).toBe(TOKEN);
@@ -183,7 +183,7 @@ describe("connect --browser", () => {
     const f = fake([approved()]);
     const { io, out } = ioFor(f);
     expect(await run(["connect", "--browser", "--json", "--server", "https://api.example.test"], io)).toBe(0);
-    expect(JSON.parse(out.join(""))).toMatchObject({ server: "https://api.example.test", workspace: "acme", user: "Luke" });
+    expect(JSON.parse(out.join(""))).toMatchObject({ server: "https://api.example.test", workspace: "acme", user: "Ada" });
     expect(out.join("")).not.toContain(TOKEN);
   });
   it("denied in the browser: exit 1, nothing saved", async () => {
@@ -216,7 +216,7 @@ describe("connect on a terminal", () => {
     const log = p.log.join("\n");
     expect(log).toContain("BCDF-GHJK");
     expect(log).toContain("Approved in the browser");
-    expect(log).toContain("Signed in as Luke (acme)");
+    expect(log).toContain("Signed in as Ada (acme)");
     expect(log).not.toContain("Paste your token");
     expect(opened).toHaveLength(1);
     expect(await io.tokens!.get("https://api.example.test")).toBe(TOKEN);

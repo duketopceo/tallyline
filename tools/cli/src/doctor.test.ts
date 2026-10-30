@@ -35,7 +35,7 @@ function api(opts: { health?: number; db?: boolean; down?: boolean } = {}): CliI
     }
     if (u.pathname === "/v1/whoami") {
       return req.headers.get("authorization") === `Bearer ${GOOD}`
-        ? new Response(JSON.stringify({ type: "human", id: "u", name: "Luke", scopes: [], workspaceSlug: "acme" }))
+        ? new Response(JSON.stringify({ type: "human", id: "u", name: "Ada", scopes: [], workspaceSlug: "acme" }))
         : new Response(JSON.stringify({ error: { code: "UNAUTHENTICATED", message: "no" } }), { status: 401 });
     }
     return new Response("nope", { status: 404 });
@@ -64,7 +64,7 @@ describe("doctor", () => {
     expect(await run(["doctor"], io)).toBe(0);
     expect(out).toEqual([
       "ok server/server-reachable: api.example.test is up",
-      "ok connection/signed-in: signed in as Luke",
+      "ok connection/signed-in: signed in as Ada",
       "ok connection/workspace: workspace is acme",
       expect.stringMatching(/^ok computer\/node: Node /),
       "ok computer/keychain: sign-in is kept in your Mac keychain",

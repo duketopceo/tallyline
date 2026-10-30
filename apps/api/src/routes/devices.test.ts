@@ -58,13 +58,13 @@ const call = async (path: string, init: RequestInit & { cookie?: string; bearer?
 
 const wsPath = (t: Tenant, suffix: string) => `/v1/workspaces/${t.ws.slug}${suffix}`;
 const mint = (cookie = member, t = A) => call(wsPath(t, "/devices/pairing"), { method: "POST", cookie, body: "{}" });
-const redeem = (code: string, deviceName = "Luke's iPhone", platform = "ios") =>
+const redeem = (code: string, deviceName = "Test phone", platform = "ios") =>
   call("/v1/auth/pair/redeem", { method: "POST", body: JSON.stringify({ code, deviceName, platform }) });
 const whoami = (token: string) => call("/v1/whoami", { bearer: token });
 const list = (cookie = member, t = A) => call(wsPath(t, "/devices"), { cookie });
 
 /** mint + redeem: a paired device for the member */
-async function pair(name = "Luke's iPhone", cookie = member) {
+async function pair(name = "Test phone", cookie = member) {
   const m = await mint(cookie);
   expect(m.status).toBe(201);
   const r = await redeem(m.body.code, name);
@@ -83,7 +83,7 @@ describe("pairing", () => {
     expect(url.searchParams.get("code")).toBe(m.body.code);
     expect(url.searchParams.get("server")).toMatch(/^https?:\/\//);
 
-    const r = await redeem(m.body.code, "Luke's iPhone");
+    const r = await redeem(m.body.code, "Test phone");
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ tokenType: "Bearer", scopes: ["read", "write"], workspace: { slug: A.ws.slug } });
     expect(r.body.token).toMatch(/^tly_pat_/);
@@ -99,7 +99,7 @@ describe("pairing", () => {
 
     const l = await list();
     const mine = l.body.devices.find((d: { id: string }) => d.id === r.body.deviceId);
-    expect(mine).toMatchObject({ name: "Luke's iPhone", platform: "ios", expired: false, current: false });
+    expect(mine).toMatchObject({ name: "Test phone", platform: "ios", expired: false, current: false });
     // plaintext is never stored
     const rows = await db.select().from(pairingCodes).where(eq(pairingCodes.userId, A.people.member.id));
     expect(rows.some((x) => x.codeHash === m.body.code)).toBe(false);

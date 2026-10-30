@@ -178,7 +178,7 @@ describe("slack receiver", () => {
       text: "CSV export crashes on empty cols",
       channel_id: "C123",
       user_id: "U9",
-      user_name: "luke",
+      user_name: "ada",
       trigger_id: "t1",
     });
     const res = await slackReq(form.toString(), "application/x-www-form-urlencoded");

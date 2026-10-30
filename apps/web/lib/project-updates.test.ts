@@ -3,13 +3,13 @@ import { HEALTH_META, UPDATE_HEALTH, updateAuthor } from "./project-updates";
 import type { ActorDirectory } from "./actors";
 
 const dir: ActorDirectory = {
-  h1: { id: "h1", name: "Luke", kind: "human", initials: "LU" },
+  h1: { id: "h1", name: "Ada", kind: "human", initials: "LU" },
   a1: { id: "a1", name: "scribe", kind: "agent", initials: "SC" },
 };
 
 describe("updateAuthor", () => {
   it("names a human author without the agent marker", () => {
-    expect(updateAuthor({ authorType: "human", authorId: "h1" }, dir)).toEqual({ name: "Luke", isAgent: false });
+    expect(updateAuthor({ authorType: "human", authorId: "h1" }, dir)).toEqual({ name: "Ada", isAgent: false });
   });
   it("marks an agent-authored update", () => {
     expect(updateAuthor({ authorType: "agent", authorId: "a1" }, dir)).toEqual({ name: "scribe", isAgent: true });
