@@ -2,7 +2,7 @@
 
 The single roadmap and status ledger is [docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md](./docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md). It supersedes the old "Now / Next / Later" table that lived here.
 
-## Status (2026-10-27)
+## Status (2026-10-29)
 
 Goal: Tallyline is the tool Luke runs his projects on, Kate first, then Cairn and the rest. Status below is read from `main` and the open PRs; the unit specs and requirements live in the plan linked above.
 
@@ -10,29 +10,29 @@ Goal: Tallyline is the tool Luke runs his projects on, Kate first, then Cairn an
 |---|---|---|---|
 | 0 Safe | U1 middleware fix | done | #113 |
 | 0 Safe | U2 scheduled backups, restore drill | repo side done; operator steps open (age key, bucket lock, enable timer, restore drill) | #165 |
-| 0 Safe | U3 deploy lock and provenance | repo side done (script, labels, docs, tests); operator steps open (restricted deploy user, first `--assume-running` run) | this PR |
+| 0 Safe | U3 deploy lock and provenance | repo side done (script, labels, docs, tests); operator steps open (restricted deploy user, first `--assume-running` run) | #188 |
 | 0 Safe | U4 webhook-event retention | done | #142 |
 | 0 Safe | U5 key revoke, rotate, expiry | done | #141 |
 | 0 Safe | U6 cluster2 housekeeping | open, operator (needs Luke to confirm deletions) | n/a |
-| 0 Safe | U7 clear the PR queue | partial: #133, #137, #138 landed; #158, #159, #161-#163 open | PR list |
+| 0 Safe | U7 clear the PR queue | done: #133, #137, #138, #158, #159, #161-#163 landed | #158, #159, #161-#163 |
 | 0 Safe | U8 docs and stub reconciliation | done | #154 |
 | 1 PM-ready | U9 plan import core | done | #140, #150 |
 | 1 PM-ready | U10 import CLI, MCP tools, skill step | done | #143 |
 | 1 PM-ready | U11 Kate import run | open, operator (OQ5 credential, Luke approves each write) | n/a |
 | 1 PM-ready | U12 repo-to-project binding | done | #145 |
-| 1 PM-ready | U13 project pages, portfolio overview | partial: project health page in PR | #158 |
+| 1 PM-ready | U13 project pages, portfolio overview | project health page done; portfolio overview not re-verified | #158 |
 | 1 PM-ready | U15 weekly cycle auto-schedule | done | #147 |
 | 1 PM-ready | U16 milestone-issue link, labels | done | #146 |
-| 1b Daily use | U14 project status updates | PR (API and MCP; web feed to follow) | #170 |
-| 1b Daily use | U17 PR-to-issue mapping v2 | todo (branch-name push mapping exists) | none |
+| 1b Daily use | U14 project status updates | API and MCP done; web feed to follow | #170 |
+| 1b Daily use | U17 PR-to-issue mapping v2 | done | #171 |
 | 1b Daily use | U18 workspace search | done | #166 |
 | 1b Daily use | U19 issue relations | landed in #155, not re-verified per unit | #155 |
-| 1b Daily use | U20 agent inbox, ready excludes blocked | PR (mentions and answered questions not yet in inbox) | #169 |
+| 1b Daily use | U20 agent inbox, ready excludes blocked | done for inbox and blocked-aware ready; mentions and answered questions not yet in inbox | #169 |
 | 1b Daily use | U21 mobile web and installable PWA | done (device check by Luke pending) | #167 |
 | 2 Agent protocol | U22 sessions and delegate, U23 elicitation and PR links, U25 suggestions | landed in #155, not re-verified per unit | #133, #155 |
 | 2 Agent protocol | U24 automated intake | done | #149 |
 
-Also open: release PR #159 (v2.0.0).
+Released: v2.0.0 (#159).
 
 Deferred with revisit triggers: loops, skills registry, WordInk intake, entitlements, account lifecycle, multi-workspace, integration trimming, templates, virtualization.
 
@@ -42,11 +42,11 @@ Tallyline as a serious Linear replacement you host yourself, with a non-technica
 
 | Stage | Ships | Status | Depends on |
 |---|---|---|---|
-| S1 Polished CLI | Branded home screen, `doctor`, `config`, `connect` (browser sign-in via device authorization, or a pasted token), plain-language errors | built; live check against the hosted server pending | none |
-| S2 Zero-skill install and onboarding | `tallyline setup`, one-line installer, first-run checklist (status endpoint and `/welcome` page built), one-click deploy | S2-U3 built; the rest planned | S1 |
-| S3 AI providers and agent connection | OpenRouter and OpenAI-compatible providers, suggestions, one-flow coding-agent connect, ChatGPT plan if the spike passes | planned | S1, S2 |
-| S4 Mobile server groundwork | QR pairing, devices, push relay, delta sync, idempotent writes, native redirect schemes | planned | none |
-| S5 iOS v1 | TestFlight build with the core loop and review queue | planned; needs Luke for Apple setup | S4 |
+| S1 Polished CLI | Branded home screen, `doctor`, `config`, `connect` (browser sign-in via device authorization, or a pasted token), plain-language errors | built (#179-#181, #183, #189); live check against the hosted server pending | none |
+| S2 Zero-skill install and onboarding | `tallyline setup`, one-line installer, first-run checklist (status endpoint and `/welcome` page built), one-click deploy | S2-U3 built (#190); setup and installer in open PR #194; the rest planned | S1 |
+| S3 AI providers and agent connection | OpenRouter and OpenAI-compatible providers, suggestions, one-flow coding-agent connect, ChatGPT plan if the spike passes | S3-U2 built (#187, bring-your-own provider with sealed keys and a spend limit); the rest planned | S1, S2 |
+| S4 Mobile server groundwork | QR pairing, devices, push relay, delta sync, idempotent writes, native redirect schemes | partly built: redirect schemes (#182), delta reads and idempotent writes (#184), QR pairing and device registry (#186); push relay planned | none |
+| S5 iOS v1 | TestFlight build with the core loop and review queue | in progress: scaffold and pairing sign-in (#191), typed API client (#192), issue loop, review queue and board tabs (#193); not yet run on a device, no TestFlight build; needs Luke for Apple setup | S4 |
 | S6 iOS full quality | Offline and outbox, push, widgets, share sheet, App Intents, accessibility | planned | S5 |
 | S7 App Store | External TestFlight and public listing | planned; Luke decides | S6 |
 
