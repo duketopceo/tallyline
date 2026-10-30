@@ -42,7 +42,7 @@ export function renderHome(d: HomeData, hour: number, width = 78): string {
       "",
       nextSteps([
         ["tallyline connect", "sign in to your Tallyline"],
-        ["tallyline setup", "set up your own Tallyline (coming soon)"],
+        ["tallyline setup", "set up your own Tallyline on this computer"],
         ["tallyline help", "see everything it can do"],
       ]),
     );

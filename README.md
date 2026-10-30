@@ -80,7 +80,7 @@ Running tests? Do not point them at this dev stack — see [CONTRIBUTING.md](./C
 
 ## Recent changes
 
-Merged since the README was last updated (PRs #158 to #193, full list in the [CHANGELOG](./CHANGELOG.md)):
+Merged since the README was last updated (PRs #158 to #194, full list in the [CHANGELOG](./CHANGELOG.md)):
 
 - **v2.0.0** is released: agent protocol, automated intake, plan import, project health and status updates,
   workspace search, issue relations and installable web app, plus the move to AGPL-3.0 and a Postgres-only stack.
@@ -95,6 +95,9 @@ Merged since the README was last updated (PRs #158 to #193, full list in the [CH
 - **System status and a first-run checklist** ([#190](https://github.com/duketopceo/tallyline/pull/190)): admins
   get `GET /v1/workspaces/{ws}/system/status` and a `/welcome` page that checks the database, backups, sign-in
   methods, AI provider and email, and tells you the next step for each.
+- **Guided self-host setup** ([#194](https://github.com/duketopceo/tallyline/pull/194)): a `tallyline setup`
+  wizard, `stop`, `resume`, `backup` and `update` commands, a pinned installer script and Railway config files.
+  Publishing the container images and hosting the installer are still to do.
 - **Mobile groundwork** (#182, #184, #186): QR pairing and a device registry, `updatedSince` delta reads, and
   `Idempotency-Key` on writes, for offline-capable clients ([docs/offline-sync.md](./docs/offline-sync.md)).
 - **iOS app, early** ([#191](https://github.com/duketopceo/tallyline/pull/191),

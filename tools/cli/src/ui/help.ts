@@ -39,6 +39,11 @@ export const GROUPS: { title: string; items: [name: string, what: string][] }[] 
   {
     title: "Set up",
     items: [
+      ["setup", "set up your own Tallyline on this computer"],
+      ["resume", "start your Tallyline again after a stop"],
+      ["stop", "pause your Tallyline (your data stays)"],
+      ["backup", "save a copy of your data now"],
+      ["update", "update your Tallyline"],
       ["connect", "sign in to your Tallyline"],
       ["doctor", "check everything is healthy, and fix what's easy"],
       ["status", "see who and where you are connected"],
