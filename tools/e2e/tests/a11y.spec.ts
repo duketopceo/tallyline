@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { agentIssue, failSession } from "./helpers";
+import { agentIssue, failSession, SAME_ORIGIN } from "./helpers";
 
 // PLAN-044: every app screen, WCAG 2.0/2.1/2.2 A + AA tags, both themes,
 // desktop and phone widths. Zero violations gates the run.
@@ -17,6 +17,7 @@ const APP_PAGES = [
   "/insights",
   "/roadmap",
   "/roadmap?push=1",
+  "/projects/:project",
   "/activity",
   "/settings",
   "/settings/members",
@@ -79,17 +80,22 @@ for (const vp of VIEWPORTS) {
     test.describe(`axe ${theme} @${vp.name}`, () => {
       test.use({ viewport: { width: vp.width, height: vp.height } });
       let key = "";
+      let projectId = "";
       test.beforeAll(async ({ browser }) => {
         test.setTimeout(90_000);
         const ctx = await browser.newContext({ storageState: "tests/.auth/session.json" });
         const page = await ctx.newPage();
         key = await issueKey(page);
+        // a project with one status update, for the project page scan
+        const made = await page.request.post("/api/projects", { headers: SAME_ORIGIN, data: { name: `a11y project ${Date.now()}` } });
+        projectId = ((await made.json()) as { id: string }).id;
+        await page.request.post(`/api/projects/${projectId}/updates`, { headers: SAME_ORIGIN, data: { health: "at_risk", body: "**a11y** fixture update" } });
         await ctx.close();
       });
 
       for (const path of APP_PAGES) {
         test(`@a11y ${path}`, async ({ page }) => {
-          await page.goto(path.replace(":key", key));
+          await page.goto(path.replace(":key", key).replace(":project", projectId));
           await page.waitForLoadState("networkidle");
           await setTheme(page, theme);
           const violations = await scan(page);
