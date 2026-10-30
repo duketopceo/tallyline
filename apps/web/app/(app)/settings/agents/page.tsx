@@ -14,7 +14,7 @@ export default async function AgentsPage() {
       <PageHeader title="Agents and keys" meta={me.data.workspaceSlug} />
       <p className="px-6 pt-4 text-sm text-ink-subtle">
         Using Claude Code, Codex, Cursor or opencode?{" "}
-        <Link href="/settings/agents/connect" className="text-accent hover:text-accent-hover">
+        <Link href="/settings/agents/connect" className="text-accent underline underline-offset-2 hover:text-accent-hover">
           Connect it in one step
         </Link>
         , no key needed.

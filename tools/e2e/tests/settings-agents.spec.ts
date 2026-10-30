@@ -153,7 +153,7 @@ test("connect a coding agent: same steps as the CLI, no key shown", async ({ pag
 
   await page.getByRole("radio", { name: "Codex" }).click();
   await expect(page.getByRole("radio", { name: "Codex" })).toHaveAttribute("aria-checked", "true");
-  await expect(page.getByLabel("command")).toHaveText("tallyline agent connect codex");
+  await expect(page.getByLabel("command", { exact: true })).toHaveText("tallyline agent connect codex");
   const config = page.getByLabel("config");
   await expect(config).toContainText("[mcp_servers.tallyline]");
   await expect(config).toContainText('scopes = ["read", "write"]');

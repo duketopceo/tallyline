@@ -13,7 +13,7 @@ export default async function ConnectAgentPage() {
         <p className="text-sm text-ink-subtle">
           Your agent signs in as you through the browser. It gets read and write access. Reviews stay with
           people. No key is stored in the file.{" "}
-          <Link href="/settings/agents" className="text-accent hover:text-accent-hover">
+          <Link href="/settings/agents" className="text-accent underline underline-offset-2 hover:text-accent-hover">
             Back to agents and keys
           </Link>
         </p>
