@@ -14,10 +14,11 @@ Every open item sits in exactly one of three lists: buildable by an agent, needs
 | Unit | What ships | Notes |
 |---|---|---|
 | S3-U4b | Remaining agent actions: model polish on the status-update draft, PR-brief draft, inbox answer | Seam and break-down landed in S3-U4 |
-| S4-U3 | Push relay and device tokens, content-free payloads | Off unless configured. Enabling in prod needs Luke |
 | S5-U7 | Silver Lining theme and iPad layout for the iOS app | Needs the Mac toolchain to build and test |
-| S6-U1 to U6 | iOS offline outbox, push, widgets, share sheet, App Intents, accessibility | Needs the Mac toolchain; push needs S4-U3 |
+| S6-U1 to U6 | iOS offline outbox, push, widgets, share sheet, App Intents, accessibility | Needs the Mac toolchain; push uses the S4-U3 endpoints ([docs/push.md](./docs/push.md)) |
 | U19/U23/U25 web | Relations section and blocked badge, session PR links in the header, suggestion chips; plan import writes blocks edges | Server side verified in [the re-verify note](./docs/research/2026-10-30-155-reverify.md) |
+| S3-U4 | Agent actions v1 on the provider seam: summarize, triage, dup-check, break-down, update and PR-brief drafts | Suggestions mechanism from #155 exists (`routes/issues/suggestions.ts`) |
+| Re-verify | U19 relations, U22 sessions and delegate, U23 elicitation and PR links, U25 suggestions | Landed in #155; not yet checked unit by unit |
 
 ## Open: needs Luke
 
@@ -32,6 +33,7 @@ Every open item sits in exactly one of three lists: buildable by an agent, needs
 | S2 install | Publish images and make them public, host and pin the installer, Homebrew tap, Railway template, clean-machine run, S2-U6 reachability spike |
 | S3 providers | Answer open questions 4 and 5 (OpenAI interest form, which Hermes); spend cap; one live Connect OpenRouter run on a capped account. See the [provider spike](./docs/research/2026-10-ai-providers-spike.md) |
 | S5 iOS | S5-U1 Apple setup (App ID, signing), S5-U8 first TestFlight build (pipeline in `apps/ios`, 897088d) |
+| S4 push | Run the production push relay with the Apple push key; send one sandbox push to a test build ([docs/push.md](./docs/push.md)) |
 | S7 App Store | External TestFlight, listing, submission |
 
 The full open-question list is at the end of the requirements document.
@@ -47,7 +49,7 @@ The full open-question list is at the end of the requirements document.
 | S1 CLI | Home screen, grouped help, keychain config, `connect`, `doctor`, browser sign-in | #179, #180, #181, #183, #189 |
 | S2 install | `setup`, `stop`/`resume`/`backup`/`update`, installer script, Railway config, status endpoint and `/welcome` checklist | #190, #194 |
 | S3 providers | S3-U1 provider spike; S3-U2 bring-your-own provider, sealed keys, monthly spend limit; S3-U3 Connect OpenRouter (PKCE) and compatible endpoints from web and CLI; S3-U7 Settings → AI and the checklist step; S3-U6 connect a coding agent in one step; S3-U4 agent actions on the provider seam and break-down suggestions | #187, #203, #200, #205, #202 |
-| S4 mobile server | S4-U1 redirect schemes, S4-U2 QR pairing and devices, S4-U4 delta reads and idempotent writes | #182, #186, #184 |
+| S4 mobile server | S4-U1 redirect schemes, S4-U2 QR pairing and devices, S4-U3 content-free push relay, S4-U4 delta reads and idempotent writes | #182, #186, #184, #206 |
 | S5 iOS | S5-U2/U3 scaffold and pairing, S5-U4 typed client, S5-U5/U6 issue loop, review queue, board tabs; TestFlight build path | #191, #192, #193, 897088d |
 | Release | v2.0.0 | #159 |
 

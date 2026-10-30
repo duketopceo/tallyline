@@ -6,8 +6,10 @@ import {
   notifications,
   workspaceMembers,
 } from "../db/schema.js";
+import { track } from "./background.js";
 import { clock } from "./clock.js";
 import type { Actor } from "./issues.js";
+import { pushToUsers } from "./push.js";
 
 export type NotificationKind = (typeof notificationKinds)[number];
 
@@ -44,6 +46,9 @@ export async function notifyUsers(
       })),
     )
     .returning({ id: notifications.id });
+  // content-free phone ping (S4-U3); off unless a relay is configured, and a
+  // slow or dead relay never holds up the write
+  track(pushToUsers(workspaceId, targets, input.kind));
   return rows.length;
 }
 

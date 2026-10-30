@@ -184,7 +184,10 @@ export async function revokeDevice(workspaceId: string, userId: string, deviceId
       ),
     );
   if (!d) return false;
-  await db.update(devices).set({ revokedAt: clock.now(), tokenId: null, prevTokenId: null }).where(eq(devices.id, d.id));
+  await db
+    .update(devices)
+    .set({ revokedAt: clock.now(), tokenId: null, prevTokenId: null, pushHandle: null, pushEnv: null })
+    .where(eq(devices.id, d.id));
   await killTokens([d.tokenId, d.prevTokenId]);
   await emit(workspaceId, userId, "device_revoked", d.id, { name: d.name });
   return true;

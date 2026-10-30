@@ -1538,8 +1538,35 @@ export const devices = pgTable(
     prevTokenId: uuid("prev_token_id").references(() => userTokens.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    // S4-U3: the sealed handle the push relay issued to this phone. Opaque to
+    // the server (the APNs token is inside, encrypted to the relay); cleared
+    // when the relay says the device is gone or the device is revoked.
+    pushHandle: text("push_handle"),
+    pushEnv: text("push_env", { enum: ["sandbox", "production"] }),
+    pushUpdatedAt: timestamp("push_updated_at", { withTimezone: true }),
   },
   (t) => [index().on(t.workspaceId, t.userId), index().on(t.tokenId)],
+);
+
+// S4-U3: per-person push choices for one workspace. No row = every kind on,
+// no quiet hours. Quiet hours are minutes after local midnight in `tz`.
+export const pushPreferences = pgTable(
+  "push_preferences",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    disabledKinds: text("disabled_kinds").array().notNull().default(sql`'{}'::text[]`),
+    quietStart: integer("quiet_start"),
+    quietEnd: integer("quiet_end"),
+    tz: text("tz"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex().on(t.workspaceId, t.userId)],
 );
 
 // One-time codes that turn a signed-in browser session into a paired device

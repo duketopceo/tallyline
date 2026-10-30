@@ -853,6 +853,61 @@ const basePaths = {
         responses: { "200": { description: "{token, tokenType, expiresAt, scopes}" }, "404": { description: "Not a paired device" } },
       },
     },
+    "/v1/workspaces/{ws}/devices/current/push": {
+      put: {
+        summary:
+          "A paired device hands over the sealed handle the push relay gave it. The handle is opaque to the server; pings carry only the kind and the unread count",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["handle", "environment"],
+          properties: {
+            handle: { type: "string", description: "starts with h1., from the relay's POST /v1/handles" },
+            environment: { type: "string", enum: ["sandbox", "production"] },
+          },
+        }),
+        responses: {
+          "200": { description: "{ok, deviceId}" },
+          "404": { description: "Not a paired device" },
+          "409": { description: "PUSH_OFF: no relay is configured on this server" },
+        },
+      },
+      delete: {
+        summary: "A paired device turns its own push off (forgets its relay handle)",
+        parameters: [wsParam],
+        responses: { "200": { description: "{ok}" }, "404": { description: "Not a paired device" } },
+      },
+    },
+    "/v1/workspaces/{ws}/push/config": {
+      get: {
+        summary:
+          "Whether push is on, the relay address and this server's public Ed25519 key (the app binds its relay handle to it); people only",
+        parameters: [wsParam],
+        responses: { "200": { description: "{enabled, relayUrl|null, serverKey|null, kinds}" } },
+      },
+    },
+    "/v1/workspaces/{ws}/push/preferences": {
+      get: {
+        summary: "Your push choices in this workspace: kinds turned off and quiet hours",
+        parameters: [wsParam],
+        responses: { "200": { description: "{disabledKinds, quietStart, quietEnd, tz}" } },
+      },
+      put: {
+        summary: "Set your push choices. Quiet hours are minutes after local midnight in tz and may wrap midnight",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["disabledKinds", "quietStart", "quietEnd", "tz"],
+          properties: {
+            disabledKinds: { type: "array", items: { type: "string", enum: ["assigned", "mention", "review_pending", "dispatch_failed"] } },
+            quietStart: { type: ["integer", "null"], minimum: 0, maximum: 1439 },
+            quietEnd: { type: ["integer", "null"], minimum: 0, maximum: 1439 },
+            tz: { type: ["string", "null"], description: "IANA time zone, required with quiet hours" },
+          },
+        }),
+        responses: { "200": { description: "{disabledKinds, quietStart, quietEnd, tz}" }, "400": { description: "Invalid choices" } },
+      },
+    },
     "/v1/workspaces/{ws}/devices/{id}": {
       delete: {
         summary: "Revoke one of your devices: its credential stops working on the next call (human session only)",
