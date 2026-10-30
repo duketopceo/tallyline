@@ -5,6 +5,33 @@ app on port `3100`, the API on `4000`, postgres on an internal
 network. Open `http://localhost:3100` — the first-run **/bootstrap** page
 creates your workspace, team, and admin user, then you're on the board.
 
+## Easiest: `tallyline setup` (no terminal skills needed)
+
+On a Mac or Linux computer with Docker, one command sets everything up: it
+checks the computer, offers to install Docker (never silently), generates your
+keys, starts Tallyline from the published images, waits until it is healthy and
+opens `/bootstrap` in your browser.
+
+```bash
+npx @tallyline/cli setup          # or, once the installer is published: curl -fsSL https://tallyline.app/install.sh | sh
+```
+
+Everything lives in `~/.tallyline/` (`compose.yml`, `.env` with your keys at
+mode 0600, `backups/`). Running it again on an existing install offers repair
+or update and never deletes your data. Day to day:
+
+| Command | What it does |
+|---|---|
+| `tallyline stop` / `tallyline resume` | pause and bring back (data stays) |
+| `tallyline backup` | local database dump, newest 7 kept, feeds the first-run checklist's backup age |
+| `tallyline update` | back up, switch to the release this CLI matches, health-check, roll back on failure |
+
+Keep a copy of `~/.tallyline/.env` somewhere safe (a password manager): a
+backup is not restorable without it and provider secrets saved in the app
+cannot be read again. Setup asks you to confirm this and `backup` keeps asking
+until you do. Off-box encrypted backups still use `ops/backup.sh` (see
+[Backup & restore](#backup--restore)). Windows: use WSL.
+
 ## Quickstart — Docker Compose (target: < 10 min)
 
 ```bash
@@ -131,8 +158,10 @@ A Railway project maps cleanly onto three services:
    `API_INTERNAL_URL` = the API's *internal* Railway domain
    (`http://api.railway.internal:4000`).
 
-A `railway.json`/template button lands when the Dockerfile paths stabilize;
-until then the three-service manual setup is the documented route (~10 min).
+Config-as-code for both services and the template variable contract live in
+[`deploy/railway/`](../deploy/railway/README.md). The one-click button needs a
+published Railway template (operator step, listed there); until then the
+three-service manual setup is the documented route (~10 min).
 
 ## Deploying a production host (`ops/deploy.sh`)
 

@@ -47,3 +47,38 @@ jobs:
           # Unset when using npm trusted publishing (OIDC); set the secret
           # only if falling back to a token.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # Publishes the images `tallyline setup` runs (ghcr.io/duketopceo/tallyline-{api,web}:<version>).
+  # The first push creates the packages as private; the owner makes them public once
+  # (see docs/releasing.md) so a fresh install can pull without signing in.
+  images:
+    needs: publish # same tag checks and tests must pass first
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up buildx and emulation (Apple Silicon and Intel images)
+        run: |
+          docker run --privileged --rm tonistiigi/binfmt --install arm64
+          docker buildx create --use
+      - name: Log in to ghcr.io
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+      - name: Build and push api and web
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          cli="$(sed -n 's/.*VERSION = "\(.*\)".*/\1/p' tools/cli/src/version.ts)"
+          [ "$cli" = "$v" ] || { echo "tools/cli/src/version.ts is $cli, tag is $v"; exit 1; }
+          for svc in api web; do
+            img="ghcr.io/duketopceo/tallyline-$svc:$v"
+            docker buildx build --platform linux/amd64,linux/arm64 --push -f "apps/$svc/Dockerfile" -t "$img" \
+              --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+              --label "org.opencontainers.image.source=https://github.com/duketopceo/tallyline" .
+          done

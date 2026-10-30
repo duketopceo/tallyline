@@ -1,4 +1,6 @@
 import { doctorCmd } from "./doctor.js";
+import { backupCmd, resumeCmd, stopCmd, updateCmd } from "./ops/ops.js";
+import { setupCmd } from "./setup/setup.js";
 import { configCmd, connectCmd, disconnectCmd, statusCmd } from "./connect.js";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -59,6 +61,8 @@ export interface CliIo {
   sleep?: (ms: number) => Promise<void>;
   /** shown to the server so the approval page can say which computer is asking */
   hostname?: string;
+  /** the computer itself (Docker, ports, disk); tests replace it, the real one is used when absent */
+  sys?: import("./setup/sys.js").Sys;
 }
 
 // CLI-side failure carrying an exit code. API-side failures stay ApiError.
@@ -1063,5 +1067,10 @@ export const commands: Record<string, Command> = {
   doctor: doctorCmd,
   disconnect: disconnectCmd,
   status: statusCmd,
+  setup: setupCmd,
+  resume: resumeCmd,
+  stop: stopCmd,
+  backup: backupCmd,
+  update: updateCmd,
   config: configCmd,
 };
