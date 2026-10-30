@@ -864,6 +864,7 @@ describe("MCP protocol end-to-end (InMemoryTransport)", () => {
       "draft_project_update",
       "post_project_update",
       "import_plan",
+      "suggest_sub_issues",
     ]) {
       expect(names).toContain(t);
     }

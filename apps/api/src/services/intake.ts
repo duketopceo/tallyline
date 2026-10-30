@@ -5,7 +5,7 @@ import { HttpError } from "../lib/errors.js";
 import { createAssist } from "./assist.js";
 import { clock } from "./clock.js";
 import { createIssue, type Actor } from "./issues.js";
-import { llmEnabled } from "./llm.js";
+import { aiEnabledFor } from "./ai-seam.js";
 
 // Normalized automated-input event — GlitchTip errors, GitHub issues,
 // request-for-help and bug reports all land in this shape (plan
@@ -192,7 +192,7 @@ export async function ingestIntake(
   let suggestion:
     | { action: "accept" | "decline"; reason: string; at: string }
     | undefined;
-  if (llmEnabled() && !options.skipRank) {
+  if (!options.skipRank && (await aiEnabledFor(workspaceId))) {
     try {
       const s = await createAssist().suggestTriage(workspaceId, issue.key);
       suggestion = {

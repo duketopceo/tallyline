@@ -8,7 +8,7 @@ import { db } from "../../db/client.js";
 import { comments, events, issueExternalRefs, issueLabels, issueRelations, issues, labels, projects, teams } from "../../db/schema.js";
 import { actorFromHeaders } from "../../lib/actor.js";
 import { apiError, HttpError } from "../../lib/errors.js";
-import { llmEnabled } from "../../services/llm.js";
+import { aiEnabledFor } from "../../services/ai-seam.js";
 import { idempotent } from "../../lib/idempotency.js";
 import { decodeCursor, encodeCursor } from "../../lib/pagination.js";
 import { createDispatch } from "../../services/dispatch.js";
@@ -210,7 +210,7 @@ export const coreIssueRoutes = new Hono()
 
       // `?dupCheck=1` runs semantic duplicate detection on the way out —
       // opt-in per request, LLM-disabled workspaces just get the issue back
-      if (c.req.query("dupCheck") && llmEnabled()) {
+      if (c.req.query("dupCheck") && (await aiEnabledFor(ws.id))) {
         try {
           const possibleDuplicates = await assist.checkDuplicates(
             ws.id,

@@ -2,20 +2,26 @@ import { and, desc, eq, ne } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { comments, issues } from "../db/schema.js";
 import { HttpError } from "../lib/errors.js";
-import {
-  createOpenRouterProvider,
-  type FetchLike,
-  type LLMProvider,
-} from "./llm.js";
+import { workspaceLLM } from "./ai-seam.js";
+import type { LLMProvider } from "./llm.js";
 
 // Every surface is opt-in: callers invoke on demand, nothing fires on writes.
-// The kill switch lives in the route layer (requireLLM) — a provider injected
-// here is explicit intent to run, which is what tests and future tools use.
+// The kill switch lives in the route layer (requireAi). Without an injected
+// provider each call runs on the workspace's provider, so its monthly cap and
+// usage ledger apply (S3-U4). Tests inject a stub.
 
 export interface TriageSuggestion {
   action: "accept" | "decline";
   reason: string;
 }
+
+export interface SubIssueDraft {
+  title: string;
+  description: string;
+}
+
+/** most sub-issues one break-down may propose */
+export const MAX_SUB_ISSUES = 8;
 
 export interface DuplicateMatch {
   key: string;
@@ -44,8 +50,8 @@ async function findIssueRow(workspaceId: string, key: string) {
   return issue;
 }
 
-export function createAssist(provider?: LLMProvider, fetchImpl?: FetchLike) {
-  const llm = provider ?? createOpenRouterProvider(fetchImpl);
+export function createAssist(provider?: LLMProvider) {
+  const llmFor = (workspaceId: string, action: string): LLMProvider => provider ?? workspaceLLM(workspaceId, action);
 
   return {
     async summarizeIssue(workspaceId: string, key: string): Promise<string> {
@@ -66,7 +72,7 @@ export function createAssist(provider?: LLMProvider, fetchImpl?: FetchLike) {
       ]
         .filter(Boolean)
         .join("\n\n");
-      return llm.complete({ system: SYSTEM, user: prompt });
+      return llmFor(workspaceId, "summarize").complete({ system: SYSTEM, user: prompt });
     },
 
     async suggestTriage(
@@ -82,7 +88,7 @@ export function createAssist(provider?: LLMProvider, fetchImpl?: FetchLike) {
       ]
         .filter(Boolean)
         .join("\n\n");
-      const text = await llm.complete({
+      const text = await llmFor(workspaceId, "triage_suggest").complete({
         system: SYSTEM,
         user: prompt,
         maxTokens: 128,
@@ -130,7 +136,7 @@ export function createAssist(provider?: LLMProvider, fetchImpl?: FetchLike) {
       ]
         .filter(Boolean)
         .join("\n\n");
-      const text = await llm.complete({
+      const text = await llmFor(workspaceId, "dup_check").complete({
         system: SYSTEM,
         user: prompt,
         maxTokens: 256,
@@ -145,6 +151,38 @@ export function createAssist(provider?: LLMProvider, fetchImpl?: FetchLike) {
           const t = byKey.get(d.key);
           return t ? [{ key: d.key, title: t, reason: d.reason ?? "" }] : [];
         });
+    },
+
+    /**
+     * Propose sub-issues for a larger issue. Nothing is written: the caller
+     * shows the drafts and a person creates the ones they want.
+     */
+    async suggestSubIssues(workspaceId: string, key: string): Promise<SubIssueDraft[]> {
+      const issue = await findIssueRow(workspaceId, key);
+      const prompt = [
+        `Break this issue into smaller pieces of work:\nKey: ${issue.key}\nTitle: ${issue.title}`,
+        issue.description ? `Description:\n${issue.description}` : "",
+        `\nReply as JSON only: {"subIssues":[{"title":"short imperative title","description":"one or two sentences"}]}.`,
+        `Use 2 to ${MAX_SUB_ISSUES} sub-issues, each independently doable. Return an empty list if the issue is already small.`,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+      const text = await llmFor(workspaceId, "breakdown").complete({ system: SYSTEM, user: prompt, maxTokens: 700 });
+      const parsed = parseJson<{ subIssues?: ({ title?: unknown; description?: unknown } | null)[] }>(text);
+      if (!parsed || !Array.isArray(parsed.subIssues)) {
+        throw new HttpError(502, "LLM_BAD_RESPONSE", "the break-down wasn't readable; try again");
+      }
+      const seen = new Set<string>();
+      return parsed.subIssues
+        .flatMap((d) => {
+          if (!d || typeof d !== "object") return [];
+          const title = typeof d.title === "string" ? d.title.trim().slice(0, 200) : "";
+          if (!title || seen.has(title.toLowerCase())) return [];
+          seen.add(title.toLowerCase());
+          const description = typeof d.description === "string" ? d.description.trim().slice(0, 2000) : "";
+          return [{ title, description }];
+        })
+        .slice(0, MAX_SUB_ISSUES);
     },
   };
 }

@@ -1,7 +1,13 @@
 # LLM assist
 
-Opt-in model-backed helpers. Off by default — no `TALLYLINE_LLM_API_KEY`, no
-LLM calls, and every assist surface returns `503 LLM_DISABLED`.
+Opt-in model-backed helpers. Off by default. Each call runs on the workspace's
+own provider (Settings > AI) or, if it has none, the server's
+`TALLYLINE_LLM_*` provider. With neither, no model calls happen and every assist
+surface returns `503 LLM_DISABLED` pointing at Settings > AI.
+
+Every call goes through the same seam (`services/ai-seam.ts` →
+`ai-providers.complete`), so the monthly limit is checked first (`402
+AI_CAP_REACHED`) and a ledger row records the action, model and cost.
 
 ## Config
 
@@ -21,22 +27,24 @@ All advisory — nothing mutates issues:
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /v1/:ws/llm/status` | `{enabled, model}` — the UI uses this to hide assist controls |
+| `GET /v1/:ws/llm/status` | `{enabled, model, source}` — the UI uses this to hide assist controls |
 | `POST /v1/:ws/issues/:key/summarize` | 2–3 sentence summary of title + description + recent comments |
 | `POST /v1/:ws/issues/:key/triage-suggest` | `{action: accept\|decline, reason}` triage verdict |
+| `POST /v1/:ws/issues/:key/breakdown-suggest` | `{subIssues: [{title, description}]}`, up to 8. Suggestions only; a person creates the ones they want (web: "Suggest sub-issues"; MCP: `suggest_sub_issues`) |
 | `POST /v1/:ws/issues/dup-check` | `{title, description?}` → likely duplicate open issues |
 | `POST /v1/:ws/issues?dupCheck=1` | same detection, attached to create as `possibleDuplicates` |
 
 Issue detail renders a `✦ summarize` button only when the status endpoint
-reports `enabled`. Upstream failures surface as `502 LLM_UPSTREAM`;
+reports `enabled`. Provider failures surface as `502 AI_UPSTREAM` /
+`AI_UNREACHABLE` with a plain reason the page shows as-is;
 unparseable model output as `502 LLM_BAD_RESPONSE`.
 
 ## Provider seam
 
 `services/llm.ts` defines `LLMProvider` (`complete({system, user, …})`).
-`createOpenRouterProvider()` is plain fetch — no SDK. A second provider
-(local model, Perplexity, a gateway) implements the same interface and
-plugs into `createAssist(provider)`.
+`createAssist()` with no argument binds each call to the workspace through
+`workspaceLLM(workspaceId, action)` in `services/ai-seam.ts`. Tests pass a stub
+to `createAssist(provider)`; nothing else calls a model directly.
 
 ## Bring your own provider (per workspace)
 
@@ -90,6 +98,5 @@ How it behaves:
   reply: "it didn't accept the API key", "the account is out of credit", "it
   doesn't know that model".
 
-This release adds the provider store, the spend ledger and the connect/test API.
-The existing assist surfaces above still read the server-wide environment until
-they are moved onto the workspace provider.
+Every assist surface above runs on this workspace provider, so the monthly
+limit and the usage ledger cover them too.

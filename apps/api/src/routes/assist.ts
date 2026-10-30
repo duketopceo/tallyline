@@ -1,9 +1,9 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { config_ } from "../env.js";
+import { resolveProvider } from "../services/ai-providers.js";
+import { aiEnabledFor, requireAi } from "../services/ai-seam.js";
 import { createAssist } from "../services/assist.js";
-import { llmEnabled, requireLLM } from "../services/llm.js";
 import { requireWorkspace } from "./workspaces.js";
 
 const assist = createAssist();
@@ -15,30 +15,38 @@ const dupCheckSchema = z.object({
 
 export const assistRoutes = new Hono()
   .get("/workspaces/:ws/llm/status", async (c) => {
-    await requireWorkspace(c);
-    return c.json({
-      enabled: llmEnabled(),
-      // model name is not a secret — the UI shows what it would call
-      model: llmEnabled() ? config_.llmModel : null,
-    });
+    const ws = await requireWorkspace(c);
+    // model name is not a secret: the UI shows what it would call
+    // an unreadable saved key still counts as on, matching requireAi; calls
+    // then fail with the plain AI_KEY_UNREADABLE message
+    const enabled = await aiEnabledFor(ws.id);
+    const p = await resolveProvider(ws.id).catch(() => null);
+    return c.json({ enabled, model: p?.model ?? null, source: p?.source ?? null });
   })
   .post("/workspaces/:ws/issues/:key/summarize", async (c) => {
     const ws = await requireWorkspace(c);
-    requireLLM();
+    await requireAi(ws.id);
     const summary = await assist.summarizeIssue(ws.id, c.req.param("key"));
     return c.json({ summary });
   })
   .post("/workspaces/:ws/issues/:key/triage-suggest", async (c) => {
     const ws = await requireWorkspace(c);
-    requireLLM();
+    await requireAi(ws.id);
     return c.json(await assist.suggestTriage(ws.id, c.req.param("key")));
+  })
+  .post("/workspaces/:ws/issues/:key/breakdown-suggest", async (c) => {
+    const ws = await requireWorkspace(c);
+    await requireAi(ws.id);
+    const subIssues = await assist.suggestSubIssues(ws.id, c.req.param("key"));
+    // suggestions only: nothing is created until a person picks them
+    return c.json({ subIssues });
   })
   .post(
     "/workspaces/:ws/issues/dup-check",
     zValidator("json", dupCheckSchema),
     async (c) => {
       const ws = await requireWorkspace(c);
-      requireLLM();
+      await requireAi(ws.id);
       const body = c.req.valid("json");
       const duplicates = await assist.checkDuplicates(
         ws.id,
