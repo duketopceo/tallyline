@@ -1,0 +1,28 @@
+{
+  "members": [
+    {
+      "id": "1736a75c-a37f-4915-97f1-3780f88c6fff",
+      "userId": "c82106a2-2fe7-4833-a84e-de37270a0904",
+      "email": "owner-ios-contract-bc13d368@matrix.test",
+      "name": "owner tlysentinelios-contractbc13d368",
+      "role": "owner",
+      "createdAt": "2026-10-30T23:45:21.669Z"
+    },
+    {
+      "id": "4b1ad380-dd62-40cf-bd02-4e22936afb91",
+      "userId": "0917f381-dbda-4b0c-a5d5-dba58328901d",
+      "email": "admin-ios-contract-bc13d368@matrix.test",
+      "name": "admin tlysentinelios-contractbc13d368",
+      "role": "admin",
+      "createdAt": "2026-10-30T23:45:21.671Z"
+    },
+    {
+      "id": "7e60cb08-1602-4677-b897-e5f02b4963bb",
+      "userId": "4258b65f-0b8d-4c3b-a195-26a4e6891c94",
+      "email": "member-ios-contract-bc13d368@matrix.test",
+      "name": "member tlysentinelios-contractbc13d368",
+      "role": "member",
+      "createdAt": "2026-10-30T23:45:21.672Z"
+    }
+  ]
+}

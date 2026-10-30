@@ -52,7 +52,7 @@ public struct Project: Codable, Sendable, Identifiable {
     public let id: String
     public let name: String
     public let description: String?
-    public let state: String?
+    public let status: String?
 }
 
 public struct Cycle: Codable, Sendable, Identifiable {
@@ -89,14 +89,33 @@ public struct Agent: Codable, Sendable, Identifiable {
     public let harness: String?
 }
 
-/// Review-queue row — an `in_review` issue plus its dispatch/session context.
-public struct ReviewQueueEntry: Codable, Sendable {
-    public let issue: Issue
+/// Review-queue row: an `in_review` issue with its most recent dispatch.
+/// Flat, as `GET /review-queue` returns it.
+public struct ReviewQueueEntry: Codable, Sendable, Identifiable, Hashable {
+    public let id: String
+    public let key: String
+    public let title: String
+    public let priority: IssuePriority
+    public let updatedAt: Date
+    public let dispatchId: String
+    public let dispatchStatus: String
+    public let agentName: String
+    public let sessionAt: Date
 }
 
-/// Delta-read page: `GET …?updatedSince=<iso>` returns rows changed after the
-/// cursor plus the next cursor; tombstones mark deleted rows where supported.
-public struct DeltaPage<T: Codable & Sendable>: Codable, Sendable {
-    public let items: [T]
+/// One page of `GET /issues`. With `updatedSince` it is a delta page, ordered
+/// by change time; follow `nextCursor` until it is nil.
+public struct IssuePage: Codable, Sendable {
+    public let issues: [Issue]
     public let nextCursor: String?
 }
+
+// List envelopes. Every list route wraps its rows in a named key.
+struct CommentList: Decodable { let comments: [IssueComment] }
+struct ProjectList: Decodable { let projects: [Project] }
+struct CycleList: Decodable { let cycles: [Cycle] }
+struct LabelList: Decodable { let labels: [Label] }
+struct TeamList: Decodable { let teams: [Team] }
+struct MemberList: Decodable { let members: [Member] }
+struct AgentList: Decodable { let agents: [Agent] }
+struct ReviewQueueList: Decodable { let queue: [ReviewQueueEntry] }

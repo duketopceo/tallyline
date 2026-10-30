@@ -39,11 +39,14 @@ final class SessionModel {
         let client = APIClient(baseURL: serverURL)
         do {
             let redeemed = try await client.redeemPairingCode(clean, deviceName: deviceName)
+            // The redeem response has no user id; whoami supplies it and proves
+            // the new credential works before it is saved.
+            let me = try await APIClient(baseURL: serverURL, bearerToken: redeemed.token).whoami()
             let credential = DeviceCredential(
                 token: redeemed.token,
                 expiresAt: redeemed.expiresAt,
                 deviceId: redeemed.deviceId,
-                userId: redeemed.userId,
+                userId: me.id ?? "",
                 workspaceSlug: redeemed.workspace.slug,
                 workspaceName: redeemed.workspace.name,
                 serverURL: serverURL

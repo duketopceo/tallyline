@@ -1,0 +1,18 @@
+{
+  "teams": [
+    {
+      "id": "777ad698-1626-401f-9e6a-f67be4d148f7",
+      "workspaceId": "033d47ae-9629-4447-9d7c-434ff255e8a5",
+      "key": "IOS",
+      "name": "Team tlysentinelios-contractbc13d368",
+      "nextIssueNumber": 2,
+      "rolloverBehavior": "next_cycle",
+      "cycleAutoEnabled": false,
+      "cycleLengthDays": 7,
+      "cycleStartWeekday": 1,
+      "cycleUpcomingCount": 2,
+      "timezone": null,
+      "createdAt": "2026-10-30T23:45:21.662Z"
+    }
+  ]
+}

@@ -29,6 +29,7 @@ All notable changes to Tallyline (formerly docketry). Format loosely follows
 ### Fixed
 
 - Linking to an issue id from another workspace answers 404, the same as an unknown key (U19).
+- **iOS client now decodes the real API**: list routes wrap rows (`{ issues }`, `{ comments }`, `{ teams }` ...), the review queue is flat rows, timestamps carry milliseconds, and pairing returns no user id. The client assumed otherwise and would have failed on first load. A contract test now captures every response the app reads into fixtures, and Swift tests decode them. Issue lists follow `nextCursor`; projects read `status`.
 - Oversized AI provider responses are rejected instead of resolving with an empty body.
 
 ## [2.0.0] — 2026-10-26

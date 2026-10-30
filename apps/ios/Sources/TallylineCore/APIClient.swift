@@ -11,9 +11,17 @@ public struct APIClient: Sendable {
     public var bearerToken: String?
 
     private let session: URLSession
-    private static let decoder: JSONDecoder = {
+    /// The API sends JavaScript ISO strings with milliseconds
+    /// (`2026-10-30T23:39:51.452Z`), which Foundation's `.iso8601` strategy
+    /// rejects. Accept both forms.
+    static let decoder: JSONDecoder = {
         let d = JSONDecoder()
-        d.dateDecodingStrategy = .iso8601
+        d.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let raw = try container.decode(String.self)
+            if let date = APIDate.parse(raw) { return date }
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "not an ISO 8601 date: \(raw)")
+        }
         return d
     }()
 
@@ -121,5 +129,25 @@ public struct APIClient: Sendable {
         } catch {
             throw APIClientError.decoding(String(describing: error))
         }
+    }
+}
+
+/// ISO 8601 parsing that matches what the API emits.
+public enum APIDate {
+    public static func parse(_ raw: String) -> Date? {
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = fractional.date(from: raw) { return date }
+        let whole = ISO8601DateFormatter()
+        whole.formatOptions = [.withInternetDateTime]
+        return whole.date(from: raw)
+    }
+
+    /// Millisecond precision, so a delta cursor never skips a row written in
+    /// the same second.
+    public static func format(_ date: Date) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f.string(from: date)
     }
 }

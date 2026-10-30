@@ -54,11 +54,26 @@ extension APIClient {
 
     // ── Issues ──────────────────────────────────────────────────────────
 
-    public func issues(ws slug: String, state: IssueState? = nil, updatedSince: Date? = nil) async throws -> [Issue] {
+    /// One page of issues. Pass `cursor` from the previous page to continue.
+    public func issuePage(ws slug: String, state: IssueState? = nil, updatedSince: Date? = nil, cursor: String? = nil) async throws -> IssuePage {
         var q: [String: String] = [:]
         if let state { q["state"] = state.rawValue }
-        if let updatedSince { q["updatedSince"] = ISO8601DateFormatter().string(from: updatedSince) }
+        if let updatedSince { q["updatedSince"] = APIDate.format(updatedSince) }
+        if let cursor { q["cursor"] = cursor }
         return try await send(method: "GET", path: "\(ws(slug))/issues", query: q)
+    }
+
+    /// All matching issues, following cursors (bounded so a bad cursor cannot loop forever).
+    public func issues(ws slug: String, state: IssueState? = nil, updatedSince: Date? = nil, maxPages: Int = 20) async throws -> [Issue] {
+        var out: [Issue] = []
+        var cursor: String?
+        for _ in 0..<maxPages {
+            let page = try await issuePage(ws: slug, state: state, updatedSince: updatedSince, cursor: cursor)
+            out.append(contentsOf: page.issues)
+            guard let next = page.nextCursor else { break }
+            cursor = next
+        }
+        return out
     }
 
     public func issue(ws slug: String, key: String) async throws -> Issue {
@@ -74,7 +89,8 @@ extension APIClient {
     }
 
     public func comments(ws slug: String, key: String) async throws -> [IssueComment] {
-        try await send(method: "GET", path: "\(ws(slug))/issues/\(key)/comments")
+        let list: CommentList = try await send(method: "GET", path: "\(ws(slug))/issues/\(key)/comments")
+        return list.comments
     }
 
     public func addComment(ws slug: String, key: String, body: String, idempotencyKey: String = UUID().uuidString) async throws -> IssueComment {
@@ -90,30 +106,37 @@ extension APIClient {
     // ── Board resources ─────────────────────────────────────────────────
 
     public func projects(ws slug: String) async throws -> [Project] {
-        try await send(method: "GET", path: "\(ws(slug))/projects")
+        let list: ProjectList = try await send(method: "GET", path: "\(ws(slug))/projects")
+        return list.projects
     }
 
     public func cycles(ws slug: String) async throws -> [Cycle] {
-        try await send(method: "GET", path: "\(ws(slug))/cycles")
+        let list: CycleList = try await send(method: "GET", path: "\(ws(slug))/cycles")
+        return list.cycles
     }
 
     public func labels(ws slug: String) async throws -> [Label] {
-        try await send(method: "GET", path: "\(ws(slug))/labels")
+        let list: LabelList = try await send(method: "GET", path: "\(ws(slug))/labels")
+        return list.labels
     }
 
     public func teams(ws slug: String) async throws -> [Team] {
-        try await send(method: "GET", path: "\(ws(slug))/teams")
+        let list: TeamList = try await send(method: "GET", path: "\(ws(slug))/teams")
+        return list.teams
     }
 
     public func members(ws slug: String) async throws -> [Member] {
-        try await send(method: "GET", path: "\(ws(slug))/members")
+        let list: MemberList = try await send(method: "GET", path: "\(ws(slug))/members")
+        return list.members
     }
 
     public func agents(ws slug: String) async throws -> [Agent] {
-        try await send(method: "GET", path: "\(ws(slug))/agents")
+        let list: AgentList = try await send(method: "GET", path: "\(ws(slug))/agents")
+        return list.agents
     }
 
     public func reviewQueue(ws slug: String) async throws -> [ReviewQueueEntry] {
-        try await send(method: "GET", path: "\(ws(slug))/review-queue")
+        let list: ReviewQueueList = try await send(method: "GET", path: "\(ws(slug))/review-queue")
+        return list.queue
     }
 }
