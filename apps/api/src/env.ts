@@ -54,6 +54,8 @@ export const config_ = {
   // stale. 0 disables either sweep.
   sessionAckTimeoutMs: Number(env("SESSION_ACK_TIMEOUT_MS", "600000")),
   sessionIdleTimeoutMs: Number(env("SESSION_IDLE_TIMEOUT_MS", "1800000")),
+  // a session waiting on a human answer (elicitation) goes stale after a day
+  sessionInputTimeoutMs: Number(env("SESSION_INPUT_TIMEOUT_MS", "86400000")),
   apiBaseUrl,
   // MCP remote endpoint + OAuth authorization server (PLAN-010/011). The
   // issuer is apiBaseUrl; the resource is the canonical MCP endpoint URL that

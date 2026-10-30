@@ -1,5 +1,5 @@
-import { eq, sql } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { and, eq, sql } from "drizzle-orm";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { app } from "../index.js";
 import { closeDb, db } from "../db/client.js";
 import { runMigrations } from "../db/migrate.js";
@@ -17,6 +17,7 @@ import {
   issueSuggestions,
   issues,
   labels,
+  notifications,
   oauthCodes,
   sessions,
   teams,
@@ -28,7 +29,7 @@ import {
   workspaceMembers,
   workspaces,
 } from "../db/schema.js";
-import { sweepStaleSessions } from "../services/agent-sessions.js";
+import { ELICITATION_COALESCE_MS, sweepStaleSessions } from "../services/agent-sessions.js";
 import { NOW, useFrozenClock } from "../../test/clock.js";
 
 useFrozenClock();
@@ -370,7 +371,55 @@ describe("agent sessions (plan L1)", () => {
     });
     expect(late.status).toBe(409);
     // disabled windows sweep nothing
-    expect(await sweepStaleSessions(0, 0, new Date(NOW + 999_999))).toBe(0);
+    expect(await sweepStaleSessions(0, 0, new Date(NOW + 999_999), 0)).toBe(0);
+  });
+
+  it("a session waiting on an answer goes stale after the input window (U23)", async () => {
+    const { session } = await newDispatchSession("unanswered");
+    const ask = await req(`/v1/workspaces/${SLUG}/agent-sessions/${session.id}/activities`, {
+      method: "POST",
+      token: agentToken,
+      body: JSON.stringify({ content: { type: "elicitation", body: "which env?" } }),
+    });
+    expect(ask.status).toBe(201);
+    // the idle window does not apply while waiting on a person
+    await sweepStaleSessions(0, 1, new Date(NOW + 5_000), 10_000);
+    const [w] = await db.select().from(agentSessions).where(eq(agentSessions.id, session.id));
+    expect(w!.status).toBe("awaitingInput");
+    await sweepStaleSessions(0, 0, new Date(NOW + 11_000), 10_000);
+    const [s] = await db.select().from(agentSessions).where(eq(agentSessions.id, session.id));
+    expect(s!.status).toBe("stale");
+  });
+
+  it("a question notifies the person who handed it over, once per minute (U23)", async () => {
+    const { key, session } = await newDispatchSession("ask twice");
+    const [iss] = await db.select({ id: issues.id }).from(issues).where(eq(issues.key, key));
+    const count = async () =>
+      (
+        await db
+          .select({ id: notifications.id })
+          .from(notifications)
+          .where(and(eq(notifications.issueId, iss!.id), eq(notifications.kind, "mention")))
+      ).length;
+    const say = (content: Record<string, unknown>, token?: string) =>
+      req(`/v1/workspaces/${SLUG}/agent-sessions/${session.id}/activities`, {
+        method: "POST",
+        ...(token ? { token } : {}),
+        body: JSON.stringify({ content }),
+      });
+    expect((await say({ type: "elicitation", body: "one?" }, agentToken)).status).toBe(201);
+    expect(await count()).toBe(1);
+    expect((await say({ type: "prompt", body: "yes" })).status).toBe(201);
+    expect((await say({ type: "elicitation", body: "two?" }, agentToken)).status).toBe(201);
+    expect(await count()).toBe(1);
+    vi.setSystemTime(NOW + ELICITATION_COALESCE_MS + 1_000);
+    try {
+      expect((await say({ type: "prompt", body: "ok" })).status).toBe(201);
+      expect((await say({ type: "elicitation", body: "three?" }, agentToken)).status).toBe(201);
+      expect(await count()).toBe(2);
+    } finally {
+      vi.setSystemTime(NOW);
+    }
   });
 });
 
@@ -690,6 +739,32 @@ describe("issue suggestions (plan L4)", () => {
     expect(dismissed.body.state).toBe("dismissed");
     expect(dismissed.body.dismissedReason).toBe("different root cause");
   });
+
+  it("suggests likely duplicates by title, and nothing unrelated (U25)", async () => {
+    const mk = async (title: string) =>
+      (
+        await req(`/v1/workspaces/${SLUG}/issues`, { method: "POST", body: JSON.stringify({ title }) })
+      ).body as { id: string; key: string };
+    const old = await mk("Export invoices to CSV from billing page");
+    await mk("Rotate the webhook signing secret");
+    const fresh = await mk("Export invoices to CSV from the billing page");
+    const gen = await req(`/v1/workspaces/${SLUG}/issues/${fresh.key}/suggestions`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    expect(gen.status).toBe(201);
+    const dupes = (gen.body.suggestions as { kind: string; suggestedValue: string }[]).filter(
+      (x) => x.kind === "duplicate",
+    );
+    expect(dupes.map((d) => d.suggestedValue)).toEqual([old.id]);
+    const lonely = await mk("Zebra quorum flux capacitor");
+    const none = await req(`/v1/workspaces/${SLUG}/issues/${lonely.key}/suggestions`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    const kinds = (none.body.suggestions as { kind: string; reason: string }[]).map((x) => x.reason);
+    expect(kinds).not.toContain("workspace label candidate");
+  });
 });
 
 describe("list filters for ready work (U20)", () => {
@@ -829,6 +904,19 @@ describe("issue relations (plan L5)", () => {
       { method: "DELETE" },
     );
     expect(del.status).toBe(200);
+  });
+
+  it("treats an issue id outside the workspace like a missing one (U19)", async () => {
+    const r = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({ title: "Rel lonely" }),
+    });
+    const res = await req(`/v1/workspaces/${SLUG}/issues/${(r.body as { key: string }).key}/relations`, {
+      method: "POST",
+      body: JSON.stringify({ targetIssueId: "00000000-0000-4000-8000-000000000000", relationType: "related" }),
+    });
+    expect(res.status).toBe(404);
+    expect((res.body as { error: { code: string } }).error.code).toBe("NOT_FOUND");
   });
 });
 
