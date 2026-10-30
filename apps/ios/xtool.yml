@@ -1,0 +1,7 @@
+version: 1
+bundleID: app.tallyline.ios
+iconPath: Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+infoPath: Info.plist
+entitlementsPath: App.entitlements
+resources:
+  - Resources/PrivacyInfo.xcprivacy
