@@ -4,10 +4,12 @@ import XCTest
 /// Signed-in screens need a paired server, which CI does not have; their
 /// labels are covered by IssueSpeech tests in TallylineCore.
 final class AccessibilityAuditTests: TallylineUITestCase {
+    @MainActor
     func testSignInScreenPassesTheAudit() throws {
         try app.performAccessibilityAudit(for: [.dynamicType, .sufficientElementDescription, .hitRegion, .textClipped]) { issue in Self.report(issue) }
     }
 
+    @MainActor
     func testSignInScreenAtTheLargestTextSize() throws {
         app.terminate()
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
@@ -16,6 +18,7 @@ final class AccessibilityAuditTests: TallylineUITestCase {
     }
 
     /// Logs which element failed so a CI failure names it; never suppresses.
+    @MainActor
     private static func report(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
         print("audit issue: \(issue.compactDescription) on \(issue.element?.debugDescription ?? "no element")")
         return false
