@@ -14,8 +14,9 @@ Every open item sits in exactly one of three lists: buildable by an agent, needs
 | Unit | What ships | Notes |
 |---|---|---|
 | S3-U4b | Remaining agent actions: model polish on the status-update draft, PR-brief draft, inbox answer | Seam and break-down landed in S3-U4 |
-| S6-U1 to U6 | iOS offline outbox, push, widgets, share sheet, App Intents, accessibility | Needs the Mac toolchain; push uses the S4-U3 endpoints ([docs/push.md](./docs/push.md)) |
 | U19/U23/U25 web | Relations section and blocked badge, session PR links in the header, suggestion chips; plan import writes blocks edges | Server side verified in [the re-verify note](./docs/research/2026-10-30-155-reverify.md) |
+| S5-U7 | Silver Lining theme and iPad layout for the iOS app | Needs the Mac toolchain to build and test |
+| S6-U2 to U6 | iOS push, widgets, share sheet, App Intents, accessibility | Needs the Mac toolchain; push uses the S4-U3 endpoints ([docs/push.md](./docs/push.md)) |
 
 ## Open: needs Luke
 
@@ -48,6 +49,7 @@ The full open-question list is at the end of the requirements document.
 | S3 providers | S3-U1 provider spike; S3-U2 bring-your-own provider, sealed keys, monthly spend limit; S3-U3 Connect OpenRouter (PKCE) and compatible endpoints from web and CLI; S3-U7 Settings → AI and the checklist step; S3-U6 connect a coding agent in one step; S3-U4 agent actions on the provider seam and break-down suggestions | #187, #203, #200, #205, #202 |
 | S4 mobile server | S4-U1 redirect schemes, S4-U2 QR pairing and devices, S4-U3 content-free push relay, S4-U4 delta reads and idempotent writes | #182, #186, #184, #206 |
 | S5 iOS | S5-U2/U3 scaffold and pairing, S5-U4 typed client, S5-U5/U6 issue loop, review queue, board tabs; S5-U7 generated theme and iPad split view; TestFlight build path | #191, #192, #193, 897088d, #208 |
+| S6 iOS | S6-U1 issue cache and offline outbox | #211 |
 | Release | v2.0.0 | #159 |
 
 ## Deferred

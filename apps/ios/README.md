@@ -25,6 +25,18 @@ mints a 5-minute code; the app redeems it at `POST /v1/auth/pair/redeem` for a
 server URL covers the self-hosted path. OAuth access tokens are audience-bound
 to `/mcp` and cannot call `/v1`, so there is no in-app OAuth flow.
 
+## Offline
+
+Reads come from a local issue cache first, then a delta sync (`updatedSince`) merges changes. Every write (new issue, edit, comment) goes through the outbox in `TallylineCore/Outbox.swift`:
+
+- Each entry's id is its `Idempotency-Key`, so a replay after a lost response applies once.
+- Writes to the same issue send strictly in order; other issues are not held up.
+- Network errors, 409, 429 and 5xx retry from 1 s, doubling to 5 minutes, up to 8 tries. Then the entry parks.
+- Any other 4xx (for example editing an issue cancelled elsewhere) parks at once with the server's reason. The server's state wins.
+- Parked entries wait in Settings > Outbox for Retry or Discard. Sign-out wipes the queue and the cache.
+
+Both are JSON files written atomically under Application Support. The plan named SwiftData; a JSON file keeps the logic testable on Linux and needs no migrations at this size.
+
 ## Wire contract
 
 `Tests/TallylineCoreTests/Fixtures/*.json` are real responses captured from the API routes by `apps/api/src/routes/ios-contract.test.ts`. That test fails when a route's shape drifts from its fixture; the Swift `ContractFixtureTests` decode every fixture on Linux. After an intended API change, refresh them:

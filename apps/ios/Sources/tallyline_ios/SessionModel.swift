@@ -18,12 +18,15 @@ final class SessionModel {
     private(set) var lastError: String?
 
     private let store: any CredentialStore
+    /// Issue cache and outbox. Set once in init.
+    @ObservationIgnored private(set) var offline: OfflineModel!
 
     init(store: any CredentialStore) {
         self.store = store
         if let credential = try? store.load() {
             state = .signedIn(credential)
         }
+        offline = OfflineModel(client: { [weak self] in self?.client })
     }
 
     var client: APIClient? {
@@ -82,6 +85,7 @@ final class SessionModel {
     func signOut() {
         try? store.clear()
         state = .signedOut
+        Task { await offline.wipe() }
     }
 }
 #endif
