@@ -7,7 +7,7 @@ import TallylineDesign
 @main
 struct TallylineApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var session = SessionModel(store: KeychainCredentialStore())
+    @State private var session = SessionModel.shared
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("appearance") private var appearance = SilverLiningAppearance.system.rawValue
 
@@ -23,7 +23,7 @@ struct TallylineApp: App {
                 .onOpenURL { url in
                     // tallyline://open/issues|review from widgets and shortcuts.
                     if let destination = AppLink.destination(url) {
-                        PushCenter.shared.pendingDestination = destination
+                        AppRouter.shared.open(destination)
                         return
                     }
                     // tallyline://pair?s=<server>&c=<code> — straight into pairing.

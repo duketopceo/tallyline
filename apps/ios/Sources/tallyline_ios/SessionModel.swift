@@ -14,6 +14,9 @@ enum SignInState {
 /// this; the Keychain store is injected at app start.
 @MainActor @Observable
 final class SessionModel {
+    /// The one session for the app process; Shortcuts reach it here.
+    static let shared = SessionModel(store: KeychainCredentialStore())
+
     private(set) var state: SignInState = .signedOut
     private(set) var lastError: String?
 
