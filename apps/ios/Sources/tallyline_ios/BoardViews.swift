@@ -222,14 +222,14 @@ struct ReviewQueueView: View {
                 if entries.isEmpty {
                     ContentUnavailableView("Queue clear", systemImage: "checkmark.circle", description: Text("Approved work lands here for your call."))
                 } else {
-                    List(entries, id: \.issue.id) { entry in
-                        NavigationLink(value: entry.issue) { IssueRow(issue: entry.issue) }
+                    List(entries) { entry in
+                        NavigationLink(value: entry) { ReviewRow(entry: entry) }
                     }
                 }
             }
             .navigationTitle("Review")
-            .navigationDestination(for: Issue.self) { issue in
-                IssueDetailView(session: session, credential: credential, issue: issue)
+            .navigationDestination(for: ReviewQueueEntry.self) { entry in
+                IssueLoaderView(session: session, credential: credential, key: entry.key)
             }
             .refreshable { await load() }
             .task { await load() }
@@ -239,6 +239,49 @@ struct ReviewQueueView: View {
     private func load() async {
         guard let client = session.client else { return }
         entries = (try? await client.reviewQueue(ws: credential.workspaceSlug)) ?? []
+    }
+}
+
+/// One review-queue row: the issue and which agent's session put it there.
+struct ReviewRow: View {
+    let entry: ReviewQueueEntry
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text(entry.key).font(.caption.monospaced()).foregroundStyle(Theme.inkSubtle)
+                Glint()
+                Text(entry.agentName).font(.caption).foregroundStyle(Theme.inkMuted)
+            }
+            Text(entry.title).font(.body).lineLimit(2)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Fetches an issue by key, then shows its detail.
+struct IssueLoaderView: View {
+    var session: SessionModel
+    let credential: DeviceCredential
+    let key: String
+    @State private var issue: Issue?
+    @State private var error: String?
+
+    var body: some View {
+        Group {
+            if let issue {
+                IssueDetailView(session: session, credential: credential, issue: issue)
+            } else if let error {
+                ContentUnavailableView("Could not load \(key)", systemImage: "exclamationmark.triangle", description: Text(error))
+            } else {
+                ProgressView()
+            }
+        }
+        .task {
+            guard let client = session.client else { return }
+            do { issue = try await client.issue(ws: credential.workspaceSlug, key: key) }
+            catch { self.error = error.localizedDescription }
+        }
     }
 }
 

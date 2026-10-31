@@ -1,0 +1,15 @@
+{
+  "queue": [
+    {
+      "id": "4e091f3b-fac4-4de4-84f0-c572cc27e74d",
+      "key": "IOS-37700002",
+      "title": "Issue tlysentinelios-contractbc13d368",
+      "priority": "none",
+      "updatedAt": "2026-10-30T23:45:21.814Z",
+      "dispatchId": "866731af-5222-4671-9526-94aecdc7a763",
+      "dispatchStatus": "claimed",
+      "agentName": "bot-ios-contract-bc13d368",
+      "sessionAt": "2026-10-30T23:45:21.815Z"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "cycles": [
+    {
+      "id": "9b3bf1c9-7919-4e12-9588-6a22c64137b7",
+      "workspaceId": "033d47ae-9629-4447-9d7c-434ff255e8a5",
+      "teamId": "777ad698-1626-401f-9e6a-f67be4d148f7",
+      "name": "Cycle tlysentinelios-contractbc13d368",
+      "number": 557776,
+      "startsAt": "2026-10-01T00:00:00.000Z",
+      "endsAt": "2026-10-14T00:00:00.000Z",
+      "isActive": false,
+      "createdAt": "2026-10-30T23:45:21.792Z"
+    }
+  ]
+}

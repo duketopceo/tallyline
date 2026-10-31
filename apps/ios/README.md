@@ -25,6 +25,14 @@ mints a 5-minute code; the app redeems it at `POST /v1/auth/pair/redeem` for a
 server URL covers the self-hosted path. OAuth access tokens are audience-bound
 to `/mcp` and cannot call `/v1`, so there is no in-app OAuth flow.
 
+## Wire contract
+
+`Tests/TallylineCoreTests/Fixtures/*.json` are real responses captured from the API routes by `apps/api/src/routes/ios-contract.test.ts`. That test fails when a route's shape drifts from its fixture; the Swift `ContractFixtureTests` decode every fixture on Linux. After an intended API change, refresh them:
+
+```sh
+IOS_FIXTURES=write pnpm --filter @tallyline/api exec vitest run src/routes/ios-contract.test.ts
+```
+
 ## Building
 
 Shipping builds run in GitHub Actions on a macOS runner (`.github/workflows/ios-release.yml`,

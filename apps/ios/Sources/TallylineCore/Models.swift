@@ -7,7 +7,8 @@ public struct PairingRedeemResponse: Codable, Sendable {
     public let expiresAt: Date
     public let scopes: [String]
     public let deviceId: String
-    public let userId: String
+    /// The API's own base URL, echoed so a QR scan needs no separate server entry.
+    public let server: String?
     public let workspace: WorkspaceRef
 
     public struct WorkspaceRef: Codable, Sendable {
