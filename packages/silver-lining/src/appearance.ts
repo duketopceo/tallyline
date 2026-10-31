@@ -18,8 +18,9 @@ export type Appearance =
   | { theme: ThemeId | "system" }
   | { theme: "custom"; custom: CustomTheme };
 
-// Section 2 names Dark the default theme; "system" is an explicit opt-in.
-export const DEFAULT_APPEARANCE: Appearance = { theme: "dark" };
+// First visits follow the OS (prefers-color-scheme); an explicit choice is
+// persisted in the cookie and wins from then on.
+export const DEFAULT_APPEARANCE: Appearance = { theme: "system" };
 
 export const DEFAULT_CUSTOM: CustomTheme = {
   base: THEME_INPUTS.dark.base,
@@ -33,8 +34,8 @@ export function normalizeCustom(c: CustomTheme): CustomTheme {
   return {
     base: {
       l: num(c.base.l, 0, 1, 0.16),
-      c: num(c.base.c, 0, 0.4, 0.012),
-      h: num(c.base.h, 0, 360, 255),
+      c: num(c.base.c, 0, 0.4, 0),
+      h: num(c.base.h, 0, 360, 0),
     },
     accent: {
       l: num(c.accent.l, 0, 1, 0.68),

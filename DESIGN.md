@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: tallyline-design-system
-description: "An operator-first dark console for an agent-native issue tracker. The canvas is near-black (#06080c) with a cool silver cast; a four-step surface ladder carries elevation; and every card, row, and panel wears a 1px metallic hairline — the 'silver lining' that carries the product's signature edge. The single chromatic accent is signal azure (#339fee), reserved for primary actions, links, focus, and the four-point glint glyph that marks agent provenance. Status is a fixed 4-color system (red / amber / green / neutral); blue is never a status color. Typography is Atkinson Hyperlegible Next for UI and Commit Mono for issue IDs and code, tuned to 13px body density with 32–40px rows. Depth comes from hairlines, not shadows. The lining is functional decoration: it is literally brightest where things go wrong, and a lit lining always ships with a recommended action."
+description: "An operator-first dark console for an agent-native issue tracker. The canvas is neutral near-black (#090909), true grey with no blue tint; a four-step surface ladder carries elevation; and every card, row, and panel wears a 1px metallic hairline — the 'silver lining' that carries the product's signature edge. The single chromatic accent is signal azure (#339fee), reserved for primary actions, links, focus, and the four-point glint glyph that marks agent provenance. Status is a fixed 4-color system (red / amber / green / neutral); blue is never a status color. Typography is Atkinson Hyperlegible Next for UI and Commit Mono for issue IDs and code, tuned to 13px body density with 32–40px rows. Depth comes from hairlines, not shadows. The lining is functional decoration: it is literally brightest where things go wrong, and a lit lining always ships with a recommended action."
 
 colors:
   # --- Dark theme (default) ---
@@ -9,22 +9,22 @@ colors:
   accent-hover: "#59b5ff"
   accent-pressed: "#1c8fdd"
   accent-soft: "rgba(51,159,238,0.14)"
-  on-accent: "#07090d"
-  ink: "#e0e5eb"
-  ink-muted: "#c1cad5"
-  ink-subtle: "#969faa"
-  ink-tertiary: "#8c949f"
-  ink-disabled: "#6b747e"
-  control: "#717a84"
-  canvas: "#06080c"
-  surface-1: "#0a0f15"
-  surface-2: "#0f1620"
-  surface-3: "#141e2a"
-  surface-4: "#192535"
-  lining-faint: "#1d242d"
-  lining: "#3b434d"
-  lining-strong: "#717a84"
-  lining-bright: "#c9d3de"
+  on-accent: "#090909"
+  ink: "#e5e5e5"
+  ink-muted: "#cacaca"
+  ink-subtle: "#9f9f9f"
+  ink-tertiary: "#949494"
+  ink-disabled: "#747474"
+  control: "#797979"
+  canvas: "#090909"
+  surface-1: "#0f0f0f"
+  surface-2: "#161616"
+  surface-3: "#1e1e1e"
+  surface-4: "#252525"
+  lining-faint: "#242424"
+  lining: "#434343"
+  lining-strong: "#797979"
+  lining-bright: "#d3d3d3"
   status-urgent: "#f06a6a"
   status-attention: "#f59e0b"
   status-healthy: "#10b981"
@@ -34,22 +34,22 @@ colors:
   status-healthy-soft: "rgba(16,185,129,0.14)"
   status-neutral-soft: "rgba(156,163,175,0.14)"
   glint: "#339fee"
-  glint-silver: "#c9d3de"
-  overlay: "rgba(1,1,2,0.72)"
-  scrim: "rgba(1,1,2,0.5)"
+  glint-silver: "#d3d3d3"
+  overlay: "rgba(1,1,1,0.72)"
+  scrim: "rgba(1,1,1,0.5)"
   # --- Light theme (inverse, secondary) ---
-  light-canvas: "#f4f5f7"
+  light-canvas: "#f5f5f5"
   light-surface-1: "#ffffff"
-  light-surface-2: "#edeef0"
-  light-surface-3: "#e6e7e9"
-  light-surface-4: "#dfe0e2"
-  light-ink: "#1a1a1c"
-  light-ink-muted: "#323539"
-  light-ink-subtle: "#515458"
-  light-lining-faint: "#d8dae0"
-  light-lining: "#adafb5"
-  light-lining-strong: "#727479"
-  light-lining-bright: "#2c2e33"
+  light-surface-2: "#eeeeee"
+  light-surface-3: "#e7e7e7"
+  light-surface-4: "#e0e0e0"
+  light-ink: "#1a1a1a"
+  light-ink-muted: "#343434"
+  light-ink-subtle: "#535353"
+  light-lining-faint: "#dadada"
+  light-lining: "#afafaf"
+  light-lining-strong: "#747474"
+  light-lining-bright: "#2e2e2e"
   light-accent: "#005fba"
   light-accent-hover: "#0054a6"
   light-status-urgent-ink: "#b91c1c"
@@ -324,7 +324,7 @@ components:
 
 tallyline is a self-hostable, agent-native issue tracker — humans and AI agents work the same board. The mark is four tally strokes struck through by a signal-azure line — work counted, lined off. The interface concept is **the silver lining** — every card, row, and panel wears a 1px metallic hairline (`{colors.lining}` family), and that lining literally brightens (`{colors.lining-bright}`) wherever the system needs attention: a blocked issue, a failed agent run, a stale sync. Functional decoration — the lining is brightest where things go wrong.
 
-The default surface is a near-black operator console (`{colors.canvas}` #06080c, faint cool-silver cast) built for density: 13px body, 36px rows, 8–12px in-row padding, one level of elevation maximum. The single chromatic accent is **signal azure** `{colors.accent}` (#339fee) — electric blue-azure at ~208° hue, deliberately a full cyan-step away from the indigo-lavender family common to this product category; it reads as "action," never as "status." Status is the fixed four-color system (`{colors.status-*}`), and blue is never a status color.
+The default surface is a near-black operator console (`{colors.canvas}` #090909, neutral grey, no tint) built for density: 13px body, 36px rows, 8–12px in-row padding, one level of elevation maximum. The single chromatic accent is **signal azure** `{colors.accent}` (#339fee) — electric blue-azure at ~208° hue, deliberately a full cyan-step away from the indigo-lavender family common to this product category; it reads as "action," never as "status." Status is the fixed four-color system (`{colors.status-*}`), and blue is never a status color.
 
 The second signature is the **glint** — a four-point sparkle glyph (`{component.sparkle-glint}`) that means exactly one thing: *an agent touched this*. Agent-filed issue, agent comment, agent-shipped PR — the glint marks provenance. It is sparse by rule: never decorative, never animated, never a shimmer.
 
@@ -347,8 +347,8 @@ The second signature is the **glint** — a four-point sparkle glyph (`{componen
 - **On Accent** (`{colors.on-accent}` — `#07090d`): text/icons on azure fills — near-black, not white (azure at ~7.0:1 against near-black vs ~2.9:1 against white).
 
 ### Surface (dark, default)
-- **Canvas** (`{colors.canvas}` — `#06080c`): app background. Near-black with a faint cool cast — never true `#000`.
-- **Surface 1** (`{colors.surface-1}` — `#0a0f15`): cards, panels, inputs. The workhorse lift.
+- **Canvas** (`{colors.canvas}` — `#090909`): app background. Neutral near-black, no blue tint — never true `#000`.
+- **Surface 1** (`{colors.surface-1}` — `#0f0f0f`): cards, panels, inputs. The workhorse lift.
 - **Surface 2** (`{colors.surface-2}` — `#0f1620`): raised panels — command palette, popovers, hover-state fills.
 - **Surface 3** (`{colors.surface-3}` — `#141e2a`): nested insets — code blocks, quote panels, active palette rows.
 - **Surface 4** (`{colors.surface-4}` — `#192535`): deepest lift — pinned/sticky regions inside panels.
@@ -663,7 +663,7 @@ with Refero styles before any marketing site work.
 
 ```text
 Primary direction: this file's existing system (Silver Lining Console), unchanged.
-Preserve: near-black canvas #06080c; 1px lining on every container; azure only on actions,
+Preserve: near-black canvas #090909; 1px lining on every container; azure only on actions,
   links, focus and the glint; 4-color status with shape + label; 13px body at 36px rows.
 Borrow only: (1) Linear's use of an inbox with explicit accept/decline verbs for triage copy
   (behaviour, not visuals); (2) Epiq's terminal-first, event-log-as-truth feel for the CLI/TUI

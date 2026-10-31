@@ -46,7 +46,7 @@ describe("DESIGN.md stays in sync with the generator (within deltaE 2)", () => {
   });
   it("dark input matches the spec defaults", () => {
     expect(THEME_INPUTS.dark.contrast).toBe(30);
-    expect(THEME_INPUTS.dark.base).toEqual({ l: 0.16, c: 0.012, h: 255 });
+    expect(THEME_INPUTS.dark.base).toEqual({ l: 0.16, c: 0, h: 0 });
     expect(THEME_INPUTS["hc-dark"].contrast).toBe(70);
   });
 });

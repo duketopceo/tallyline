@@ -191,7 +191,7 @@ function surfacesFor(
   }
   const baseL = clamp(base.l, MIN_DARK_CANVAS_L, 0.2);
   const nominal = 0.03 + 0.015 * contrast01;
-  const reach = oklchToHex({ l: MAX_INK_L, c: 0.006, h });
+  const reach = oklchToHex({ l: MAX_INK_L, c: Math.min(0.006, c), h });
   for (let canvasL = baseL; canvasL >= MIN_DARK_CANVAS_L - 1e-9; canvasL -= 0.0025) {
     for (let step = nominal; step >= 0.03 - 1e-9; step -= 0.0025) {
       const hexes = build([0, 1, 2, 3, 4].map((i) => canvasL + i * Math.max(step, 0.03)));
@@ -223,7 +223,9 @@ export function generateTheme(input: ThemeInput): ThemeTokens {
   const canvas = surfaces[0]!;
   // darkest surface in light themes, lightest in dark: the hardest to read on
   const worst = surfaces[4]!;
-  const tint = clamp(baseC * 1.6, 0.006, 0.03);
+  // text and linings carry the base chroma unchanged: a neutral base (c = 0)
+  // yields true greys. (An old 0.006 floor tinted them toward `base.h`.)
+  const tint = clamp(baseC * 1.6, 0, 0.03);
 
   const text = (floor: number, target: number, extra?: Partial<TextSpec>): string =>
     textColor({ h, c: tint, dir, surfaces, worst, floor, target, ...extra });
@@ -242,7 +244,7 @@ export function generateTheme(input: ThemeInput): ThemeTokens {
 
   // linings: hairlines are measured against the canvas, except the control
   // edge (inputs, focus ring) which must hold 3:1 on every surface.
-  const lineC = clamp(baseC * 1.6, 0.006, 0.03);
+  const lineC = clamp(baseC * 1.6, 0, 0.03);
   const solveLine = (target: number): string =>
     oklchToHex({ l: solveL(h, lineC, canvas, target, dir), c: lineC, h });
   const liningFaint = solveLine(1.22 + 0.2 * c01);
@@ -286,14 +288,14 @@ export function generateTheme(input: ThemeInput): ThemeTokens {
   const accOk = hexToOklch(accent);
   const accHover = oklchToHex({ ...accOk, l: clamp(accOk.l + (dark ? 0.07 : -0.04), 0.1, 0.95) });
   const accPressed = oklchToHex({ ...accOk, l: clamp(accOk.l + (dark ? -0.05 : -0.08), 0.1, 0.95) });
-  const near = (l: number) => oklchToHex({ l, c: 0.01, h });
+  const near = (l: number) => oklchToHex({ l, c: Math.min(0.01, baseC), h });
   const onAccent = [near(0.14), near(0.97)].reduce((a, b) =>
     contrastRatio(a, accent) >= contrastRatio(b, accent) ? a : b,
   );
 
   const st = input.status;
   const wash = 0.14;
-  const overlayBase = oklchToHex({ l: dark ? 0.07 : 0.2, c: 0.01, h });
+  const overlayBase = oklchToHex({ l: dark ? 0.07 : 0.2, c: Math.min(0.01, baseC), h });
 
   return {
     canvas,

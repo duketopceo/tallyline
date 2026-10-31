@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { clamp, contrastRatio, hexToOklch } from "../src/color.ts";
+import { clamp, contrastRatio, deltaE, hexToOklch } from "../src/color.ts";
 import {
   DARK_INK_CEILING,
   MAX_INK_L,
@@ -127,9 +127,9 @@ import {
 } from "../src/appearance.ts";
 
 describe("appearance cookie", () => {
-  it("defaults to dark and round-trips every choice", () => {
+  it("defaults to system and round-trips every choice", () => {
     expect(parseAppearance(undefined)).toEqual(DEFAULT_APPEARANCE);
-    expect(DEFAULT_APPEARANCE.theme).toBe("dark");
+    expect(DEFAULT_APPEARANCE.theme).toBe("system");
     for (const theme of ["system", "dark", "light", "hc-dark"] as const) {
       expect(parseAppearance(serializeAppearance({ theme }))).toEqual({ theme });
     }
@@ -146,5 +146,81 @@ describe("appearance cookie", () => {
       const { mode, tokens: t } = generateCustom(p.custom);
       expect(contrastPairs(t, mode).every((x) => x.ok)).toBe(true);
     }
+  });
+});
+
+describe("neutral palette (frontend polish U1)", () => {
+  const themes = buildThemes();
+  // Swatch-page values from the plan (R1, R2). The generator keeps the contrast
+  // floors and ceilings, so outputs land near, not on, these.
+  const swatch = {
+    dark: {
+      canvas: "#08090a",
+      "surface-1": "#0f1011",
+      "surface-2": "#151617",
+      "surface-3": "#1c1d1f",
+      "lining-faint": "#26282c",
+      ink: "#ededef",
+    },
+    light: {
+      canvas: "#f7f7f8",
+      "surface-1": "#ffffff",
+      "surface-2": "#f1f1f3",
+      "surface-3": "#e8e8eb",
+      "lining-faint": "#dcdde0",
+      ink: "#16171a",
+    },
+  } as const;
+  const TOLERANCE = 4;
+
+  for (const id of ["dark", "light"] as const) {
+    it(`${id} surfaces, line and ink sit within tolerance of the swatch values`, () => {
+      for (const [k, hex] of Object.entries(swatch[id])) {
+        const got = themes[id][k as keyof (typeof themes)["dark"]];
+        expect(deltaE(hex, got), `${id} ${k} ${got}`).toBeLessThanOrEqual(TOLERANCE);
+      }
+    });
+  }
+
+  it("has no hue bias in surfaces, linings or ink in dark, light or hc-dark", () => {
+    const neutral = [
+      ...SURFACE_NAMES,
+      "lining-faint",
+      "lining",
+      "lining-strong",
+      "lining-bright",
+      "control",
+      "ink",
+      "ink-muted",
+      "ink-subtle",
+      "ink-tertiary",
+      "ink-disabled",
+    ] as const;
+    for (const id of THEME_IDS) {
+      for (const k of neutral) {
+        const c = hexToOklch(themes[id][k]).c;
+        expect(c, `${id} ${k} ${themes[id][k]}`).toBeLessThan(0.012);
+      }
+    }
+  });
+
+  it("keeps dark canvas lightness at or above the floor and no pure white or black", () => {
+    for (const id of ["dark", "hc-dark"] as const) {
+      expect(hexToOklch(themes[id].canvas).l).toBeGreaterThanOrEqual(MIN_DARK_CANVAS_L - 0.006);
+      expect(themes[id].canvas).not.toBe("#000000");
+      expect(themes[id].ink).not.toBe("#ffffff");
+    }
+  });
+
+  it("uses the owner's Azure accent: #339fee dark, #005fba light", () => {
+    expect(themes.dark.accent).toBe("#339fee");
+    expect(themes.light.accent).toBe("#005fba");
+  });
+
+  it("makes the default custom theme follow the neutral dark inputs", () => {
+    expect(DEFAULT_CUSTOM.base).toEqual(THEME_INPUTS.dark.base);
+    const { tokens } = generateCustom(DEFAULT_CUSTOM);
+    expect(tokens.canvas).toBe(themes.dark.canvas);
+    expect(tokens.accent).toBe(themes.dark.accent);
   });
 });
