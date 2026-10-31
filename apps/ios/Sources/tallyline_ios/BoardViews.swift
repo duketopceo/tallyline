@@ -461,6 +461,7 @@ struct CreateIssueView: View {
             .task {
                 guard let client = session.client else { return }
                 teams = (try? await client.teams(ws: credential.workspaceSlug)) ?? []
+                if !teams.isEmpty { TeamMemory().teams = teams }
                 teamId = TeamMemory().pick(from: teams)?.id ?? ""
             }
         }

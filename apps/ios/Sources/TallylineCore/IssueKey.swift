@@ -34,10 +34,24 @@ public enum IssueKey {
 /// (Shortcuts, the share sheet).
 public struct TeamMemory {
     public static let key = "lastTeamId"
+    static let teamsKey = "teams"
     private let defaults: UserDefaults
 
-    public init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
+    /// Defaults to the App Group suite so the share extension sees the same
+    /// team as the app; falls back to standard defaults without the group.
+    public init(defaults: UserDefaults? = nil) {
+        self.defaults = defaults ?? UserDefaults(suiteName: WidgetSnapshot.appGroup) ?? .standard
+    }
+
+    /// The last team list seen online, for pickers that may be offline.
+    public var teams: [Team] {
+        get {
+            guard let data = defaults.data(forKey: Self.teamsKey) else { return [] }
+            return (try? JSONDecoder().decode([Team].self, from: data)) ?? []
+        }
+        nonmutating set {
+            defaults.set(try? JSONEncoder().encode(newValue), forKey: Self.teamsKey)
+        }
     }
 
     public var teamId: String? {

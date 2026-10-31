@@ -74,8 +74,12 @@ jobs:
       - name: Extensions are embedded
         run: |
           app=build/dd/Build/Products/Debug-iphonesimulator/Tallyline.app
-          test -d "$app/PlugIns/TallylineWidgets.appex" || { echo "widget extension missing from $app/PlugIns"; ls "$app/PlugIns" 2>&1; exit 1; }
-          /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$app/PlugIns/TallylineWidgets.appex/Info.plist" | grep -qx com.apple.widgetkit-extension
+          check() {
+            test -d "$app/PlugIns/$1.appex" || { echo "$1 missing from $app/PlugIns"; ls "$app/PlugIns" 2>&1; exit 1; }
+            /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$app/PlugIns/$1.appex/Info.plist" | grep -qx "$2"
+          }
+          check TallylineWidgets com.apple.widgetkit-extension
+          check TallylineShare com.apple.share-services
       - name: Release build compiles (device SDK, unsigned)
         run: |
           set -o pipefail
