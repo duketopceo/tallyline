@@ -148,6 +148,17 @@ struct IssueListView: View {
                             NavigationLink(value: issue) { IssueRow(issue: issue) }
                         }
                     }
+                    // VoiceOver rotors: jump straight to what needs attention.
+                    .accessibilityRotor("Urgent and high") {
+                        ForEach(issues.filter { $0.priority == .urgent || $0.priority == .high }) { issue in
+                            AccessibilityRotorEntry(IssueSpeech.label(issue), id: issue.id)
+                        }
+                    }
+                    .accessibilityRotor("Agent work") {
+                        ForEach(issues.filter { $0.creatorType == "agent" }) { issue in
+                            AccessibilityRotorEntry(IssueSpeech.label(issue), id: issue.id)
+                        }
+                    }
                 }
             }
             .navigationTitle(state == .triage ? "Triage" : "Issues")
@@ -177,7 +188,7 @@ struct IssueListView: View {
             try await session.offline.syncIssues(workspaceSlug: credential.workspaceSlug)
             error = nil
         } catch let APIClientError.http(_, _, message) {
-            self.error = message ?? "load failed"
+            self.error = message ?? "The server could not load this list."
         } catch {
             self.error = "You're offline"
         }
@@ -186,6 +197,7 @@ struct IssueListView: View {
 
 struct IssueRow: View {
     let issue: Issue
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -196,11 +208,13 @@ struct IssueRow: View {
                     Text("×\(issue.occurrenceCount)").font(.caption2).foregroundStyle(Theme.inkSubtle)
                 }
                 Spacer()
-                Text(issue.priority.rawValue).font(.caption2).foregroundStyle(priorityColor)
+                Text(issue.priority.displayName).font(.caption2).foregroundStyle(priorityColor)
             }
-            Text(issue.title).font(.body).lineLimit(2)
-            Text(issue.state.rawValue.replacingOccurrences(of: "_", with: " ")).font(.caption).foregroundStyle(Theme.inkMuted)
+            Text(issue.title).font(.body).lineLimit(dynamicTypeSize.isAccessibilitySize ? 6 : 2)
+            Text(issue.state.displayName).font(.caption).foregroundStyle(Theme.inkMuted)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(IssueSpeech.label(issue))
     }
 
     private var priorityColor: Color {
@@ -215,13 +229,18 @@ struct IssueRow: View {
 
 /// Four-point star marking agent-authored or agent-held work.
 struct Glint: View {
-    var size: CGFloat = 12
+    /// Grows with Dynamic Type alongside the caption text it sits next to.
+    @ScaledMetric(relativeTo: .caption) private var size: CGFloat = 12
+
+    init(size: CGFloat = 12) {
+        _size = ScaledMetric(wrappedValue: size, relativeTo: .caption)
+    }
 
     var body: some View {
         GlintShape()
             .fill(Theme.glint)
             .frame(width: size, height: size)
-            .accessibilityLabel("agent")
+            .accessibilityLabel("Agent")
     }
 }
 
@@ -249,7 +268,7 @@ struct IssueDetailView: View {
                     set: { newState in Task { await patch { $0.state = newState } } }
                 )) {
                     ForEach(IssueState.allCases, id: \.self) { s in
-                        Text(s.rawValue.replacingOccurrences(of: "_", with: " ")).tag(s)
+                        Text(s.displayName).tag(s)
                     }
                 }
                 Picker("Priority", selection: Binding(
@@ -257,7 +276,7 @@ struct IssueDetailView: View {
                     set: { p in Task { await patch { $0.priority = p } } }
                 )) {
                     ForEach(IssuePriority.allCases, id: \.self) { p in
-                        Text(p.rawValue).tag(p)
+                        Text(p.displayName).tag(p)
                     }
                 }
             }
@@ -323,9 +342,16 @@ struct IssueDetailView: View {
 
     private func review(_ decision: String) async {
         guard let client = session.client else { return }
-        do { issue = try await client.reviewIssue(ws: credential.workspaceSlug, key: issue.key, decision: decision) }
-        catch let APIClientError.http(_, _, m) { actionError = m ?? "review failed" }
-        catch { actionError = "review failed" }
+        do {
+            issue = try await client.reviewIssue(ws: credential.workspaceSlug, key: issue.key, decision: decision)
+            Haptics.success()
+        } catch let APIClientError.http(_, _, m) {
+            actionError = m ?? "Review failed."
+            Haptics.warning()
+        } catch {
+            actionError = "Review failed. Check your connection."
+            Haptics.warning()
+        }
     }
 
     private func postComment() async {
@@ -393,7 +419,7 @@ struct ReviewRow: View {
                 Glint()
                 Text(entry.agentName).font(.caption).foregroundStyle(Theme.inkMuted)
             }
-            Text(entry.title).font(.body).lineLimit(2)
+            Text(entry.title).font(.body).lineLimit(4)
         }
         .accessibilityElement(children: .combine)
     }
@@ -447,7 +473,7 @@ struct CreateIssueView: View {
                     ForEach(teams) { Text($0.name).tag($0.id) }
                 }
                 Picker("Priority", selection: $priority) {
-                    ForEach(IssuePriority.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    ForEach(IssuePriority.allCases, id: \.self) { Text($0.displayName).tag($0) }
                 }
                 if let error { Text(error).foregroundStyle(Theme.urgent) }
             }
@@ -476,6 +502,7 @@ struct CreateIssueView: View {
         switch await session.offline.submit(.createIssue(draft), workspaceSlug: credential.workspaceSlug) {
         case .sent, .queued:
             // Queued drafts show in Settings > Outbox until they send.
+            Haptics.success()
             await onCreated()
             dismiss()
         case .rejected(let reason):

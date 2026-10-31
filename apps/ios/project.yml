@@ -40,6 +40,7 @@ targets:
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: YES
         SUPPORTS_MACCATALYST: NO
         SWIFT_VERSION: "6.0"
+        SWIFT_EMIT_LOC_STRINGS: YES
         ENABLE_USER_SCRIPT_SANDBOXING: NO
       configs:
         Release:
@@ -79,6 +80,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Extensions/Widgets/Widgets.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "6.0"
+        SWIFT_EMIT_LOC_STRINGS: YES
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
     entitlements:
@@ -116,6 +118,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Extensions/Share/Share.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "6.0"
+        SWIFT_EMIT_LOC_STRINGS: YES
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
     entitlements:
