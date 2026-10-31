@@ -6,6 +6,8 @@ public struct IssueCreate: Codable, Sendable, Equatable {
     public var title: String
     public var description: String?
     public var teamId: String
+    /// Unset means the server default (backlog). The share sheet sends triage.
+    public var state: IssueState?
     public var priority: IssuePriority?
     public var projectId: String?
     public var cycleId: String?
@@ -13,8 +15,8 @@ public struct IssueCreate: Codable, Sendable, Equatable {
     public var delegateId: String?
     public var delegateType: String?
 
-    public init(title: String = "", description: String? = nil, teamId: String = "", priority: IssuePriority? = nil, projectId: String? = nil, cycleId: String? = nil, parentId: String? = nil, delegateId: String? = nil, delegateType: String? = nil) {
-        self.title = title; self.description = description; self.teamId = teamId; self.priority = priority
+    public init(title: String = "", description: String? = nil, teamId: String = "", state: IssueState? = nil, priority: IssuePriority? = nil, projectId: String? = nil, cycleId: String? = nil, parentId: String? = nil, delegateId: String? = nil, delegateType: String? = nil) {
+        self.title = title; self.description = description; self.teamId = teamId; self.state = state; self.priority = priority
         self.projectId = projectId; self.cycleId = cycleId; self.parentId = parentId
         self.delegateId = delegateId; self.delegateType = delegateType
     }

@@ -48,6 +48,12 @@ Both are JSON files written atomically under Application Support. The plan named
 
 The App Group must be registered and added to both App IDs (`app.tallyline.ios`, `app.tallyline.ios.widgets`) before a signed build installs. The xtool sideload path builds the app without extensions.
 
+## Share sheet
+
+`Extensions/Share` adds Tallyline to other apps' share menus. It takes a link or text, prefills a title and notes (`TallylineCore/Share.swift`), and files a triage issue to the team last used. Online, it sends at once. Offline, it writes the issue to `share-inbox/` in the App Group; the app moves it into its outbox with the same id (the idempotency key) when it next opens, so nothing is filed twice.
+
+The device credential lives in the App Group keychain access group so the extension can read it. Older installs move their credential into the group on first launch. Images are not accepted: the API has no attachments yet.
+
 ## Shortcuts
 
 `AppTarget/Intents.swift` adds three App Shortcuts: Create issue, Open issues, and Open issue by key (`eng 12` works; parsing is `TallylineCore/IssueKey.swift`). Create issue goes through the outbox, so it works offline, and files to the team last used in the app (`TeamMemory`). Siri voice phrases come with App Shortcuts but are not tuned yet. The xtool sideload path builds without them.

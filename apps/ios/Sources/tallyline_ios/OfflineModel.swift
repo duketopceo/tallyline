@@ -70,6 +70,22 @@ final class OfflineModel {
         await scheduleWake()
     }
 
+    /// Move issues the share extension could not send into the outbox, keeping
+    /// their ids (the idempotency key), then send.
+    func importSharedDrafts() async {
+        guard let inbox = ShareInbox.shared() else { return }
+        let drafts = inbox.pending()
+        guard !drafts.isEmpty else { return }
+        let queued = Set(await outbox.all.map(\.id))
+        for item in drafts {
+            if !queued.contains(item.id) {
+                guard (try? await outbox.enqueue(.createIssue(item.draft), workspaceSlug: item.workspaceSlug, id: item.id)) != nil else { continue }
+            }
+            inbox.remove(item.id)
+        }
+        await drain()
+    }
+
     func retry(_ id: String) async {
         try? await outbox.retry(id)
         await drain()
@@ -115,6 +131,9 @@ final class OfflineModel {
         wakeTask?.cancel()
         try? await outbox.wipe()
         try? cacheStore.delete()
+        if let inbox = ShareInbox.shared() {
+            for item in inbox.pending() { inbox.remove(item.id) }
+        }
         cache = nil
         await refreshEntries()
     }

@@ -19,6 +19,7 @@ struct TallylineApp: App {
                 .task { await session.rotateIfNeeded() }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .background { Task { await WidgetBridge.refresh(session: session) } }
+                    if phase == .active { Task { await session.offline.importSharedDrafts() } }
                 }
                 .onOpenURL { url in
                     // tallyline://open/issues|review from widgets and shortcuts.
