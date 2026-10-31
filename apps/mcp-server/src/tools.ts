@@ -549,6 +549,15 @@ export const toolDefs: ToolDef[] = [
   }),
 
   defineTool({
+    name: "draft_pr_brief",
+    description:
+      "Ask the workspace's AI provider for a pull-request description for an issue: Markdown with Summary, Changes and Testing, ending in 'Closes KEY'. Returns {brief}; nothing is posted. Edit it to match the code you actually changed. Counts against the workspace's monthly AI limit; fails with LLM_DISABLED when no provider is connected. Needs write scope.",
+    inputSchema: { key: z.string() },
+    handler: async (args, client) =>
+      client.apiPost(`/issues/${encodeURIComponent(args.key)}/pr-brief`, {}),
+  }),
+
+  defineTool({
     name: "create_issue",
     description:
       "Create an issue. State may be 'triage' or 'backlog' (default backlog). teamKey picks the team (defaults to the workspace's first). To assign, pass assigneeType AND assigneeId together.",

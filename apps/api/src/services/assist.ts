@@ -1,9 +1,10 @@
 import { and, desc, eq, ne } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { comments, issues } from "../db/schema.js";
+import { agentActivities, agentSessions, comments, issues } from "../db/schema.js";
 import { HttpError } from "../lib/errors.js";
 import { workspaceLLM } from "./ai-seam.js";
 import type { LLMProvider } from "./llm.js";
+import type { ProjectUpdateDraft } from "./project-update-draft.js";
 
 // Every surface is opt-in: callers invoke on demand, nothing fires on writes.
 // The kill switch lives in the route layer (requireAi). Without an injected
@@ -22,6 +23,17 @@ export interface SubIssueDraft {
 
 /** most sub-issues one break-down may propose */
 export const MAX_SUB_ISSUES = 8;
+
+export interface AnswerDraft {
+  /** the agent's open question, verbatim */
+  question: string;
+  draft: string;
+}
+
+/** longest model-written text we pass back (polish, brief, answer) */
+export const MAX_DRAFT_CHARS = 8000;
+
+const clip = (text: string) => text.trim().slice(0, MAX_DRAFT_CHARS);
 
 export interface DuplicateMatch {
   key: string;
@@ -183,6 +195,94 @@ export function createAssist(provider?: LLMProvider) {
           return [{ title, description }];
         })
         .slice(0, MAX_SUB_ISSUES);
+    },
+
+    /**
+     * S3-U4b: rewrite a fact-based status update in plain prose. The facts
+     * stay the draft's; the model only words them. Output that drops an issue
+     * key the facts name is rejected, so a polish can't quietly lose work.
+     */
+    async polishProjectUpdate(workspaceId: string, projectName: string, draft: ProjectUpdateDraft): Promise<string> {
+      const prompt = [
+        `Project: ${projectName}`,
+        `Suggested health: ${draft.suggestedHealth} (${draft.healthReason})`,
+        `Facts-only draft:\n${draft.body}`,
+        "\nRewrite the draft as a short status update for the team: 3 to 6 sentences or a few bullets, plain words, no headings.",
+        "Keep every issue key exactly as written. Add nothing that is not in the draft.",
+      ].join("\n\n");
+      const text = clip(await llmFor(workspaceId, "status_update").complete({ system: SYSTEM, user: prompt, maxTokens: 500 }));
+      const required = [...draft.doneKeys, ...draft.blockedKeys];
+      if (!text || required.some((k) => !text.includes(k))) {
+        throw new HttpError(502, "LLM_BAD_RESPONSE", "the polished update left out some work; use the facts draft or try again");
+      }
+      return text;
+    },
+
+    /** S3-U4b: a pull-request description for the work on an issue. Nothing is posted. */
+    async draftPrBrief(workspaceId: string, key: string): Promise<string> {
+      const issue = await findIssueRow(workspaceId, key);
+      const thread = await db
+        .select({ body: comments.body })
+        .from(comments)
+        .where(eq(comments.issueId, issue.id))
+        .orderBy(desc(comments.createdAt))
+        .limit(10);
+      const prompt = [
+        `Issue ${issue.key}: ${issue.title}`,
+        issue.description ? `Description:\n${issue.description}` : "",
+        thread.length > 0 ? `Recent comments (newest first):\n${thread.map((c) => `- ${c.body}`).join("\n")}` : "",
+        "\nDraft a pull-request description in Markdown with three short sections: ## Summary, ## Changes, ## Testing.",
+        `Describe what the issue asks for, not code you have not seen. End with the line: Closes ${issue.key}`,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+      const text = clip(await llmFor(workspaceId, "pr_brief").complete({ system: SYSTEM, user: prompt, maxTokens: 700 }));
+      if (!text) throw new HttpError(502, "LLM_BAD_RESPONSE", "the brief came back empty; try again");
+      return text.includes(`Closes ${issue.key}`) ? text : `${text}\n\nCloses ${issue.key}`;
+    },
+
+    /**
+     * S3-U4b: a suggested reply to the question an agent is waiting on. The
+     * person edits and sends it as a `prompt`; nothing is posted here.
+     */
+    async draftAnswer(workspaceId: string, sessionId: string): Promise<AnswerDraft> {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) {
+        throw new HttpError(404, "NOT_FOUND", "session not found");
+      }
+      const [session] = await db
+        .select()
+        .from(agentSessions)
+        .where(and(eq(agentSessions.id, sessionId), eq(agentSessions.workspaceId, workspaceId)));
+      if (!session) throw new HttpError(404, "NOT_FOUND", "session not found");
+      const recent = await db
+        .select({ type: agentActivities.type, content: agentActivities.content })
+        .from(agentActivities)
+        .where(and(eq(agentActivities.sessionId, session.id), eq(agentActivities.ephemeral, false)))
+        .orderBy(desc(agentActivities.id))
+        .limit(12);
+      const bodyOf = (c: unknown) => {
+        const b = (c as { body?: unknown } | null)?.body;
+        return typeof b === "string" ? b : "";
+      };
+      const asked = session.status === "awaitingInput" ? recent.find((a) => a.type === "elicitation") : undefined;
+      const question = asked ? bodyOf(asked.content) : "";
+      if (!question) throw new HttpError(409, "NO_OPEN_QUESTION", "the agent isn't waiting on a question");
+      const issue = await db.select().from(issues).where(eq(issues.id, session.issueId)).then((r) => r[0]);
+      const prompt = [
+        issue ? `Issue ${issue.key}: ${issue.title}` : "",
+        issue?.description ? `Description:\n${issue.description}` : "",
+        `Recent session activity (newest first):\n${recent
+          .map((a) => `- ${a.type}: ${bodyOf(a.content).slice(0, 400)}`)
+          .filter((l) => !l.endsWith(": "))
+          .join("\n")}`,
+        `The agent asks: ${question}`,
+        "\nDraft a short, direct reply a teammate could send. If the issue does not settle the question, say what to decide instead of guessing.",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+      const draft = clip(await llmFor(workspaceId, "inbox_answer").complete({ system: SYSTEM, user: prompt, maxTokens: 400 }));
+      if (!draft) throw new HttpError(502, "LLM_BAD_RESPONSE", "the answer came back empty; try again");
+      return { question, draft };
     },
   };
 }

@@ -1,11 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../db/client.js";
-import { aiProviders, aiUsageLedger, issues } from "../db/schema.js";
+import { agentActivities, agentSessions, aiProviders, aiUsageLedger, events, issues } from "../db/schema.js";
 import { app } from "../index.js";
 import { __setAiFetchForTests, type AiFetch } from "./ai-providers.js";
 import { createAssist, MAX_SUB_ISSUES } from "./assist.js";
-import { mkIssue, newSession, seedTenant, type Tenant } from "../../test/tenants.js";
+import { mkAgentSession, mkDispatch, mkIssue, mkProject, newSession, seedTenant, type Tenant } from "../../test/tenants.js";
 
 // S3-U4: assist runs on the workspace's provider seam (cap + ledger), and the
 // break-down action only proposes sub-issues; nothing is written.
@@ -161,5 +161,112 @@ describe("break-down into sub-issues", () => {
     model("{}");
     const r = await post(`/issues/NOPE-999/breakdown-suggest`);
     expect(r.status).toBe(404);
+  });
+});
+
+// S3-U4b: the three remaining drafts. Each returns text; none writes.
+describe("status-update polish", () => {
+  async function projectWithDone() {
+    const project = await mkProject(A);
+    const done = await mkIssue(A, { title: "Invoices list", projectId: project.id, state: "done" });
+    await db.insert(events).values({
+      workspaceId: A.ws.id,
+      entityType: "issue",
+      entityId: done.id,
+      action: "state_changed",
+      actorType: "system",
+      after: { state: "done" },
+    });
+    return { project, done };
+  }
+
+  it("rewords the facts draft and keeps the done keys", async () => {
+    await connect();
+    const { project, done } = await projectWithDone();
+    model(`Good week. ${done.key} shipped, nothing is blocked.`);
+    const r = await post(`/projects/${project.id}/update-draft/polish`);
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ polished: true, doneKeys: [done.key] });
+    expect(r.body.body).toBe(`Good week. ${done.key} shipped, nothing is blocked.`);
+    expect(r.body.factsBody).toContain(done.key);
+    const [row] = await db
+      .select()
+      .from(aiUsageLedger)
+      .where(and(eq(aiUsageLedger.workspaceId, A.ws.id), eq(aiUsageLedger.action, "status_update")));
+    expect(row).toBeTruthy();
+  });
+
+  it("rejects a polish that drops a done issue", async () => {
+    await connect();
+    const { project } = await projectWithDone();
+    model("Good week, lots shipped.");
+    const r = await post(`/projects/${project.id}/update-draft/polish`);
+    expect(r.status).toBe(502);
+    expect(JSON.stringify(r.body)).toContain("LLM_BAD_RESPONSE");
+  });
+
+  it("an empty window returns the facts draft without a model call", async () => {
+    const project = await mkProject(A);
+    const calls = model("never");
+    const r = await post(`/projects/${project.id}/update-draft/polish`);
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ polished: false, empty: true });
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("PR brief", () => {
+  it("drafts a description that closes the issue", async () => {
+    await connect();
+    model("## Summary\nBilling page.\n\n## Changes\n- plans\n\n## Testing\n- manual");
+    const r = await post(`/issues/${key}/pr-brief`);
+    expect(r.status).toBe(200);
+    expect(r.body.brief).toContain("## Summary");
+    expect(r.body.brief).toMatch(new RegExp(`Closes ${key}$`));
+  });
+
+  it("is off when no provider is connected", async () => {
+    const r = await post(`/issues/${key}/pr-brief`);
+    expect(r.status).toBe(503);
+  });
+});
+
+describe("inbox answer", () => {
+  async function waitingSession(question: string | null) {
+    const issue = await mkIssue(A, { title: "Pick the card form" });
+    const dispatch = await mkDispatch(A, issue.id);
+    const session = await mkAgentSession(A, dispatch.id, issue.id);
+    if (question) {
+      await db.insert(agentActivities).values({
+        sessionId: session.id,
+        workspaceId: A.ws.id,
+        type: "elicitation",
+        content: { body: question },
+        actorType: "agent",
+        actorId: A.agent.id,
+      });
+      await db.update(agentSessions).set({ status: "awaitingInput" }).where(eq(agentSessions.id, session.id));
+    }
+    return session;
+  }
+
+  it("drafts a reply to the open question and posts nothing", async () => {
+    await connect();
+    const session = await waitingSession("Stripe Elements or Checkout?");
+    model("Use Checkout; the issue asks for the fastest path.");
+    const before = await db.select().from(agentActivities).where(eq(agentActivities.sessionId, session.id));
+    const r = await post(`/agent-sessions/${session.id}/answer-draft`);
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ question: "Stripe Elements or Checkout?", draft: "Use Checkout; the issue asks for the fastest path." });
+    const after = await db.select().from(agentActivities).where(eq(agentActivities.sessionId, session.id));
+    expect(after).toHaveLength(before.length);
+  });
+
+  it("is 409 when the agent isn't waiting, 404 for a bad id", async () => {
+    await connect();
+    model("never");
+    const idle = await waitingSession(null);
+    expect((await post(`/agent-sessions/${idle.id}/answer-draft`)).status).toBe(409);
+    expect((await post(`/agent-sessions/not-a-uuid/answer-draft`)).status).toBe(404);
   });
 });

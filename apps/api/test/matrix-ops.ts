@@ -328,6 +328,7 @@ export const OPERATIONS: Record<string, Builder> = {
   "POST /v1/workspaces/{ws}/issues/{key}/comments": issueOp("POST", "/comments", { body: "hello" }),
   "POST /v1/workspaces/{ws}/issues/{key}/summarize": issueOp("POST", "/summarize"),
   "POST /v1/workspaces/{ws}/issues/{key}/breakdown-suggest": issueOp("POST", "/breakdown-suggest"),
+  "POST /v1/workspaces/{ws}/issues/{key}/pr-brief": issueOp("POST", "/pr-brief"),
   "POST /v1/workspaces/{ws}/issues/{key}/triage-suggest": issueOp("POST", "/triage-suggest"),
   "POST /v1/workspaces/{ws}/issues/dup-check": simple("POST", (t) => `${base(t)}/issues/dup-check`, {
     title: "Matrix duplicate probe",
@@ -467,6 +468,7 @@ export const OPERATIONS: Record<string, Builder> = {
   "GET /v1/workspaces/{ws}/projects/{id}/updates": projectOp("GET", "/updates"),
   "POST /v1/workspaces/{ws}/projects/{id}/updates": projectOp("POST", "/updates", { health: "on_track", body: "Matrix update" }),
   "GET /v1/workspaces/{ws}/projects/{id}/update-draft": projectOp("GET", "/update-draft"),
+  "POST /v1/workspaces/{ws}/projects/{id}/update-draft/polish": projectOp("POST", "/update-draft/polish"),
   "PATCH /v1/workspaces/{ws}/projects/{id}/milestones/{mid}": milestoneOp("PATCH", { title: "M1b" }),
   "DELETE /v1/workspaces/{ws}/projects/{id}/milestones/{mid}": milestoneOp("DELETE"),
   "GET /v1/workspaces/{ws}/cycles": get((t) => `${base(t)}/cycles`),
@@ -507,6 +509,7 @@ export const OPERATIONS: Record<string, Builder> = {
   // ── agent sessions (plan L1) ───────────────────────────────────────────────
   "GET /v1/workspaces/{ws}/issues/{key}/agent-sessions": issueOp("GET", "/agent-sessions"),
   "GET /v1/workspaces/{ws}/agent-sessions/{id}": sessionOp("GET", ""),
+  "POST /v1/workspaces/{ws}/agent-sessions/{id}/answer-draft": sessionOp("POST", "/answer-draft"),
   "POST /v1/workspaces/{ws}/agent-sessions/{id}/activities": sessionOp("POST", "/activities", {
     content: { type: "prompt", body: "carry on" },
   }),

@@ -20,7 +20,7 @@ const listQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
-async function findProject(workspaceId: string, id: string) {
+export async function findProject(workspaceId: string, id: string) {
   const [row] = await db
     .select()
     .from(projects)

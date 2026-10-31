@@ -308,6 +308,30 @@ const basePaths = {
         responses: { "200": { description: "{subIssues: [{title, description}]}" } },
       },
     },
+    "/v1/workspaces/{ws}/issues/{key}/pr-brief": {
+      post: {
+        summary:
+          "Draft a pull-request description (Summary, Changes, Testing, Closes KEY) from the issue and its recent comments. Nothing is posted. Same provider, limit and errors as summarize",
+        parameters: [wsParam, keyParam],
+        responses: { "200": { description: "{brief}" } },
+      },
+    },
+    "/v1/workspaces/{ws}/projects/{id}/update-draft/polish": {
+      post: {
+        summary:
+          "Reword the facts-only status-update draft as plain prose. Keys of done and blocked issues are kept or the call fails with 502 LLM_BAD_RESPONSE. An empty window returns the facts draft with no model call. Nothing is posted",
+        parameters: [wsParam, idParam],
+        responses: { "200": { description: "The update-draft fields with body replaced, plus factsBody and polished" } },
+      },
+    },
+    "/v1/workspaces/{ws}/agent-sessions/{id}/answer-draft": {
+      post: {
+        summary:
+          "Suggest a reply to the question an agent session is waiting on. People only (403 FORBIDDEN_AGENT for agent keys); 409 NO_OPEN_QUESTION when the session isn't awaiting input. Send the edited reply as a prompt activity",
+        parameters: [wsParam, idParam],
+        responses: { "200": { description: "{question, draft}" } },
+      },
+    },
     "/v1/workspaces/{ws}/issues/{key}/triage-suggest": {
       post: {
         summary:
