@@ -24,6 +24,10 @@ targets:
         product: tallyline_ios
       - target: TallylineWidgets
       - target: TallylineShare
+    scheme:
+      # The CI accessibility audit runs these with test-without-building.
+      testTargets:
+        - TallylineUITests
     settings:
       base:
         PRODUCT_NAME: Tallyline
@@ -94,6 +98,17 @@ targets:
     platform: iOS
     sources:
       - UITests
+    dependencies:
+      - target: Tallyline
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.tallyline.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Tallyline
+        SWIFT_VERSION: "6.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
+        CODE_SIGN_STYLE: Automatic
 
   TallylineShare:
     type: app-extension
