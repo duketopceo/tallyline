@@ -6,6 +6,7 @@ import TallylineDesign
 
 @main
 struct TallylineApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var session = SessionModel(store: KeychainCredentialStore())
     @AppStorage("appearance") private var appearance = SilverLiningAppearance.system.rawValue
 
@@ -42,6 +43,11 @@ struct RootView: View {
             InstancePickerView(session: session)
         case .signedIn(let credential):
             HomeView(session: session, credential: credential)
+                // Re-register on every sign-in and launch; see PushRegistrar.
+                .task(id: credential.token) {
+                    PushCenter.shared.session = session
+                    await PushCenter.shared.refresh()
+                }
         }
     }
 }

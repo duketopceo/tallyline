@@ -45,7 +45,9 @@ targets:
     entitlements:
       path: App.entitlements
       # XcodeGen rewrites this file from `properties` on every generate; keep them here.
-      properties: {}
+      properties:
+        # Push: the App ID needs the Push Notifications capability (docs/push.md).
+        aps-environment: development
 
   TallylineUITests:
     type: bundle.ui-testing

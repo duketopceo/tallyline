@@ -76,6 +76,27 @@ not agents):
 may wrap midnight. Set all three or none. Revoking a device also clears its
 handle.
 
+## On the phone
+
+Settings > Notifications in the iOS app (S6-U2):
+
+- **Turn on notifications** asks iOS for permission. The app never asks on
+  its own at launch.
+- After that, every launch and sign-in registers again: config, relay, then
+  the handle goes to your server. A rotated server key heals itself this way.
+- Toggles per kind and a quiet-hours window write the preferences above.
+  Quiet hours use the phone's time zone.
+- Tapping a push opens Issues (assigned, mention, agent run) or Review.
+- Signing out deletes the handle from your server first.
+
+The alerts are the fixed lines above, so the app ships no notification
+service extension. Debug builds register as `sandbox`, release builds as
+`production`.
+
+The app's App ID needs the Push Notifications capability in the Apple
+developer portal before a signed build will install. Free developer accounts
+cannot use push.
+
 ## Server setup
 
 | Variable | Meaning |
