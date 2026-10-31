@@ -8,6 +8,7 @@ import {
   issues,
   workflowDefinitions,
   type IssueRow,
+  type WorkflowTrigger,
 } from "../db/schema.js";
 import { clock } from "./clock.js";
 import { createDispatch } from "./dispatch.js";
@@ -83,7 +84,7 @@ async function runWorkflows(
     workspaceId: string;
     issue: IssueRow;
   },
-  trigger: string,
+  trigger: WorkflowTrigger,
   matches: (condition: Record<string, unknown>) => boolean,
 ): Promise<number> {
   const workflows = await db
