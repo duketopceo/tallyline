@@ -85,6 +85,7 @@ final class SessionModel {
     func signOut() {
         try? store.clear()
         state = .signedOut
+        WidgetBridge.clear()
         Task { await offline.wipe() }
     }
 }

@@ -41,6 +41,12 @@ Both are JSON files written atomically under Application Support. The plan named
 
 `TallylineCore/Push.swift` holds the registration flow and preferences (tested on Linux). `tallyline_ios/PushViews.swift` holds the app delegate, permission prompt and Settings > Notifications. The flow and privacy model are in [docs/push.md](../../docs/push.md). `App.entitlements` carries `aps-environment`, so the App ID needs the Push Notifications capability.
 
+## Widgets
+
+`Extensions/Widgets` is a WidgetKit extension with three widgets: My issues, Needs your review, and Cycle progress, in Home Screen and Lock Screen sizes. The app writes `WidgetSnapshot` (built in `TallylineCore/WidgetSnapshot.swift`, tested on Linux) to the App Group `group.app.tallyline.ios` on launch and when it goes to the background. The widget only reads that file; it never calls the network. Lock Screen sizes show counts only, never titles. Taps open `tallyline://open/issues` or `tallyline://open/review`.
+
+The App Group must be registered and added to both App IDs (`app.tallyline.ios`, `app.tallyline.ios.widgets`) before a signed build installs. The xtool sideload path builds the app without extensions.
+
 ## Wire contract
 
 `Tests/TallylineCoreTests/Fixtures/*.json` are real responses captured from the API routes by `apps/api/src/routes/ios-contract.test.ts`. That test fails when a route's shape drifts from its fixture; the Swift `ContractFixtureTests` decode every fixture on Linux. After an intended API change, refresh them:
