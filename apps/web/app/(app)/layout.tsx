@@ -1,3 +1,5 @@
+import { APPEARANCE_COOKIE, parseAppearance } from "@tallyline/silver-lining";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { AppProviders } from "@/components/app/providers";
@@ -28,9 +30,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     active?.deletedAt && active.purgeAfter
       ? { name: active.workspaceName ?? active.workspaceSlug, purgeAfter: active.purgeAfter }
       : null;
+  const appearance = parseAppearance((await cookies()).get(APPEARANCE_COOKIE)?.value);
   return (
     <AppProviders meta={meta}>
-      <Shell peek={<PeekPanel />}>
+      <Shell peek={<PeekPanel />} appearance={appearance}>
         <AccountGate
           emailVerified={me.data.emailVerified !== false}
           pendingDeletion={pendingDeletion}

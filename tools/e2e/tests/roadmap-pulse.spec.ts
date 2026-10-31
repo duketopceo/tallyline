@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { forceTheme } from "./helpers";
 
 const API = `http://localhost:${process.env.E2E_API_PORT ?? "4000"}`;
 const DAY = 86_400_000;
@@ -120,11 +121,7 @@ for (const theme of ["dark", "light"] as const) {
     for (const path of ["/roadmap", "/roadmap?push=1"]) {
       await page.goto(path);
       await expect(page.getByTestId(path.includes("push") ? "push-view" : "pulse-band")).toBeVisible();
-      await page.evaluate((t) => {
-        document.documentElement.classList.remove("light", "dark");
-        document.documentElement.classList.add(t);
-      }, theme);
-      await page.waitForTimeout(400);
+      await forceTheme(page, theme);
       const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
       expect(r.violations.map((v) => `${v.id}: ${v.help}`), path).toEqual([]);
     }

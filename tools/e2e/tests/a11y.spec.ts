@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { agentIssue, failSession, SAME_ORIGIN } from "./helpers";
+import { agentIssue, failSession, forceTheme, SAME_ORIGIN } from "./helpers";
 
 // PLAN-044: every app screen, WCAG 2.0/2.1/2.2 A + AA tags, both themes,
 // desktop and phone widths. Zero violations gates the run.
@@ -58,14 +58,9 @@ async function issueKey(page: Page): Promise<string> {
   return match![0];
 }
 
-async function setTheme(page: Page, theme: (typeof THEMES)[number]) {
-  await page.evaluate((t) => {
-    document.documentElement.classList.remove("light", "dark");
-    document.documentElement.classList.add(t);
-  }, theme);
-  // colour transitions (<=150ms) must finish before axe samples contrast
-  await page.waitForTimeout(400);
-}
+// Forces the theme through data-theme and asserts the computed color-scheme, so
+// a dark scan can never silently run light under the "system" default.
+const setTheme = forceTheme;
 
 async function scan(page: Page) {
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();

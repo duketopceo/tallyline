@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, request, test, type Browser, type Page } from "@playwright/test";
-import { SAME_ORIGIN } from "./helpers";
+import { forceTheme, SAME_ORIGIN } from "./helpers";
 
 // Account lifecycle end to end: password reset, email verification, exports,
 // workspace delete + restore, account deletion. Mail is never sent: the API
@@ -239,11 +239,7 @@ test.describe("account lifecycle screens pass axe @a11y", () => {
         for (const path of ["/settings/account", "/settings/workspace", "/settings/dev-inbox"]) {
           await page.goto(path);
           await page.waitForLoadState("networkidle");
-          await page.evaluate((t) => {
-            document.documentElement.classList.remove("light", "dark");
-            document.documentElement.classList.add(t);
-          }, theme);
-          await page.waitForTimeout(400);
+          await forceTheme(page, theme);
           const v = await axe(page);
           expect(v, `${path}\n${v.join("\n")}`).toHaveLength(0);
         }
@@ -265,11 +261,7 @@ test.describe("account lifecycle screens pass axe @a11y", () => {
         for (const path of ["/forgot-password", "/reset-password?token=e2e-not-a-token", "/verify-email?token=e2e-not-a-token"]) {
           await page.goto(path);
           await page.waitForLoadState("networkidle");
-          await page.evaluate((t) => {
-            document.documentElement.classList.remove("light", "dark");
-            document.documentElement.classList.add(t);
-          }, theme);
-          await page.waitForTimeout(400);
+          await forceTheme(page, theme);
           const v = await axe(page);
           expect(v, `${path}\n${v.join("\n")}`).toHaveLength(0);
         }

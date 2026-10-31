@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { forceTheme } from "./helpers";
 
 // PLAN-016 (public legal/trust pages) and PLAN-059 (Settings > Usage).
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -10,13 +11,7 @@ const VIEWPORTS = [
   { name: "390", width: 390, height: 844 },
 ] as const;
 
-async function setTheme(page: Page, theme: (typeof THEMES)[number]) {
-  await page.evaluate((t) => {
-    document.documentElement.classList.remove("light", "dark");
-    document.documentElement.classList.add(t);
-  }, theme);
-  await page.waitForTimeout(400); // colour transitions settle before axe samples
-}
+const setTheme = forceTheme;
 
 async function violations(page: Page): Promise<string[]> {
   const r = await new AxeBuilder({ page }).withTags(TAGS).analyze();

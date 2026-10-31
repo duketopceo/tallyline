@@ -1,51 +1,23 @@
 "use client";
 
 import {
-  APPEARANCE_COOKIE,
   type Appearance,
   type CustomTheme,
   DEFAULT_CUSTOM,
   THEME_LABELS,
   type ThemeId,
   contrastRatio,
+  themeToStyle,
   generateCustom,
   normalizeCustom,
-  serializeAppearance,
-  themeToStyle,
   tokens,
 } from "@tallyline/silver-lining";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { applyAppearance, readStoredCustom } from "@/lib/appearance-client";
 
 // Settings > Appearance. Choosing a theme (or moving a custom slider) applies
 // instantly to <html> with no reload and is remembered per device in a cookie
 // that the root layout reads, so the next page load paints the same theme.
-
-const ONE_YEAR = 60 * 60 * 24 * 365;
-
-function applyToDocument(appearance: Appearance) {
-  const root = document.documentElement;
-  for (const prop of [...root.style]) {
-    if (prop.startsWith("--sl-") || prop === "color-scheme") root.style.removeProperty(prop);
-  }
-  if (appearance.theme === "system") {
-    root.removeAttribute("data-theme");
-  } else if (appearance.theme === "custom") {
-    const { mode, tokens: t } = generateCustom(appearance.custom);
-    root.setAttribute("data-theme", "custom");
-    for (const [k, v] of Object.entries(themeToStyle(t, mode))) {
-      root.style.setProperty(k === "colorScheme" ? "color-scheme" : k, v);
-    }
-  } else {
-    root.setAttribute("data-theme", appearance.theme);
-  }
-  try {
-    document.cookie = `${APPEARANCE_COOKIE}=${encodeURIComponent(
-      serializeAppearance(appearance),
-    )}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
-  } catch {
-    // cookies blocked: the theme still applies for this page view
-  }
-}
 
 const THEME_CHOICES: { id: Appearance["theme"]; label: string; hint: string }[] = [
   { id: "system", label: "Follow system", hint: "Dark or light, matching your OS." },
@@ -95,6 +67,13 @@ export function AppearanceSettings({ initial }: { initial: Appearance }) {
     [theme, custom],
   );
 
+  // a custom theme set earlier (before the sidebar toggle switched modes) comes back
+  useEffect(() => {
+    if (initial.theme === "custom") return;
+    const stored = readStoredCustom();
+    if (stored) setCustom(stored);
+  }, [initial.theme]);
+
   // apply instantly on every change; skip the very first render (already SSR'd)
   const first = useRef(true);
   useEffect(() => {
@@ -102,7 +81,7 @@ export function AppearanceSettings({ initial }: { initial: Appearance }) {
       first.current = false;
       return;
     }
-    applyToDocument(appearance);
+    applyAppearance(appearance);
   }, [appearance]);
 
   const preview = useMemo(() => {
