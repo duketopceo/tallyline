@@ -5,13 +5,19 @@ import XCTest
 /// labels are covered by IssueSpeech tests in TallylineCore.
 final class AccessibilityAuditTests: TallylineUITestCase {
     func testSignInScreenPassesTheAudit() throws {
-        try app.performAccessibilityAudit(for: [.dynamicType, .sufficientElementDescription, .hitRegion, .textClipped])
+        try app.performAccessibilityAudit(for: [.dynamicType, .sufficientElementDescription, .hitRegion, .textClipped], report)
     }
 
     func testSignInScreenAtTheLargestTextSize() throws {
         app.terminate()
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
-        try app.performAccessibilityAudit(for: [.sufficientElementDescription, .textClipped])
+        try app.performAccessibilityAudit(for: [.sufficientElementDescription, .textClipped], report)
+    }
+
+    /// Logs which element failed so a CI failure names it; never suppresses.
+    private func report(_ issue: XCUIAccessibilityAuditIssue) -> Bool {
+        print("audit issue: \(issue.compactDescription) on \(issue.element?.debugDescription ?? "no element")")
+        return false
     }
 }
