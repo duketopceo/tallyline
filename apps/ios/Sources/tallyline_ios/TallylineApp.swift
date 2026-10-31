@@ -7,11 +7,13 @@ import TallylineDesign
 @main
 struct TallylineApp: App {
     @State private var session = SessionModel(store: KeychainCredentialStore())
+    @AppStorage("appearance") private var appearance = SilverLiningAppearance.system.rawValue
 
     var body: some Scene {
         WindowGroup {
             RootView(session: session)
                 .background(Theme.canvas.ignoresSafeArea())
+                .preferredColorScheme((SilverLiningAppearance(rawValue: appearance) ?? .system).colorScheme)
                 .task { await session.rotateIfNeeded() }
                 .onOpenURL { url in
                     // tallyline://pair?s=<server>&c=<code> — straight into pairing.
