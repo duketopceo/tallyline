@@ -18,6 +18,11 @@ let package = Package(
             name: "tallyline_ios",
             targets: ["tallyline_ios"]
         ),
+        // For app extensions (widgets): core logic and the theme, no app code.
+        .library(
+            name: "TallylineKit",
+            targets: ["TallylineCore", "TallylineDesign"]
+        ),
     ],
     targets: (coreOnly ? [] : [
         .target(

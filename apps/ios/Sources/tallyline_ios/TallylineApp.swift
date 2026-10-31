@@ -8,6 +8,7 @@ import TallylineDesign
 struct TallylineApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var session = SessionModel(store: KeychainCredentialStore())
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("appearance") private var appearance = SilverLiningAppearance.system.rawValue
 
     var body: some Scene {
@@ -16,7 +17,15 @@ struct TallylineApp: App {
                 .background(Theme.canvas.ignoresSafeArea())
                 .preferredColorScheme((SilverLiningAppearance(rawValue: appearance) ?? .system).colorScheme)
                 .task { await session.rotateIfNeeded() }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .background { Task { await WidgetBridge.refresh(session: session) } }
+                }
                 .onOpenURL { url in
+                    // tallyline://open/issues|review from widgets and shortcuts.
+                    if let destination = AppLink.destination(url) {
+                        PushCenter.shared.pendingDestination = destination
+                        return
+                    }
                     // tallyline://pair?s=<server>&c=<code> — straight into pairing.
                     if url.host == "pair" {
                         let server = PairingCode.suggestedServer(url.absoluteString) ?? TallylineConfig.defaultServerURL
@@ -47,6 +56,7 @@ struct RootView: View {
                 .task(id: credential.token) {
                     PushCenter.shared.session = session
                     await PushCenter.shared.refresh()
+                    await WidgetBridge.refresh(session: session)
                 }
         }
     }

@@ -71,6 +71,11 @@ jobs:
             CODE_SIGNING_ALLOWED=NO > build/xcodebuild.log 2>&1 \
             || { grep -E "error:" build/xcodebuild.log | head -50; exit 1; }
           tail -3 build/xcodebuild.log
+      - name: Extensions are embedded
+        run: |
+          app=build/dd/Build/Products/Debug-iphonesimulator/Tallyline.app
+          test -d "$app/PlugIns/TallylineWidgets.appex" || { echo "widget extension missing from $app/PlugIns"; ls "$app/PlugIns" 2>&1; exit 1; }
+          /usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$app/PlugIns/TallylineWidgets.appex/Info.plist" | grep -qx com.apple.widgetkit-extension
       - name: Release build compiles (device SDK, unsigned)
         run: |
           set -o pipefail
