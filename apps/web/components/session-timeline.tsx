@@ -13,8 +13,15 @@ export interface Session {
   agentId: string;
   agentName: string;
   createdAt: string;
+  /** U25: the agent session opened for this run, with the PRs the agent reported */
+  session?: { id: string; status: string; pullRequests: string[] } | null;
   events: SessionEvent[];
 }
+
+const prLabel = (url: string) => {
+  const m = /\/([^/]+)\/pull\/(\d+)/.exec(url);
+  return m ? `${m[1]}#${m[2]}` : "Pull request";
+};
 export interface Outcome { branch?: string; pr?: string; reason?: string }
 
 const KIND: Record<string, string> = { reading: "Reading", planning: "Planning", implementing: "Implementing", testing: "Testing", pr: "Pull request", error: "Error", note: "Note" };
@@ -83,6 +90,8 @@ export function SessionTimeline({
           const last = s.events.at(-1);
           const out = outcomes[s.id];
           const expanded = open[s.id];
+          // PRs the agent reported on its session, plus the one in the completion event
+          const prs = [...new Set([...(s.session?.pullRequests ?? []), ...(out?.pr ? [out.pr] : [])])].filter((u) => /^https:\/\//.test(u));
           return (
             <li key={s.id} id={`session-${s.id}`} className={`rounded-md border bg-surface-1 p-3 ${failed ? "border-lining-bright" : "border-lining"}`}>
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
@@ -93,10 +102,12 @@ export function SessionTimeline({
                 <time className="ml-auto text-ink-subtle" dateTime={s.createdAt} title={new Date(s.createdAt).toLocaleString()} suppressHydrationWarning>{relTime(s.createdAt)} ago</time>
               </div>
               {s.status === "claimed" && last && <p className="mt-2 truncate font-mono text-[12px] text-ink-muted" aria-live="polite">{last.message}</p>}
-              {(out?.pr || out?.branch) && (
+              {(prs.length > 0 || out?.branch) && (
                 <p className="mt-2 flex flex-wrap items-center gap-x-3 text-[12px] text-ink-muted">
-                  {out.branch && <span className="font-mono">{out.branch}</span>}
-                  {out.pr && <a href={out.pr} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover">Open pull request</a>}
+                  {out?.branch && <span className="font-mono">{out.branch}</span>}
+                  {prs.map((url) => (
+                    <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="font-mono text-accent hover:text-accent-hover" aria-label={`Open pull request ${prLabel(url)}`}>{prLabel(url)}</a>
+                  ))}
                 </p>
               )}
               {failed && (

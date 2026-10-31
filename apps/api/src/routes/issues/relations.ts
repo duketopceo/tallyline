@@ -1,7 +1,7 @@
 // Issue relations (plan L5) — typed edges between issues (blocks, relates,
 // duplicates) with cycle guards on blocking relationships.
 import { zValidator } from "@hono/zod-validator";
-import { and, asc, eq, or } from "drizzle-orm";
+import { and, asc, eq, inArray, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../../db/client.js";
@@ -34,7 +34,28 @@ export const relationRoutes = new Hono()
         ),
       )
       .orderBy(asc(issueRelations.createdAt));
-    return c.json({ relations: rows });
+    // U19: name the issue on the other end so a client can render the edge
+    // without a second lookup; `direction` is from this issue's point of view
+    const otherIds = [
+      ...new Set(rows.map((r) => (r.sourceIssueId === issue.id ? r.targetIssueId : r.sourceIssueId))),
+    ];
+    const others = otherIds.length
+      ? await db
+          .select({ id: issues.id, key: issues.key, title: issues.title, state: issues.state })
+          .from(issues)
+          .where(and(eq(issues.workspaceId, ws.id), inArray(issues.id, otherIds)))
+      : [];
+    const byId = new Map(others.map((o) => [o.id, o]));
+    return c.json({
+      relations: rows.map((r) => {
+        const outgoing = r.sourceIssueId === issue.id;
+        return {
+          ...r,
+          direction: outgoing ? ("outgoing" as const) : ("incoming" as const),
+          other: byId.get(outgoing ? r.targetIssueId : r.sourceIssueId) ?? null,
+        };
+      }),
+    });
   })
   .post(
     "/workspaces/:ws/issues/:key/relations",

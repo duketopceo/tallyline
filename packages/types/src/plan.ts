@@ -444,5 +444,10 @@ export interface PlanImportDiff {
   milestones: { create: string[]; existing: string[] };
   warnings: string[];
   /** apply only: ids written */
-  applied?: { created: { unitId: string | undefined; key: string }[]; updated: { unitId: string; key: string }[] };
+  applied?: {
+    created: { unitId: string | undefined; key: string }[];
+    updated: { unitId: string; key: string }[];
+    /** U19: in-plan "Depends on" written as blocks edges by this apply (new edges only) */
+    blocksAdded?: number;
+  };
 }

@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../db/client.js";
 import {
+  agentSessions,
   agents,
   comments,
   dispatchEvents,
@@ -313,9 +314,14 @@ export const dispatchRoutes = new Hono()
         createdAt: dispatches.createdAt,
         agentId: dispatches.agentId,
         agentName: agents.name,
+        sessionId: agentSessions.id,
+        sessionStatus: agentSessions.status,
+        sessionPullRequests: agentSessions.pullRequests,
       })
       .from(dispatches)
       .innerJoin(agents, eq(dispatches.agentId, agents.id))
+      // U25: the agent session (if the agent opened one) carries the PRs it reported
+      .leftJoin(agentSessions, eq(agentSessions.dispatchId, dispatches.id))
       .where(eq(dispatches.issueId, issue.id))
       .orderBy(desc(dispatches.createdAt));
     const runIds = runs.map((r) => r.id);
@@ -334,6 +340,12 @@ export const dispatchRoutes = new Hono()
       byDispatch.set(e.dispatchId, list);
     }
     return c.json({
-      sessions: runs.map((r) => ({ ...r, events: byDispatch.get(r.id) ?? [] })),
+      sessions: runs.map(({ sessionId, sessionStatus, sessionPullRequests, ...r }) => ({
+        ...r,
+        session: sessionId
+          ? { id: sessionId, status: sessionStatus, pullRequests: sessionPullRequests ?? [] }
+          : null,
+        events: byDispatch.get(r.id) ?? [],
+      })),
     });
   });

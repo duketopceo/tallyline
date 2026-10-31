@@ -13,6 +13,7 @@ import { Assignee, Glint, Kbd, PriorityGlyph, StateGlyph } from "@/components/ap
 import type { IssueDetail } from "@/components/app/peek-panel";
 import { recordRecent } from "@/components/command-palette";
 import { BreakdownButton, SummarizeButton } from "@/components/issue-detail-client";
+import { RelationsSection, SuggestionChips } from "@/components/issue-relations";
 import { SessionTimeline, type Outcome, type Session } from "@/components/session-timeline";
 import { PRIORITY_LABEL, relTime, STATE_LABEL } from "@/lib/format";
 import { Markdown } from "@/lib/markdown";
@@ -354,6 +355,7 @@ export function IssueDetailView({
               )}
             </section>
 
+            <SuggestionChips issueKey={issue.key} onApplied={() => router.refresh()} />
             <SummarizeButton issueKey={issue.key} />
             <BreakdownButton issueKey={issue.key} parentId={serverIssue.id} onCreated={() => router.refresh()} />
 
@@ -367,6 +369,8 @@ export function IssueDetailView({
                 </ul>
               </section>
             )}
+
+            <RelationsSection issueKey={issue.key} />
 
             {(serverIssue.pullRequests?.length ?? 0) > 0 && (
               <section aria-label="Pull requests" className="mt-8">

@@ -9,6 +9,7 @@ import {
   githubIssueLinks,
   githubRepos,
   issueExternalRefs,
+  issueRelations,
   issues,
   projectMilestones,
 } from "../db/schema.js";
@@ -121,6 +122,42 @@ describe("POST /import/plan", () => {
     const second = await applyPlan(plan(FIVE));
     expect(second.body.counts).toMatchObject({ create: 0, update: 0, unchanged: 5 });
     expect(await issueRows()).toHaveLength(5);
+  });
+
+  it("writes in-plan dependencies as blocks edges, idempotently, and logs each (U19)", async () => {
+    const first = await applyPlan(plan(FIVE));
+    expect(first.body.applied!.blocksAdded).toBe(4);
+    const rows = await issueRows();
+    const keyOf = (id: string) => rows.find((r) => r.id === id)!.title.slice(1, 6);
+    const edges = await db.select().from(issueRelations).where(eq(issueRelations.workspaceId, t.ws.id));
+    expect(edges.every((e) => e.relationType === "blocks")).toBe(true);
+    expect(edges.map((e) => `${keyOf(e.sourceIssueId)}>${keyOf(e.targetIssueId)}`).sort()).toEqual([
+      "KP-U1>KP-U2",
+      "KP-U1>KP-U3",
+      "KP-U2>KP-U5",
+      "KP-U3>KP-U5",
+    ]);
+    const logged = await db
+      .select()
+      .from(events)
+      .where(and(eq(events.workspaceId, t.ws.id), eq(events.action, "relation_created")));
+    expect(logged).toHaveLength(4);
+
+    const again = await applyPlan(plan(FIVE));
+    expect(again.body.applied!.blocksAdded).toBe(0);
+    expect(await db.select().from(issueRelations).where(eq(issueRelations.workspaceId, t.ws.id))).toHaveLength(4);
+  });
+
+  it("skips a dependency edge that would close a cycle (U19)", async () => {
+    const r = await applyPlan(
+      plan([
+        ["U1", "First", "U2"],
+        ["U2", "Second", "U1"],
+      ]),
+    );
+    expect(r.status).toBe(200);
+    expect(r.body.applied!.blocksAdded).toBe(1);
+    expect(await db.select().from(issueRelations).where(eq(issueRelations.workspaceId, t.ws.id))).toHaveLength(1);
   });
 
   it("updates in place when a unit title changes", async () => {
@@ -347,7 +384,8 @@ describe("POST /import/plan", () => {
         .select()
         .from(events)
         .where(and(eq(events.workspaceId, t.ws.id), eq(events.entityId, u1.id)));
-      expect(evs.map((e) => e.action)).toEqual(["imported"]);
+      // U1 blocks U2 and U3, so it also carries their relation_created events.
+      expect(evs.map((e) => e.action).filter((a) => a !== "relation_created")).toEqual(["imported"]);
       expect(evs[0]!.after).toMatchObject({
         state: "done",
         mergedAt: "2026-10-12T15:30:00.000Z",
