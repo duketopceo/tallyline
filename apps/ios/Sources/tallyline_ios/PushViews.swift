@@ -21,9 +21,6 @@ final class PushCenter {
     }
 
     private(set) var status: Status = .checking
-    /// Set when a notification is tapped; HomeView switches tabs and clears it.
-    var pendingDestination: PushDestination?
-
     @ObservationIgnored weak var session: SessionModel?
     @ObservationIgnored private var token: Data?
 
@@ -92,7 +89,7 @@ final class PushCenter {
     }
 
     func open(_ kind: PushKind) {
-        pendingDestination = kind.destination
+        AppRouter.shared.open(kind.destination)
     }
 
     /// One category per kind so the relay's `aps.category` resolves. Alerts

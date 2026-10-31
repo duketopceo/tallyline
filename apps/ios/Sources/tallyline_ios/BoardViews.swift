@@ -70,10 +70,23 @@ struct HomeView: View {
         }
         .tint(Theme.accent)
         .background { sectionShortcuts }
-        .onChange(of: PushCenter.shared.pendingDestination, initial: true) { _, destination in
+        .onChange(of: AppRouter.shared.destination, initial: true) { _, destination in
             guard let destination else { return }
             section = HomeSection(destination)
-            PushCenter.shared.pendingDestination = nil
+            AppRouter.shared.destination = nil
+        }
+        .sheet(item: Binding(
+            get: { AppRouter.shared.issueKey.map { OpenIssueKey(id: $0) } },
+            set: { AppRouter.shared.issueKey = $0?.id }
+        )) { item in
+            NavigationStack {
+                IssueLoaderView(session: session, credential: credential, key: item.id)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { AppRouter.shared.issueKey = nil }
+                        }
+                    }
+            }
         }
     }
 
@@ -102,6 +115,10 @@ struct HomeView: View {
 }
 
 /// A state-filtered issue list with pull-to-refresh and delta reloads.
+struct OpenIssueKey: Identifiable {
+    let id: String
+}
+
 struct IssueListView: View {
     var session: SessionModel
     let credential: DeviceCredential
@@ -444,7 +461,7 @@ struct CreateIssueView: View {
             .task {
                 guard let client = session.client else { return }
                 teams = (try? await client.teams(ws: credential.workspaceSlug)) ?? []
-                teamId = teams.first?.id ?? ""
+                teamId = TeamMemory().pick(from: teams)?.id ?? ""
             }
         }
     }
@@ -454,6 +471,7 @@ struct CreateIssueView: View {
             title: title, description: description.isEmpty ? nil : description,
             teamId: teamId, priority: priority
         )
+        TeamMemory().teamId = teamId
         switch await session.offline.submit(.createIssue(draft), workspaceSlug: credential.workspaceSlug) {
         case .sent, .queued:
             // Queued drafts show in Settings > Outbox until they send.

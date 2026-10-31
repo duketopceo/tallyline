@@ -9,8 +9,9 @@ Native Tallyline client for iPhone and iPad — SwiftUI, SwiftPM package plus an
   Builds and tests on Linux: `TALLYLINE_CORE_ONLY=1 swift test`.
 - `Sources/TallylineDesign` — Silver Lining tokens and shared SwiftUI (iOS only).
 - `Sources/tallyline_ios` — the app target (`@main` lives here).
-- `Sources/XcodeStub` — empty anchor the generated app target compiles; real
-  code ships from the package.
+- `AppTarget` — the few sources compiled in the Xcode app target itself: the
+  anchor file and App Intents (Xcode only extracts intent metadata there).
+  Everything else ships from the package.
 - `project.yml` — `xcodegen generate` produces `Tallyline.xcodeproj` (not committed).
 - `scripts/testflight.sh` — archive, export, dSYM keep, upload (macOS only,
   run by `.github/workflows/ios-release.yml`, or by hand on any Mac).
@@ -46,6 +47,10 @@ Both are JSON files written atomically under Application Support. The plan named
 `Extensions/Widgets` is a WidgetKit extension with three widgets: My issues, Needs your review, and Cycle progress, in Home Screen and Lock Screen sizes. The app writes `WidgetSnapshot` (built in `TallylineCore/WidgetSnapshot.swift`, tested on Linux) to the App Group `group.app.tallyline.ios` on launch and when it goes to the background. The widget only reads that file; it never calls the network. Lock Screen sizes show counts only, never titles. Taps open `tallyline://open/issues` or `tallyline://open/review`.
 
 The App Group must be registered and added to both App IDs (`app.tallyline.ios`, `app.tallyline.ios.widgets`) before a signed build installs. The xtool sideload path builds the app without extensions.
+
+## Shortcuts
+
+`AppTarget/Intents.swift` adds three App Shortcuts: Create issue, Open issues, and Open issue by key (`eng 12` works; parsing is `TallylineCore/IssueKey.swift`). Create issue goes through the outbox, so it works offline, and files to the team last used in the app (`TeamMemory`). Siri voice phrases come with App Shortcuts but are not tuned yet. The xtool sideload path builds without them.
 
 ## Wire contract
 

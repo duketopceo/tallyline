@@ -16,7 +16,7 @@ targets:
     type: application
     platform: iOS
     sources:
-      - Sources/XcodeStub
+      - AppTarget
       - path: Resources/Assets.xcassets
       - path: Resources/PrivacyInfo.xcprivacy
     dependencies:
