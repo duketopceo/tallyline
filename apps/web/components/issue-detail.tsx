@@ -12,7 +12,7 @@ import { useToast } from "@/components/app/toast";
 import { Assignee, Glint, Kbd, PriorityGlyph, StateGlyph } from "@/components/app/ui";
 import type { IssueDetail } from "@/components/app/peek-panel";
 import { recordRecent } from "@/components/command-palette";
-import { BreakdownButton, SummarizeButton } from "@/components/issue-detail-client";
+import { AgentQuestions, BreakdownButton, PrBriefButton, SummarizeButton } from "@/components/issue-detail-client";
 import { RelationsSection, SuggestionChips } from "@/components/issue-relations";
 import { SessionTimeline, type Outcome, type Session } from "@/components/session-timeline";
 import { PRIORITY_LABEL, relTime, STATE_LABEL } from "@/lib/format";
@@ -357,6 +357,7 @@ export function IssueDetailView({
 
             <SuggestionChips issueKey={issue.key} onApplied={() => router.refresh()} />
             <SummarizeButton issueKey={issue.key} />
+            <PrBriefButton issueKey={issue.key} />
             <BreakdownButton issueKey={issue.key} parentId={serverIssue.id} onCreated={() => router.refresh()} />
 
             {serverIssue.children.length > 0 && (
@@ -388,6 +389,8 @@ export function IssueDetailView({
                 </ul>
               </section>
             )}
+
+            <AgentQuestions issueKey={issue.key} />
 
             <SessionTimeline
               issueKey={issue.key}

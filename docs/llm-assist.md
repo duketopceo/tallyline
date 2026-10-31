@@ -31,6 +31,9 @@ All advisory — nothing mutates issues:
 | `POST /v1/:ws/issues/:key/summarize` | 2–3 sentence summary of title + description + recent comments |
 | `POST /v1/:ws/issues/:key/triage-suggest` | `{action: accept\|decline, reason}` triage verdict |
 | `POST /v1/:ws/issues/:key/breakdown-suggest` | `{subIssues: [{title, description}]}`, up to 8. Suggestions only; a person creates the ones they want (web: "Suggest sub-issues"; MCP: `suggest_sub_issues`) |
+| `POST /v1/:ws/issues/:key/pr-brief` | `{brief}`: a PR description (Summary, Changes, Testing, `Closes KEY`). Nothing is posted (web: "Draft PR brief"; MCP: `draft_pr_brief`) |
+| `POST /v1/:ws/projects/:id/update-draft/polish` | the facts-only status draft reworded as prose. Done and blocked keys must survive or the call is `502 LLM_BAD_RESPONSE`; an empty window makes no call (web: "Polish" on the project status composer) |
+| `POST /v1/:ws/agent-sessions/:id/answer-draft` | `{question, draft}`: a suggested reply to the question an agent is waiting on. People only; `409 NO_OPEN_QUESTION` when nothing is open. Send the edited reply as a `prompt` activity (web: "Agent questions" on the issue page) |
 | `POST /v1/:ws/issues/dup-check` | `{title, description?}` → likely duplicate open issues |
 | `POST /v1/:ws/issues?dupCheck=1` | same detection, attached to create as `possibleDuplicates` |
 

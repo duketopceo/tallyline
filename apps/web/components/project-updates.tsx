@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   HEALTH_META,
   UPDATE_HEALTH,
@@ -23,6 +23,38 @@ export function ProjectUpdateComposer({ projectId }: { projectId: string }) {
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const [aiEnabled, setAiEnabled] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/llm-status")
+      .then((r) => r.json())
+      .then((d: { enabled?: boolean }) => setAiEnabled(!!d.enabled))
+      .catch(() => {});
+  }, []);
+
+  // S3-U4b: the same facts draft, reworded by the workspace's AI provider.
+  // The API refuses a rewording that drops done or blocked work.
+  async function polish() {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/updates/polish`, { method: "POST" });
+      const draft = (await res.json().catch(() => null)) as (Draft & { polished?: boolean; error?: { message?: string } }) | null;
+      if (!res.ok || !draft) {
+        setStatus({ ok: false, text: draft?.error?.message ?? "The polished draft did not load. Nothing was changed." });
+      } else if (draft.empty) {
+        setStatus({ ok: true, text: "No activity since the last update, so there is nothing to draft." });
+      } else {
+        setHealth(draft.suggestedHealth);
+        setBody(draft.body);
+        setStatus({ ok: true, text: "Polished draft loaded. Check it against the facts before posting." });
+      }
+    } catch {
+      setStatus({ ok: false, text: "The polished draft did not load. Nothing was changed." });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function prefill() {
     setBusy(true);
@@ -95,6 +127,16 @@ export function ProjectUpdateComposer({ projectId }: { projectId: string }) {
         >
           Draft from activity
         </button>
+        {aiEnabled && (
+          <button
+            type="button"
+            onClick={() => void polish()}
+            disabled={busy}
+            className="h-8 rounded-sm border border-control px-2.5 text-[12px] text-ink-muted hover:bg-surface-3 hover:text-ink disabled:opacity-50"
+          >
+            Polish with AI
+          </button>
+        )}
       </div>
       <label htmlFor={`${uid}-body`} className="text-[12px] text-ink-subtle">
         Update (markdown)
