@@ -18,7 +18,7 @@ execution: code
 - **Objective:** Someone opening Tallyline on the web or iPhone, in light or dark, sees one finished product: a neutral deep-black or clean light surface, one visible way to switch modes, no leftover navy, and no screen that looks like it came from a different app.
 - **Means:** Token-first, reviewable PR sequence (KTD1, KTD7). Tokens and the visible theme toggle land first, scale tokens and lint gates second, mechanical migration third, then primitives, nav and icons, edge states, brand pieces, iOS and docs.
 - **Authority:** Owner decisions recorded under Key Decisions beat this plan; this plan beats `DESIGN.md` prose where they differ, and the plan's docs unit updates `DESIGN.md` to match.
-- **Stop conditions:** Stop and return to the owner if the accent colour (Open Question 1) is still unrecorded when U1 reaches its accent input, or if evidence shows a Key Decision cannot work.
+- **Stop conditions:** Stop and return to the owner if evidence shows a Key Decision cannot work. (The accent, Open Question 1, is resolved: A Azure.)
 - **Execution profile:** Standard code work across web, a design-token package, brand tooling and iOS generated code. Smoke and gate verification (lint, contrast, parity, axe) matter more than unit tests for the styling units.
 - **Finishes and ships:** Each PR is opened by the implementer and merged by the owner. This plan does not authorise merging.
 
@@ -96,7 +96,7 @@ Underneath the colour, the app has drifted from `DESIGN.md`. The radius, type an
 
 Blocking:
 
-1. **Accent colour.** The owner picks from the swatch page; this plan does not pick. Options, each on the neutral surfaces: A Azure dark `#339fee` / light `#005fba` (equals today's accent), B Iris `#8b8cf8` / `#4b4ccf`, C Amber `#f0a63c` / `#9a5b00`, D Mint `#3fcf8e` / `#0b7a4b`. U1 reads the pick as its single accent input and cannot finish without it; the neutral surface, lining and ink half of U1 does not depend on it. Consequences to weigh when picking: C collides with `status-attention` (`#f59e0b`) and D with `status-healthy` (`#10b981`), so either needs a status remap and a rewrite of the DESIGN.md rule "blue is never a status colour" into "the accent never shares a hue with a status"; A and B keep that rule intact. Iris and Mint dark values also need a contrast check as link text on `surface-1`.
+1. **Accent colour — RESOLVED 2026-10-31: A Azure** (dark `#339fee`, light `#005fba`), picked by the owner from the swatch page (session-settled: user-directed — chosen over B Iris, C Amber and D Mint: keeps today's accent and the "blue is never a status colour" rule; only the surfaces lose their blue tint). The original options are kept below for the record. Options, each on the neutral surfaces: A Azure dark `#339fee` / light `#005fba` (equals today's accent), B Iris `#8b8cf8` / `#4b4ccf`, C Amber `#f0a63c` / `#9a5b00`, D Mint `#3fcf8e` / `#0b7a4b`. U1 reads the pick as its single accent input and cannot finish without it; the neutral surface, lining and ink half of U1 does not depend on it. Consequences to weigh when picking: C collides with `status-attention` (`#f59e0b`) and D with `status-healthy` (`#10b981`), so either needs a status remap and a rewrite of the DESIGN.md rule "blue is never a status colour" into "the accent never shares a hue with a status"; A and B keep that rule intact. Iris and Mint dark values also need a contrast check as link text on `surface-1`.
 
 Deferred (do not block execution):
 
@@ -196,7 +196,7 @@ flowchart TB
 
 **Requirements:** R1, R2, R4, R19 (DESIGN.md pin). Key Decisions 1 and 2; KTD1.
 
-**Dependencies:** Open Question 1 for the accent input. The neutral surfaces, linings and ink can be built and reviewed first; the PR is not mergeable until the accent is recorded.
+**Dependencies:** none blocking; the accent input is A Azure (Open Question 1, resolved).
 
 **Files:**
 - Modify: `packages/silver-lining/src/themes.ts`, `packages/silver-lining/src/generator.ts` (only if KTD1's fallback is needed)
