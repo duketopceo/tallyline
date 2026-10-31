@@ -9,7 +9,7 @@ import {
 import { db } from "../db/client.js";
 import { events, issues, teams } from "../db/schema.js";
 import { mirrorIssueState } from "./github-sync.js";
-import { evaluateIssueTransitionLoops } from "./loops.js";
+import { evaluateIssueCreatedLoops, evaluateIssueTransitionLoops } from "./loops.js";
 import { notifyUsers, staffUserIds } from "./notifications.js";
 import { queueDeliveries } from "./outbound.js";
 import { track } from "./background.js";
@@ -119,6 +119,7 @@ export async function createIssue(input: CreateIssueInput) {
     after: { key: issue.key, title: issue.title, state: issue.state },
     issueKey: issue.key,
   });
+  await evaluateIssueCreatedLoops({ workspaceId: input.workspaceId, issue });
   return issue;
 }
 

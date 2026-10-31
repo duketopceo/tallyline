@@ -43,19 +43,56 @@ export function matchesTransitionCondition(
   return true;
 }
 
+export function matchesCreatedCondition(
+  condition: Record<string, unknown>,
+  ctx: { issue: IssueRow },
+): boolean {
+  if (!matchesValue(condition.state, ctx.issue.state)) return false;
+  if (!matchesValue(condition.priority, ctx.issue.priority)) return false;
+  if (!matchesValue(condition.teamId, ctx.issue.teamId)) return false;
+  if (!matchesValue(condition.source, ctx.issue.source)) return false;
+  return true;
+}
+
+export async function evaluateIssueCreatedLoops(ctx: {
+  workspaceId: string;
+  issue: IssueRow;
+}): Promise<number> {
+  return runWorkflows(
+    ctx,
+    "issue.created",
+    (condition) => matchesCreatedCondition(condition, ctx),
+  );
+}
+
 export async function evaluateIssueTransitionLoops(ctx: {
   workspaceId: string;
   issue: IssueRow;
   fromState: IssueState;
   toState: IssueState;
 }): Promise<number> {
+  return runWorkflows(
+    ctx,
+    "issue.transition",
+    (condition) => matchesTransitionCondition(condition, ctx),
+  );
+}
+
+async function runWorkflows(
+  ctx: {
+    workspaceId: string;
+    issue: IssueRow;
+  },
+  trigger: string,
+  matches: (condition: Record<string, unknown>) => boolean,
+): Promise<number> {
   const workflows = await db
     .select()
     .from(workflowDefinitions)
     .where(
       and(
         eq(workflowDefinitions.workspaceId, ctx.workspaceId),
-        eq(workflowDefinitions.trigger, "issue.transition"),
+        eq(workflowDefinitions.trigger, trigger),
         eq(workflowDefinitions.enabled, true),
       ),
     )
@@ -64,7 +101,7 @@ export async function evaluateIssueTransitionLoops(ctx: {
   let executed = 0;
   for (const wf of workflows) {
     const condition = (wf.condition ?? {}) as Record<string, unknown>;
-    if (!matchesTransitionCondition(condition, ctx)) continue;
+    if (!matches(condition)) continue;
 
     const action = (wf.action ?? {}) as Record<string, unknown>;
     const actionType =
