@@ -70,6 +70,11 @@ struct HomeView: View {
         }
         .tint(Theme.accent)
         .background { sectionShortcuts }
+        .onChange(of: PushCenter.shared.pendingDestination, initial: true) { _, destination in
+            guard let destination else { return }
+            section = HomeSection(destination)
+            PushCenter.shared.pendingDestination = nil
+        }
     }
 
     @ViewBuilder
@@ -523,6 +528,9 @@ struct SettingsView: View {
                         }
                     }
                 }
+                Section("Notifications") {
+                    NavigationLink("Notifications") { NotificationSettingsView(push: .shared) }
+                }
                 Section("Sync") {
                     NavigationLink {
                         OutboxView(offline: session.offline)
@@ -535,7 +543,12 @@ struct SettingsView: View {
                     LabeledContent("Credential expires", value: credential.expiresAt, format: .dateTime)
                 }
                 Section {
-                    Button("Sign out", role: .destructive) { session.signOut() }
+                    Button("Sign out", role: .destructive) {
+                        Task {
+                            await PushCenter.shared.unregister()
+                            session.signOut()
+                        }
+                    }
                 }
             }
             .navigationTitle("Settings")

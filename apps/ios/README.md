@@ -37,6 +37,10 @@ Reads come from a local issue cache first, then a delta sync (`updatedSince`) me
 
 Both are JSON files written atomically under Application Support. The plan named SwiftData; a JSON file keeps the logic testable on Linux and needs no migrations at this size.
 
+## Push
+
+`TallylineCore/Push.swift` holds the registration flow and preferences (tested on Linux). `tallyline_ios/PushViews.swift` holds the app delegate, permission prompt and Settings > Notifications. The flow and privacy model are in [docs/push.md](../../docs/push.md). `App.entitlements` carries `aps-environment`, so the App ID needs the Push Notifications capability.
+
 ## Wire contract
 
 `Tests/TallylineCoreTests/Fixtures/*.json` are real responses captured from the API routes by `apps/api/src/routes/ios-contract.test.ts`. That test fails when a route's shape drifts from its fixture; the Swift `ContractFixtureTests` decode every fixture on Linux. After an intended API change, refresh them:
