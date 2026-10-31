@@ -12,8 +12,9 @@ struct InstancePickerView: View {
 
     var body: some View {
         NavigationStack {
+            // Scrolls so the largest text sizes never clip (S6-U6 audit).
+            ScrollView {
             VStack(spacing: 24) {
-                Spacer()
                 VStack(spacing: 8) {
                     Text("tallyline")
                         .font(.title.bold())
@@ -24,7 +25,7 @@ struct InstancePickerView: View {
                 Text("Server")
                     .font(.caption)
                     .foregroundStyle(Theme.inkSubtle)
-                TextField("https://api.tallyline.app", text: $serverText)
+                TextField("https://api.tallyline.app", text: $serverText, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
@@ -39,7 +40,9 @@ struct InstancePickerView: View {
             .tint(Theme.accent)
             .padding(.horizontal)
             .disabled(URL(string: normalizedServer) == nil)
-                Spacer()
+            }
+            .padding(.vertical, 48)
+            .frame(maxWidth: .infinity)
             }
             .navigationDestination(for: String.self) { _ in
                 PairView(session: session, serverURL: URL(string: normalizedServer)!)

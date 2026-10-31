@@ -24,6 +24,10 @@ targets:
         product: tallyline_ios
       - target: TallylineWidgets
       - target: TallylineShare
+    scheme:
+      # The CI accessibility audit runs these with test-without-building.
+      testTargets:
+        - TallylineUITests
     settings:
       base:
         PRODUCT_NAME: Tallyline
@@ -40,6 +44,7 @@ targets:
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: YES
         SUPPORTS_MACCATALYST: NO
         SWIFT_VERSION: "6.0"
+        SWIFT_EMIT_LOC_STRINGS: YES
         ENABLE_USER_SCRIPT_SANDBOXING: NO
       configs:
         Release:
@@ -79,6 +84,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Extensions/Widgets/Widgets.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "6.0"
+        SWIFT_EMIT_LOC_STRINGS: YES
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
     entitlements:
@@ -92,6 +98,17 @@ targets:
     platform: iOS
     sources:
       - UITests
+    dependencies:
+      - target: Tallyline
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.tallyline.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Tallyline
+        SWIFT_VERSION: "6.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        DEVELOPMENT_TEAM: $(DEVELOPMENT_TEAM)
+        CODE_SIGN_STYLE: Automatic
 
   TallylineShare:
     type: app-extension
@@ -116,6 +133,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Extensions/Share/Share.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "6.0"
+        SWIFT_EMIT_LOC_STRINGS: YES
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
     entitlements:

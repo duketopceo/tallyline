@@ -58,6 +58,15 @@ The device credential lives in the App Group keychain access group so the extens
 
 `AppTarget/Intents.swift` adds three App Shortcuts: Create issue, Open issues, and Open issue by key (`eng 12` works; parsing is `TallylineCore/IssueKey.swift`). Create issue goes through the outbox, so it works offline, and files to the team last used in the app (`TeamMemory`). Siri voice phrases come with App Shortcuts but are not tuned yet. The xtool sideload path builds without them.
 
+## Accessibility
+
+- VoiceOver reads each issue row as one sentence (`IssueSpeech` in TallylineCore): key, title, state, then priority, agent and repeat count. The issue list has "Urgent and high" and "Agent work" rotors.
+- Text uses Dynamic Type styles only; the agent glint scales with it, and row titles get more lines at accessibility sizes.
+- `ContrastTests` checks the generated tokens against the DESIGN.md floors in light, dark and high-contrast dark (4.5:1 text, 3:1 glyphs).
+- The app has no custom animation, so Reduce Motion needs nothing extra. Haptics fire only for a finished create or review, or a failed review.
+- CI runs Xcode's accessibility audit on the sign-in screen, at default and the largest text size.
+- Strings are SwiftUI literals and `SWIFT_EMIT_LOC_STRINGS` is on, so a string catalog can be added without code changes. English only ships.
+
 ## Wire contract
 
 `Tests/TallylineCoreTests/Fixtures/*.json` are real responses captured from the API routes by `apps/api/src/routes/ios-contract.test.ts`. That test fails when a route's shape drifts from its fixture; the Swift `ContractFixtureTests` decode every fixture on Linux. After an intended API change, refresh them:

@@ -11,9 +11,7 @@ Every open item sits in exactly one of three lists: buildable by an agent, needs
 
 ## Open: buildable by an agent
 
-| Unit | What ships | Notes |
-|---|---|---|
-| S6-U6 | iOS accessibility and polish pass | Needs the Mac toolchain; push uses the S4-U3 endpoints ([docs/push.md](./docs/push.md)) |
+None. Everything an agent can build has shipped; the rest needs Luke or is deferred.
 
 ## Open: needs Luke
 
@@ -46,7 +44,7 @@ The full open-question list is at the end of the requirements document.
 | S3 providers | S3-U1 provider spike; S3-U2 bring-your-own provider, sealed keys, monthly spend limit; S3-U3 Connect OpenRouter (PKCE) and compatible endpoints from web and CLI; S3-U7 Settings → AI and the checklist step; S3-U6 connect a coding agent in one step; S3-U4 agent actions on the provider seam and break-down suggestions; S3-U4b status-update polish, PR-brief draft, drafted answers to agent questions | #187, #203, #200, #205, #202, #213 |
 | S4 mobile server | S4-U1 redirect schemes, S4-U2 QR pairing and devices, S4-U3 content-free push relay, S4-U4 delta reads and idempotent writes | #182, #186, #184, #206 |
 | S5 iOS | S5-U2/U3 scaffold and pairing, S5-U4 typed client, S5-U5/U6 issue loop, review queue, board tabs; S5-U7 generated theme and iPad split view; TestFlight build path | #191, #192, #193, 897088d, #208 |
-| S6 iOS | S6-U1 issue cache and offline outbox; S6-U2 push settings, registration and tap routing; S6-U3 widgets; S6-U4 share sheet (links and text; no images until attachments exist); S6-U5 App Shortcuts | #211, #214, #215, #216, #217 |
+| S6 iOS | S6-U1 issue cache and offline outbox; S6-U2 push settings, registration and tap routing; S6-U3 widgets; S6-U4 share sheet (links and text; no images until attachments exist); S6-U5 App Shortcuts; S6-U6 accessibility pass | #211, #214, #215, #216, #217, #218 |
 | Release | v2.0.0 | #159 |
 
 ## Deferred
