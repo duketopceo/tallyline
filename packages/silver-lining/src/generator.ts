@@ -224,7 +224,7 @@ export function generateTheme(input: ThemeInput): ThemeTokens {
   // darkest surface in light themes, lightest in dark: the hardest to read on
   const worst = surfaces[4]!;
   // text and linings carry the base chroma unchanged: a neutral base (c = 0)
-  // yields true greys. (An old 0.006 floor tinted them toward `base.h`.)
+  // yields true greys, with no floor tinting them toward `base.h`.
   const tint = clamp(baseC * 1.6, 0, 0.03);
 
   const text = (floor: number, target: number, extra?: Partial<TextSpec>): string =>

@@ -11,8 +11,6 @@ const VIEWPORTS = [
   { name: "390", width: 390, height: 844 },
 ] as const;
 
-const setTheme = forceTheme;
-
 async function violations(page: Page): Promise<string[]> {
   const r = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   return r.violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(" ")).slice(0, 3).join(", ")}`);
@@ -96,7 +94,7 @@ test.describe("public trust pages (logged out)", () => {
           await page.setViewportSize({ width: vp.width, height: vp.height });
           await page.goto(path);
           await page.waitForLoadState("networkidle");
-          await setTheme(page, theme);
+          await forceTheme(page, theme);
           const v = await violations(page);
           expect(v, v.join("\n")).toHaveLength(0);
           // axe 4.11 no longer reports duplicate ids; check them directly
@@ -146,7 +144,7 @@ test.describe("Settings > Usage", () => {
         await page.goto("/settings/usage");
         await page.waitForLoadState("networkidle");
         await expect(page.getByRole("heading", { name: "Agent runs", exact: true })).toBeVisible({ timeout: 15_000 });
-        await setTheme(page, theme);
+        await forceTheme(page, theme);
         const v = await violations(page);
         expect(v, v.join("\n")).toHaveLength(0);
       });

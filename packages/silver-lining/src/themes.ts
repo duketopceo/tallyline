@@ -2,9 +2,9 @@ import { hexToOklch } from "./color.ts";
 import { type ThemeInput, type ThemeTokens, generateTheme } from "./generator.ts";
 
 /**
- * The single accent input (owner pick "A Azure", 2026-10-31). The generator
- * clamps it for contrast, so these are the targets; every consumer (web, iOS,
- * brand assets, docs) takes the accent from the generated tokens.
+ * The single accent input (Azure). The generator clamps it for contrast, so
+ * these are targets; every consumer (web, iOS, brand assets, docs) takes the
+ * accent from the generated tokens.
  */
 export const ACCENT_AZURE = { dark: "#339fee", light: "#005fba" } as const;
 

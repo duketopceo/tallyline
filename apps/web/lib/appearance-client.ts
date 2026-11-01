@@ -14,6 +14,8 @@ import { themeColorsFor } from "./appearance";
 
 const ONE_YEAR = 60 * 60 * 24 * 365;
 const CUSTOM_KEY = "sl-custom-theme";
+/** Fired on document after every applyAppearance, so open controls can resync. */
+export const APPEARANCE_EVENT = "sl-appearance";
 
 /** The appearance currently stored in this browser's cookie (default: system). */
 export function readAppearance(): Appearance {
@@ -58,10 +60,13 @@ function setThemeColorMeta(appearance: Appearance) {
 
 /** Apply an appearance to <html> now (no reload, no flash) and remember it. */
 export function applyAppearance(appearance: Appearance) {
-  const previous = readAppearance();
-  // switching away from a custom theme must not lose its definition
-  if (previous.theme === "custom" && appearance.theme !== "custom") storeCustom(previous.custom);
-  if (appearance.theme === "custom") storeCustom(appearance.custom);
+  if (appearance.theme === "custom") {
+    storeCustom(appearance.custom);
+  } else {
+    // switching away from a custom theme must not lose its definition
+    const previous = readAppearance();
+    if (previous.theme === "custom") storeCustom(previous.custom);
+  }
 
   const root = document.documentElement;
   for (const prop of [...root.style]) {
@@ -86,5 +91,5 @@ export function applyAppearance(appearance: Appearance) {
   } catch {
     // cookies blocked: the theme still applies for this page view
   }
-  document.dispatchEvent(new CustomEvent("sl-appearance", { detail: appearance }));
+  document.dispatchEvent(new CustomEvent(APPEARANCE_EVENT, { detail: appearance }));
 }

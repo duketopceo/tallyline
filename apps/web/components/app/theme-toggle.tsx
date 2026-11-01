@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { type Appearance, THEME_LABELS } from "@tallyline/silver-lining";
-import { applyAppearance } from "@/lib/appearance-client";
+import { APPEARANCE_EVENT, applyAppearance } from "@/lib/appearance-client";
 import { resolvedMode } from "@/lib/appearance";
 import { IconMonitor, IconMoon, IconSun } from "./icons";
 
@@ -46,10 +46,10 @@ export function ThemeToggle({ initial, rail }: { initial: Appearance; rail: bool
     sync();
     mq.addEventListener("change", sync);
     const onChange = (e: Event) => setAppearance((e as CustomEvent<Appearance>).detail);
-    document.addEventListener("sl-appearance", onChange);
+    document.addEventListener(APPEARANCE_EVENT, onChange);
     return () => {
       mq.removeEventListener("change", sync);
-      document.removeEventListener("sl-appearance", onChange);
+      document.removeEventListener(APPEARANCE_EVENT, onChange);
     };
   }, []);
 
@@ -62,7 +62,7 @@ export function ThemeToggle({ initial, rail }: { initial: Appearance; rail: bool
     return () => document.removeEventListener("pointerdown", onDown);
   }, [open]);
 
-  const mode = resolvedMode(appearance, osLight);
+  const mode = useMemo(() => resolvedMode(appearance, osLight), [appearance, osLight]);
   const Icon =
     appearance.theme === "system" ? IconMonitor : mode === "light" ? IconSun : IconMoon;
   const state = describe(appearance);

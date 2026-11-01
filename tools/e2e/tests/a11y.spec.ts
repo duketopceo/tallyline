@@ -58,10 +58,6 @@ async function issueKey(page: Page): Promise<string> {
   return match![0];
 }
 
-// Forces the theme through data-theme and asserts the computed color-scheme, so
-// a dark scan can never silently run light under the "system" default.
-const setTheme = forceTheme;
-
 async function scan(page: Page) {
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   return results.violations.map(
@@ -97,7 +93,7 @@ for (const vp of VIEWPORTS) {
         test(`@a11y ${path}`, async ({ page }) => {
           await page.goto(path.replace(":key", key).replace(":project", projectId));
           await page.waitForLoadState("networkidle");
-          await setTheme(page, theme);
+          await forceTheme(page, theme);
           const violations = await scan(page);
           expect(violations, violations.join("\n")).toHaveLength(0);
         });
@@ -112,7 +108,7 @@ test.describe("axe logged-out", () => {
     test(`@a11y ${path} ${theme}`, async ({ page }) => {
       await page.goto(path);
       await page.waitForLoadState("networkidle");
-      await setTheme(page, theme);
+      await forceTheme(page, theme);
       const violations = await scan(page);
       expect(violations, violations.join("\n")).toHaveLength(0);
     });
@@ -127,7 +123,7 @@ for (const vp of VIEWPORTS) {
       test(`@a11y peek + picker + palette`, async ({ page }) => {
         await page.goto("/issues");
         await page.waitForSelector("[data-qc-ready]", { timeout: 20_000 });
-        await setTheme(page, theme);
+        await forceTheme(page, theme);
         const row = page.locator("[data-issue-row]").first();
         await row.hover();
         await page.keyboard.press("Space");
@@ -164,7 +160,7 @@ for (const vp of VIEWPORTS) {
         await failSession(f);
         await page.goto(`/issues/${f.issueKey}`);
         await page.waitForLoadState("networkidle");
-        await setTheme(page, theme);
+        await forceTheme(page, theme);
         const violations = await scan(page);
         expect(violations, violations.join("\n")).toHaveLength(0);
       });
