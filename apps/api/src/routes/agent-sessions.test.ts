@@ -1086,7 +1086,10 @@ describe("loops / workflow definitions (plan L6)", () => {
       }),
     });
     expect([201, 200]).toContain(intake.status);
-    const ikey = (intake.body.issue ?? intake.body).key as string;
+    const ikey = (
+      (intake.body as { issue?: { key: string } }).issue ??
+      (intake.body as { key: string })
+    ).key;
 
     const ithread = await req(`/v1/workspaces/${SLUG}/issues/${ikey}/comments`);
     expect(ithread.status).toBe(200);
