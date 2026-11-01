@@ -273,7 +273,7 @@ flowchart TB
 **Dependencies:** U1.
 
 **Files:**
-- Modify: `apps/web/app/globals.css`, `packages/silver-lining/eslint/index.mjs`, `packages/silver-lining/scripts/lint-design.ts`, `apps/web/lint-design-allowlist.json`, `docs/design/silver-lining.md` section 13
+- Modify: `apps/web/app/globals.css`, `packages/silver-lining/eslint/index.mjs`, `packages/silver-lining/eslint/design.config.mjs`, `packages/silver-lining/scripts/lint-design.ts`, `apps/web/lint-design-allowlist.json`, `docs/design/silver-lining.md` section 13
 - Test: `packages/silver-lining/test/` (new lint rule tests)
 
 **Approach:**
@@ -281,6 +281,15 @@ flowchart TB
 - Cover every DESIGN scale step with a named type token, including 11px (which also gives the currently undefined `text-2xs` a valid meaning) and keep `text-xs`/`text-sm` aligned with 12 and 14.
 - Add rules: no Tailwind palette colour classes or opacity-slash variants of black and white, no arbitrary `bg-[...]`/`text-[...]` colour, shadow or font-size values, no off-scale named sizes (`text-lg`, `text-xl`, ...).
 - Seed the allowlist at current counts per file so the gate is green; new files get zero allowance.
+
+**Resolved during document review (binding for U3):**
+- Register new or extended rules in `packages/silver-lining/eslint/design.config.mjs`, which is the config `lint:design` actually loads; add it to the Files list. Extend `no-offscale-font` (it already owns `TW_NAMED_OFF` such as `text-lg`) to also ban arbitrary `text-[Npx]` sizes instead of adding a duplicate rule, and add one palette/arbitrary-value rule that skips anything `no-raw-color` already reports (`bg-[#fff]`) and any `var(--...)` or `length:`/`color:`-hinted value, so no hit is double-counted.
+- Palette rule uses an enumerated Tailwind palette-name list with a mandatory numeric shade, plus `white`/`black` with optional `/NN`. App token classes such as `bg-neutral` and `bg-neutral-soft` must stay clean.
+- Publish a type mapping table in `globals.css` comments and `docs/design/silver-lining.md` section 13 (px, token class, line-height): 11, 12, 13, 14, 15, 17, 24, with names chosen in U3 (for example `text-micro` for 11) so U4's codemod has a target. Reset the default scales (`--text-*: initial`, `--radius-*: initial`) before defining the DESIGN steps (radius xs 4, sm 6, md 8, lg 10, xl 14, plus `--radius-full`), and decide bare `rounded`.
+- Tailwind v4 may not expose a `--duration-*` theme namespace (`--ease-*` is real). Verify against the installed version; if absent, define plain CSS variables consumed as `duration-(--duration-base)` and state that form here.
+- Shadow tokens are unconditional: DESIGN.md defines overlay/tooltip shadows. Build them from `color-mix()` over `--sl-*` variables so they pass the CSS raw-colour scan; do not paste `rgba()` into `globals.css`.
+- Seed the allowlist only via `--update-allowlist` (never by hand), write a stable `tracking` value ("U4 migration") instead of the TODO text, refresh the stale `_comment`, and state the seed size in the PR. Roughly 600 arbitrary `text-[Npx]` sites exist today, so expect hundreds of seeded hits; note in the PR that in-flight PRs must lower entries in the same change.
+- Test placement: ESLint rule cases (`RuleTester`) in `packages/silver-lining/test/`; ratchet over/under behaviour tested by running `scripts/lint-design.ts` against a fixture allowlist; the computed-radius browser check (xs, sm, md, lg, xl, full) lives in `tools/e2e/tests/` because the token package has no browser tooling.
 
 **Patterns to follow:** existing `no-raw-color` and `no-offscale-font` rules and their ratchet.
 
