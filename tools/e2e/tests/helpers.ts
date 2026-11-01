@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
-const API = `http://localhost:${process.env.E2E_API_PORT ?? "4000"}`;
+const API = `http://localhost:${process.env.E2E_API_PORT ?? "4100"}`;
 
 export interface AgentFixture {
   ws: string;

@@ -2,7 +2,7 @@
 //   1. postcss scan of apps/web CSS (raw colours, off-scale font-size). Stylelint was
 //      dropped: it pulls braces@3.0.3 (GHSA-vfj7-8cjw-p6xm, no patched release), which
 //      fails the dependency-review gate.
-//   2. ESLint rules silver-lining/no-raw-color + no-offscale-font over apps/web component code
+//   2. ESLint rules silver-lining/no-raw-color + no-offscale-font + no-palette-color over apps/web component code
 // ESLint violations are counted per file against apps/web/lint-design-allowlist.json.
 // The allowlist is a ratchet: a file may never exceed its count, and when a file
 // drops below it the allowlist must be lowered in the same change.
@@ -11,16 +11,13 @@ import { relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 import postcss from "postcss";
+import { ratchetFailures, type Entry } from "./ratchet.ts";
 
 const here = (p: string) => fileURLToPath(new URL(`../${p}`, import.meta.url));
 const repoRoot = resolve(here("."), "../..");
 const allowlistPath = resolve(repoRoot, "apps/web/lint-design-allowlist.json");
 const update = process.argv.includes("--update-allowlist");
 
-interface Entry {
-  count: number;
-  tracking: string;
-}
 interface Allowlist {
   _comment?: string;
   files: Record<string, Entry>;
@@ -97,7 +94,7 @@ const allowedTotal = Object.values(allow.files).reduce((a, e) => a + e.count, 0)
 if (update) {
   const next: Allowlist = { ...(allow._comment ? { _comment: allow._comment } : {}), files: {} };
   for (const [f, n] of [...counts].sort()) {
-    next.files[f] = { count: n, tracking: allow.files[f]?.tracking ?? "TODO: add tracking issue" };
+    next.files[f] = { count: n, tracking: allow.files[f]?.tracking ?? "U4 migration (frontend polish plan)" };
   }
   writeFileSync(allowlistPath, `${JSON.stringify(next, null, 2)}\n`);
   console.log(`allowlist rewritten: ${total} violations in ${counts.size} files`);
@@ -116,22 +113,10 @@ for (const [f, ls] of byFile) {
 }
 if (process.env.LINT_DESIGN_VERBOSE) for (const l of lines) console.log(`    ${l}`);
 
-for (const [f, n] of counts) {
-  const a = allow.files[f]?.count ?? 0;
-  if (n > a) {
-    failed = true;
-    console.error(`FAIL ${f}: ${n} violations, allowlist permits ${a}. Use tokens, do not raise the allowlist.`);
-    for (const l of byFile.get(f) ?? []) console.error(`    ${l}`);
-  }
-}
-for (const [f, e] of Object.entries(allow.files)) {
-  const n = counts.get(f) ?? 0;
-  if (n < e.count) {
-    failed = true;
-    console.error(
-      `FAIL ${f}: now ${n} violations but allowlist says ${e.count}. Lower it (pnpm lint:design --update-allowlist); the count may only go down.`,
-    );
-  }
+for (const f of ratchetFailures(counts, allow.files)) {
+  failed = true;
+  console.error(f.message);
+  if (f.kind === "over") for (const l of byFile.get(f.file) ?? []) console.error(`    ${l}`);
 }
 console.log(`lint:design ${failed ? "FAILED" : "ok"}: ${total} allowlisted violations remaining`);
 process.exit(failed ? 1 : 0);

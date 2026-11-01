@@ -233,7 +233,7 @@ Each gate runs in CI and fails the build.
 
 | Gate | What it checks | Command |
 |---|---|---|
-| Token-only styling | No raw hex, rgb or hsl colors, and no px font sizes outside the token scale, in component code | `pnpm lint:design` (stylelint plus an ESLint rule on className and style) |
+| Token-only styling | No raw hex, rgb or hsl colors; no Tailwind palette classes (`bg-red-600`), no `text-white`/`bg-black/50`, no arbitrary colour or shadow values; no arbitrary px/rem/em font sizes or off-scale named sizes (`text-[13px]`, `text-lg`; other units such as `vw` are not covered) in component code. Use the type tokens `text-micro/xs/body/sm/title/headline/2xl`, radius `rounded-xs..xl`, `shadow-overlay/tooltip`, `ease-standard/ease-out` and `duration-(--duration-fast/base/overlay)` | `pnpm lint:design` (postcss scan of CSS plus ESLint rules on className and style; per-file ratchet in `apps/web/lint-design-allowlist.json`) |
 | Contrast | Every text-step × surface-step pair in every theme meets section 3 | `pnpm test:contrast` (computes from the generated tokens) |
 | Theme parity | Tallyline and open-computer ship the same generated token set (hash match) | `pnpm test:token-parity` |
 | Accessibility | axe at 0 violations, WCAG 2.2 AA, both themes, 1440 and 390, every route | `pnpm test:e2e --grep @a11y` |
@@ -243,6 +243,22 @@ Each gate runs in CI and fails the build.
 | Performance | Budgets in section 8 (Lighthouse CI plus an interaction-latency harness) | `pnpm test:perf` |
 | No layout shift on live data | An SSE burst of 50 events moves neither focus nor the hovered row | `pnpm test:e2e --grep @live` |
 | Hydration | 0 hydration warnings on every route | `pnpm test:e2e --grep @hydration` |
+
+### Scale tokens (Tailwind)
+
+`apps/web/app/globals.css` maps the DESIGN.md scales onto Tailwind classes; `lint:design` bans everything else.
+
+| Type class | px | Line height | DESIGN token |
+|---|---|---|---|
+| `text-micro` (alias `text-2xs`) | 11 | 1.3 | micro, mono-sm |
+| `text-xs` | 12 | 1.4 | caption, mono |
+| `text-body` | 13 | 1.5 | body, button |
+| `text-sm` | 14 | 1.55 | body-lg |
+| `text-title` | 15 | 1.4 | title |
+| `text-headline` | 17 | 1.35 | headline |
+| `text-2xl` | 24 | 1.25 | display |
+
+Radius: `rounded-xs` 4, `sm` 6, `md` 8, `lg` 10, `xl` 14, `rounded-full`/`rounded-pill` 9999. Shadow: `shadow-overlay`, `shadow-tooltip` (theme-aware, built from `--sl-scrim` and `--sl-lining-strong`). Motion: `ease-standard`, `ease-out`, and `duration-(--duration-fast|base|overlay)` (90, 140, 200 ms; Tailwind v4 has no duration theme namespace).
 
 ---
 

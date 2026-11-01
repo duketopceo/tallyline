@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { SAME_ORIGIN } from "./helpers";
 
-const API = `http://localhost:${process.env.E2E_API_PORT ?? "4000"}`;
+const API = `http://localhost:${process.env.E2E_API_PORT ?? "4100"}`;
 const RUN = Date.now();
 
 async function ws(page: Page) {
