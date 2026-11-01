@@ -233,7 +233,7 @@ Each gate runs in CI and fails the build.
 
 | Gate | What it checks | Command |
 |---|---|---|
-| Token-only styling | No raw hex, rgb or hsl colors, and no px font sizes outside the token scale, in component code | `pnpm lint:design` (stylelint plus an ESLint rule on className and style) |
+| Token-only styling | No raw hex, rgb or hsl colors; no Tailwind palette classes (`bg-red-600`), no `text-white`/`bg-black/50`, no arbitrary colour or shadow values; no arbitrary or off-scale font sizes (`text-[13px]`, `text-lg`) in component code. Use the type tokens `text-micro/xs/body/sm/title/headline/2xl`, radius `rounded-xs..xl`, `shadow-overlay/tooltip`, `ease-standard/ease-out` and `duration-(--duration-fast/base/overlay)` | `pnpm lint:design` (postcss scan of CSS plus ESLint rules on className and style; per-file ratchet in `apps/web/lint-design-allowlist.json`) |
 | Contrast | Every text-step × surface-step pair in every theme meets section 3 | `pnpm test:contrast` (computes from the generated tokens) |
 | Theme parity | Tallyline and open-computer ship the same generated token set (hash match) | `pnpm test:token-parity` |
 | Accessibility | axe at 0 violations, WCAG 2.2 AA, both themes, 1440 and 390, every route | `pnpm test:e2e --grep @a11y` |

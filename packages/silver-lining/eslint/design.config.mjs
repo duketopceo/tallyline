@@ -11,6 +11,7 @@ export default [
     rules: {
       "silver-lining/no-raw-color": "error",
       "silver-lining/no-offscale-font": "error",
+      "silver-lining/no-palette-color": "error",
     },
   },
 ];

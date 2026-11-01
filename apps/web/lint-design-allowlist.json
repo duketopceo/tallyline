@@ -1,9 +1,77 @@
 {
-  "_comment": "Ratchet for `pnpm lint:design` (docs/design/silver-lining.md section 13). Each entry is the number of raw-colour / off-scale-font violations tolerated in that file. Counts may only go down: the gate fails if a file exceeds its count AND if it drops below (lower the entry in the same change). New files get no allowance. Tracking: migrate text-[10px]/[9px] to the 11px floor and text-lg/xl/4xl/5xl to the type scale as screens are restyled (ui/core-overhaul).",
+  "_comment": "Ratchet for `pnpm lint:design` (docs/design/silver-lining.md section 13). Each entry is the number of design-lint violations tolerated in that file (raw colours, arbitrary or off-scale font sizes, Tailwind palette classes, arbitrary colour or shadow values), summed across rules. Counts may only go down: the gate fails if a file exceeds its count AND if it drops below (lower the entry in the same change with `pnpm lint:design --update-allowlist`; never edit by hand). New files get no allowance. Seeded in U3 of the frontend polish plan; U4 migrates every entry to zero.",
   "files": {
+    "apps/web/app/(app)/activity/page.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(app)/cycle/page.tsx": {
+      "count": 10,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(app)/insights/page.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(app)/issues/[key]/not-found.tsx": {
+      "count": 3,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(app)/my-issues/page.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(app)/notifications/page.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(app)/projects/[id]/page.tsx": {
+      "count": 6,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(app)/projects/page.tsx": {
+      "count": 11,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(app)/settings/cycles/page.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(app)/settings/dev-inbox/page.tsx": {
+      "count": 5,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(app)/settings/integrations/page.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(app)/settings/labels/page.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(app)/settings/members/page.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(app)/settings/projects/page.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(app)/settings/usage/page.tsx": {
+      "count": 7,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
     "apps/web/app/(auth)/bootstrap/page.tsx": {
-      "count": 2,
+      "count": 4,
       "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
+    },
+    "apps/web/app/(auth)/device/device-form.tsx": {
+      "count": 4,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(auth)/forgot-password/page.tsx": {
+      "count": 3,
+      "tracking": "U4 migration (frontend polish plan)"
     },
     "apps/web/app/(auth)/join/[token]/page.tsx": {
       "count": 1,
@@ -13,21 +81,257 @@
       "count": 2,
       "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
     },
+    "apps/web/app/(auth)/login/page.tsx": {
+      "count": 17,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(auth)/oauth/consent/consent-form.tsx": {
+      "count": 2,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(auth)/oauth/consent/page.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(auth)/reset-password/page.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
     "apps/web/app/(auth)/workspaces/page.tsx": {
       "count": 1,
       "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
     },
-    "apps/web/components/invite-form.tsx": {
+    "apps/web/app/(legal)/layout.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(legal)/privacy/page.tsx": {
+      "count": 3,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/app/(legal)/status/page.tsx": {
       "count": 2,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/account/account-gate.tsx": {
+      "count": 3,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/account/account-settings.tsx": {
+      "count": 4,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/account/auth-card.tsx": {
+      "count": 2,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/account/ui.tsx": {
+      "count": 7,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/account/workspace-settings.tsx": {
+      "count": 2,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/activity-feed.tsx": {
+      "count": 3,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/app/filter-bar.tsx": {
+      "count": 11,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/app/live.tsx": {
+      "count": 2,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/app/page-header.tsx": {
+      "count": 2,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/app/peek-body.tsx": {
+      "count": 15,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/app/picker-popover.tsx": {
+      "count": 4,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/app/session-badge.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/app/shell.tsx": {
+      "count": 15,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/app/skeletons.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/app/toast.tsx": {
+      "count": 4,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/app/ui.tsx": {
+      "count": 2,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/appearance-settings.tsx": {
+      "count": 6,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/board-client.tsx": {
+      "count": 9,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/command-palette-dialog.tsx": {
+      "count": 9,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/cycle-bar.tsx": {
+      "count": 16,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/cycles-settings.tsx": {
+      "count": 23,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/github-repos.tsx": {
+      "count": 6,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/glitchtip-integration.tsx": {
+      "count": 4,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/insights-charts.tsx": {
+      "count": 11,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/invite-form.tsx": {
+      "count": 6,
       "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
+    },
+    "apps/web/components/issue-detail-client.tsx": {
+      "count": 22,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/issue-detail.tsx": {
+      "count": 55,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/issue-list-client.tsx": {
+      "count": 19,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/issue-relations.tsx": {
+      "count": 13,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/keymap-dialog.tsx": {
+      "count": 5,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/labels-settings.tsx": {
+      "count": 9,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/landing/board-loop.tsx": {
+      "count": 9,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/landing/landing.tsx": {
+      "count": 36,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/legal-doc.tsx": {
+      "count": 6,
+      "tracking": "U4 migration (frontend polish plan)"
     },
     "apps/web/components/member-list.tsx": {
-      "count": 2,
+      "count": 7,
       "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
     },
+    "apps/web/components/notifications-client.tsx": {
+      "count": 3,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/plan-next-cycle.tsx": {
+      "count": 8,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/primitives.tsx": {
+      "count": 9,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/project-updates.tsx": {
+      "count": 8,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/projects-settings.tsx": {
+      "count": 8,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
     "apps/web/components/provider-form.tsx": {
-      "count": 2,
+      "count": 6,
       "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
+    },
+    "apps/web/components/quick-create-dialog.tsx": {
+      "count": 6,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/review-queue.tsx": {
+      "count": 23,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/roadmap-client.tsx": {
+      "count": 38,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/roadmap-pulse.tsx": {
+      "count": 41,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/row-picker.tsx": {
+      "count": 4,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/session-timeline.tsx": {
+      "count": 10,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/settings-tabs.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/settings/agents-panel.tsx": {
+      "count": 4,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/settings/ai-provider-panel.tsx": {
+      "count": 2,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/settings/tokens-panel.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/settings/ui.tsx": {
+      "count": 7,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/welcome-checklist.tsx": {
+      "count": 9,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/components/workspace-chooser.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
+    "apps/web/lib/markdown.tsx": {
+      "count": 5,
+      "tracking": "U4 migration (frontend polish plan)"
     }
   }
 }

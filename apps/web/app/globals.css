@@ -42,6 +42,65 @@
   --font-mono: "Commit Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* Scale tokens (DESIGN.md typography / rounded / shadows / motion). Class names stay
+   Tailwind's; the values snap to the spec, so rounded-sm is 6px and text-xs is 12px.
+   Type mapping (px -> class, line-height, DESIGN token):
+     11 text-micro (alias text-2xs)  1.3   micro, mono-sm
+     12 text-xs                      1.4   caption, mono
+     13 text-body                    1.5   body, button
+     14 text-sm                      1.55  body-lg
+     15 text-title                   1.4   title
+     17 text-headline                1.35  headline
+     24 text-2xl                     1.25  display
+   Tailwind's default base/lg/xl/3xl.. sizes are deliberately left defined (existing sites
+   keep rendering until U4 migrates them) and are banned by lint:design instead.
+   Radius: only xs..xl are redefined; 2xl+ are unused and unchanged. Bare `rounded` is one
+   legacy site (0.25rem) and is left for U4. */
+@theme {
+  --text-micro: 11px;
+  --text-micro--line-height: 1.3;
+  --text-micro--letter-spacing: 0.4px;
+  --text-2xs: 11px;
+  --text-2xs--line-height: 1.3;
+  --text-2xs--letter-spacing: 0.4px;
+  --text-xs: 12px;
+  --text-xs--line-height: 1.4;
+  --text-body: 13px;
+  --text-body--line-height: 1.5;
+  --text-sm: 14px;
+  --text-sm--line-height: 1.55;
+  --text-title: 15px;
+  --text-title--line-height: 1.4;
+  --text-headline: 17px;
+  --text-headline--line-height: 1.35;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 1.25;
+  --text-2xl--letter-spacing: -0.4px;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 9999px;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0.38, 0.9);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Depth is hairlines first; overlays and tooltips are the only shadows. Built from the
+     theme-aware scrim and lining tokens so they follow light/dark without raw colours. */
+  --shadow-overlay: 0 8px 28px var(--sl-scrim), 0 0 0 1px var(--sl-lining-strong);
+  --shadow-tooltip: 0 4px 12px color-mix(in srgb, var(--sl-scrim) 80%, transparent);
+}
+
+/* Tailwind v4 has no --duration-* theme namespace, so durations are plain variables used
+   as duration-(--duration-base) / [transition-duration:var(--duration-base)]. */
+:root {
+  --duration-fast: 90ms;
+  --duration-base: 140ms;
+  --duration-overlay: 200ms;
+}
+
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
