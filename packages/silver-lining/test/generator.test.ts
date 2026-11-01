@@ -217,6 +217,16 @@ describe("neutral palette (frontend polish U1)", () => {
     expect(themes.light.accent).toBe("#005fba");
   });
 
+  it("still tints surfaces, linings and ink for a deliberately tinted custom base", () => {
+    for (const mode of ["dark", "light"] as const) {
+      const base = { l: mode === "dark" ? 0.16 : 0.97, c: 0.03, h: 255 };
+      const t = generateTheme({ ...THEME_INPUTS[mode], base });
+      for (const k of ["surface-3", "lining", "ink-muted"] as const) {
+        expect(hexToOklch(t[k]).c, `${mode} ${k} ${t[k]}`).toBeGreaterThan(0.004);
+      }
+    }
+  });
+
   it("makes the default custom theme follow the neutral dark inputs", () => {
     expect(DEFAULT_CUSTOM.base).toEqual(THEME_INPUTS.dark.base);
     const { tokens } = generateCustom(DEFAULT_CUSTOM);
