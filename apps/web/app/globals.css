@@ -52,6 +52,8 @@
      15 text-title                   1.4   title
      17 text-headline                1.35  headline
      24 text-2xl                     1.25  display
+   Mono 12/11 reuse text-xs/text-micro line-height (DESIGN: 1.45/1.4); shadow-overlay's ring and
+   scrim follow the neutral tokens instead of DESIGN's old blue-grey rgba values.
    Tailwind's default base/lg/xl/3xl.. sizes are deliberately left defined (existing sites
    keep rendering until U4 migrates them) and are banned by lint:design instead.
    Radius: only xs..xl are redefined; 2xl+ are unused and unchanged. Bare `rounded` is one
@@ -65,14 +67,17 @@
   --text-2xs--letter-spacing: 0.4px;
   --text-xs: 12px;
   --text-xs--line-height: 1.4;
+  --text-xs--letter-spacing: 0.1px;
   --text-body: 13px;
   --text-body--line-height: 1.5;
   --text-sm: 14px;
   --text-sm--line-height: 1.55;
   --text-title: 15px;
   --text-title--line-height: 1.4;
+  --text-title--letter-spacing: -0.1px;
   --text-headline: 17px;
   --text-headline--line-height: 1.35;
+  --text-headline--letter-spacing: -0.2px;
   --text-2xl: 24px;
   --text-2xl--line-height: 1.25;
   --text-2xl--letter-spacing: -0.4px;
@@ -83,6 +88,7 @@
   --radius-lg: 10px;
   --radius-xl: 14px;
   --radius-pill: 9999px;
+  --radius-full: 9999px;
 
   --ease-standard: cubic-bezier(0.2, 0, 0.38, 0.9);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);

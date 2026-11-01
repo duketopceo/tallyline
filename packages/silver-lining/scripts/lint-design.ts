@@ -115,11 +115,8 @@ if (process.env.LINT_DESIGN_VERBOSE) for (const l of lines) console.log(`    ${l
 
 for (const f of ratchetFailures(counts, allow.files)) {
   failed = true;
-  console.error(f);
-  const file = /^FAIL (\S+):/.exec(f)?.[1];
-  if (file && (counts.get(file) ?? 0) > (allow.files[file]?.count ?? 0)) {
-    for (const l of byFile.get(file) ?? []) console.error(`    ${l}`);
-  }
+  console.error(f.message);
+  if (f.kind === "over") for (const l of byFile.get(f.file) ?? []) console.error(`    ${l}`);
 }
 console.log(`lint:design ${failed ? "FAILED" : "ok"}: ${total} allowlisted violations remaining`);
 process.exit(failed ? 1 : 0);

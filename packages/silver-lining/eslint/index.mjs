@@ -15,11 +15,13 @@ const FN = /\b(?:rgba?|hsla?)\(/g;
 // Tailwind named sizes whose rendered px is off the scale (xs=12, sm=14, 2xl=24 are on it)
 const TW_NAMED_OFF = /(?<![\w-])text-(?:base|lg|xl|[3-9]xl)(?![\w-])/g;
 // Arbitrary font sizes are banned outright (on-scale ones too): use the named type tokens.
-const TW_ARBITRARY = /(?<![\w-])text-\[(\d*\.?\d+)(px|rem|em)\]/g;
+const TW_ARBITRARY = /(?<![\w-])text-\[(?:length:)?(\d*\.?\d+)(px|rem|em)\]/g;
 
 // Colour-taking utility prefixes. `border`, `ring` etc. also take widths, so the arbitrary
 // rule below only flags colour-shaped values.
-const COLOR_PREFIX = "(?:bg|text|border(?:-[xytblrse])?|ring|ring-offset|outline|divide|fill|stroke|from|via|to|decoration|accent|caret|placeholder|shadow)";
+const ARB_COLOR_UTILS = ["bg", "text", "border(?:-[xytblrse])?", "ring", "outline", "divide", "fill", "stroke", "from", "via", "to", "decoration", "accent", "caret"];
+const ARB_COLOR_PREFIX = `(?:${ARB_COLOR_UTILS.join("|")})`;
+const COLOR_PREFIX = `(?:${[...ARB_COLOR_UTILS, "ring-offset", "placeholder", "shadow", "inset-ring", "inset-shadow", "drop-shadow", "text-shadow"].join("|")})`;
 const PALETTE = "(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)";
 // A numeric shade is mandatory, so the app's own tokens (bg-neutral, bg-neutral-soft) stay clean.
 const TW_PALETTE = new RegExp(`(?<![\\w-])${COLOR_PREFIX}-${PALETTE}-\\d{2,3}(?:/(?:\\d+|\\[[^\\]]+\\]))?(?![\\w-])`, "g");
@@ -27,10 +29,12 @@ const TW_WHITE_BLACK = new RegExp(`(?<![\\w-])${COLOR_PREFIX}-(?:white|black)(?:
 // Colour-shaped arbitrary values. Hex and rgb()/hsl() are left to no-raw-color so a hit is
 // never counted twice; var(--...) and length:/color: hinted values are token-driven and pass.
 const TW_ARB_COLOR = new RegExp(
-  `(?<![\\w-])(?:bg|text|border(?:-[xytblrse])?|ring|outline|divide|fill|stroke|from|via|to|decoration|accent|caret)-\\[(?:oklch|oklab|lab|lch|hwb|color\\(|color-mix)[^\\]]*\\]`,
+  `(?<![\\w-])${ARB_COLOR_PREFIX}-\\[(?:(?:color|length):)?(?:oklch|oklab|lab|lch|hwb|color\\(|color-mix)[^\\]]*\\]`,
   "g",
 );
-const TW_ARB_SHADOW = /(?<![\w-])(?:drop-)?shadow-\[(?!var\(--[\w-]+\)\])[^\]]+\]/g;
+const TW_ARB_SHADOW = /(?<![\w-])(?:inset-|drop-|text-)?shadow-\[(?!var\(--[\w-]+\)\])[^\]]+\]/g;
+// Tailwind's default shadow sizes ignore the theme; use shadow-overlay / shadow-tooltip.
+const TW_SHADOW_NAMED = /(?<![\w-])(?:inset-|drop-)?shadow-(?:2xs|xs|sm|md|lg|xl|2xl)(?![\w-])/g;
 
 const SKIP_ATTRS = new Set(["href", "id", "htmlFor", "src", "xmlns", "d", "viewBox", "points"]);
 
@@ -54,7 +58,7 @@ function fontHits(text) {
 
 function paletteHits(text) {
   const hits = [];
-  for (const re of [TW_PALETTE, TW_WHITE_BLACK, TW_ARB_COLOR, TW_ARB_SHADOW]) {
+  for (const re of [TW_PALETTE, TW_WHITE_BLACK, TW_ARB_COLOR, TW_ARB_SHADOW, TW_SHADOW_NAMED]) {
     re.lastIndex = 0;
     for (const m of text.matchAll(re)) hits.push(m[0]);
   }

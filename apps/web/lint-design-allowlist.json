@@ -137,6 +137,10 @@
       "count": 3,
       "tracking": "U4 migration (frontend polish plan)"
     },
+    "apps/web/components/app/dialog-frames.tsx": {
+      "count": 1,
+      "tracking": "U4 migration (frontend polish plan)"
+    },
     "apps/web/components/app/filter-bar.tsx": {
       "count": 11,
       "tracking": "U4 migration (frontend polish plan)"
@@ -278,7 +282,7 @@
       "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
     },
     "apps/web/components/quick-create-dialog.tsx": {
-      "count": 6,
+      "count": 7,
       "tracking": "U4 migration (frontend polish plan)"
     },
     "apps/web/components/review-queue.tsx": {

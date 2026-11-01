@@ -35,6 +35,15 @@ describe("design lint rules: className fixtures", () => {
     "bg-[oklch(0.5_0.1_200)]",
     "shadow-[0_8px_28px_rgba(0,0,0,0.5)]",
     "text-lg",
+    "!bg-red-500",
+    "md:bg-red-500",
+    "group-hover:text-white",
+    "text-[0.8125rem]",
+    "text-[length:14px]",
+    "bg-[color:oklch(0.5_0.1_200)]",
+    "drop-shadow-red-500",
+    "inset-ring-red-500",
+    "shadow-lg",
   ])("flags %s", (cls) => {
     expect(lint(cls).length).toBeGreaterThan(0);
   });
@@ -59,9 +68,17 @@ describe("design lint rules: className fixtures", () => {
     "shadow-[var(--shadow-x)]",
     "border-[1.5px]",
     "bg-transparent",
+    "-mt-2",
+    "bg-white-ish",
+    "group-hover:bg-surface-2",
     "rounded-sm duration-(--duration-base) ease-standard",
   ])("passes %s", (cls) => {
     expect(lint(cls)).toEqual([]);
+  });
+
+  it("flags palette classes inside template literals and cn() calls", () => {
+    const code = "export const x = [cn('p-2', on && 'bg-red-500'), `text-white ${y}`];";
+    expect(linter.verify(code, config, "fixture.tsx")).toHaveLength(2);
   });
 
   it("does not double count a raw hex", () => {

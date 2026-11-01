@@ -244,6 +244,22 @@ Each gate runs in CI and fails the build.
 | No layout shift on live data | An SSE burst of 50 events moves neither focus nor the hovered row | `pnpm test:e2e --grep @live` |
 | Hydration | 0 hydration warnings on every route | `pnpm test:e2e --grep @hydration` |
 
+### Scale tokens (Tailwind)
+
+`apps/web/app/globals.css` maps the DESIGN.md scales onto Tailwind classes; `lint:design` bans everything else.
+
+| Type class | px | Line height | DESIGN token |
+|---|---|---|---|
+| `text-micro` (alias `text-2xs`) | 11 | 1.3 | micro, mono-sm |
+| `text-xs` | 12 | 1.4 | caption, mono |
+| `text-body` | 13 | 1.5 | body, button |
+| `text-sm` | 14 | 1.55 | body-lg |
+| `text-title` | 15 | 1.4 | title |
+| `text-headline` | 17 | 1.35 | headline |
+| `text-2xl` | 24 | 1.25 | display |
+
+Radius: `rounded-xs` 4, `sm` 6, `md` 8, `lg` 10, `xl` 14, `rounded-full`/`rounded-pill` 9999. Shadow: `shadow-overlay`, `shadow-tooltip` (theme-aware, built from `--sl-scrim` and `--sl-lining-strong`). Motion: `ease-standard`, `ease-out`, and `duration-(--duration-fast|base|overlay)` (90, 140, 200 ms; Tailwind v4 has no duration theme namespace).
+
 ---
 
 ## 14. How open-computer adopts it
