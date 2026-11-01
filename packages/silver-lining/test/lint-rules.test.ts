@@ -44,6 +44,9 @@ describe("design lint rules: className fixtures", () => {
     "drop-shadow-red-500",
     "inset-ring-red-500",
     "shadow-lg",
+    "bg-[red]",
+    "text-[color:red]",
+    "shadow-[0_1px_2px_black]",
   ])("flags %s", (cls) => {
     expect(lint(cls).length).toBeGreaterThan(0);
   });
@@ -79,6 +82,10 @@ describe("design lint rules: className fixtures", () => {
   it("flags palette classes inside template literals and cn() calls", () => {
     const code = "export const x = [cn('p-2', on && 'bg-red-500'), `text-white ${y}`];";
     expect(linter.verify(code, config, "fixture.tsx")).toHaveLength(2);
+  });
+
+  it("counts a shadow with a raw colour once", () => {
+    expect(lint("shadow-[0_8px_28px_rgba(0,0,0,0.5)]")).toHaveLength(1);
   });
 
   it("does not double count a raw hex", () => {

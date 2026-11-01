@@ -27,9 +27,11 @@ const PALETTE = "(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|g
 const TW_PALETTE = new RegExp(`(?<![\\w-])${COLOR_PREFIX}-${PALETTE}-\\d{2,3}(?:/(?:\\d+|\\[[^\\]]+\\]))?(?![\\w-])`, "g");
 const TW_WHITE_BLACK = new RegExp(`(?<![\\w-])${COLOR_PREFIX}-(?:white|black)(?:/(?:\\d+|\\[[^\\]]+\\]))?(?![\\w-])`, "g");
 // Colour-shaped arbitrary values. Hex and rgb()/hsl() are left to no-raw-color so a hit is
-// never counted twice; var(--...) and length:/color: hinted values are token-driven and pass.
+// never counted twice; var(--...) values are token-driven and pass. Named CSS colours
+// (bg-[red], text-[color:red]) are caught alongside the colour functions.
+const NAMED_COLORS = "black|white|red|green|blue|yellow|orange|purple|pink|gray|grey|silver|gold|navy|teal|cyan|magenta|brown|maroon|lime|olive|aqua|fuchsia|indigo|violet|crimson|coral|salmon|tomato";
 const TW_ARB_COLOR = new RegExp(
-  `(?<![\\w-])${ARB_COLOR_PREFIX}-\\[(?:(?:color|length):)?(?:oklch|oklab|lab|lch|hwb|color\\(|color-mix)[^\\]]*\\]`,
+  `(?<![\\w-])${ARB_COLOR_PREFIX}-\\[(?:(?:color|length):)?(?:(?:oklch|oklab|lab|lch|hwb|color\\(|color-mix)[^\\]]*|${NAMED_COLORS})\\]`,
   "g",
 );
 const TW_ARB_SHADOW = /(?<![\w-])(?:inset-|drop-|text-)?shadow-\[(?!var\(--[\w-]+\)\])[^\]]+\]/g;
@@ -60,7 +62,11 @@ function paletteHits(text) {
   const hits = [];
   for (const re of [TW_PALETTE, TW_WHITE_BLACK, TW_ARB_COLOR, TW_ARB_SHADOW, TW_SHADOW_NAMED]) {
     re.lastIndex = 0;
-    for (const m of text.matchAll(re)) hits.push(m[0]);
+    for (const m of text.matchAll(re)) {
+      // a shadow carrying a raw colour is already reported once by no-raw-color
+      if (re === TW_ARB_SHADOW && colorHits(m[0]).length > 0) continue;
+      hits.push(m[0]);
+    }
   }
   return hits;
 }
