@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { forceTheme } from "./helpers";
 
-const API = `http://localhost:${process.env.E2E_API_PORT ?? "4000"}`;
+const API = `http://localhost:${process.env.E2E_API_PORT ?? "4100"}`;
 const DAY = 86_400_000;
 const NAME = `pulse ${Date.now()}`;
 

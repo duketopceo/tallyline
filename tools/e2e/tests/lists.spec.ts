@@ -4,7 +4,7 @@ import { SAME_ORIGIN } from "./helpers";
 // Core list interactions: inline edit with optimistic update + undo, multi-select
 // with bulk actions, peek, filter pills, saved views, palette coverage, live
 // "N new" pill, mobile shell. Tags drive the Silver Lining section 13 gates.
-const API = `http://localhost:${process.env.E2E_API_PORT ?? "4000"}`;
+const API = `http://localhost:${process.env.E2E_API_PORT ?? "4100"}`;
 const RUN = Date.now();
 
 async function make(page: Page, title: string): Promise<string> {
