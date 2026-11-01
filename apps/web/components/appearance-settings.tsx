@@ -7,13 +7,15 @@ import {
   THEME_LABELS,
   type ThemeId,
   contrastRatio,
+  serializeAppearance,
   themeToStyle,
   generateCustom,
   normalizeCustom,
   tokens,
 } from "@tallyline/silver-lining";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { applyAppearance, readStoredCustom } from "@/lib/appearance-client";
+import { resolvedMode } from "@/lib/appearance";
+import { APPEARANCE_EVENT, applyAppearance, readStoredCustom } from "@/lib/appearance-client";
 
 // Settings > Appearance. Choosing a theme (or moving a custom slider) applies
 // instantly to <html> with no reload and is remembered per device in a cookie
@@ -21,7 +23,7 @@ import { applyAppearance, readStoredCustom } from "@/lib/appearance-client";
 
 const THEME_CHOICES: { id: Appearance["theme"]; label: string; hint: string }[] = [
   { id: "system", label: "Follow system", hint: "Dark or light, matching your OS." },
-  { id: "dark", label: THEME_LABELS.dark, hint: "Default. Easy on the eyes in long sessions." },
+  { id: "dark", label: THEME_LABELS.dark, hint: "Easy on the eyes in long sessions." },
   { id: "light", label: THEME_LABELS.light, hint: "Silver-white canvas." },
   { id: "hc-dark", label: THEME_LABELS["hc-dark"], hint: "Wider text and edge contrast." },
   { id: "custom", label: "Custom", hint: "Your own base, accent and contrast." },
@@ -67,12 +69,28 @@ export function AppearanceSettings({ initial }: { initial: Appearance }) {
     [theme, custom],
   );
 
-  // a custom theme set earlier (before the sidebar toggle switched modes) comes back
+  // restore the last custom theme so the sliders are not reset after a mode switch
   useEffect(() => {
     if (initial.theme === "custom") return;
     const stored = readStoredCustom();
     if (stored) setCustom(stored);
   }, [initial.theme]);
+
+  // follow changes made elsewhere while this page is open (sidebar toggle,
+  // palette "Theme:" commands) so the radios never go stale. Only differing
+  // values are set, which also keeps applyAppearance -> event -> setState from looping.
+  const latest = useRef(appearance);
+  latest.current = appearance;
+  useEffect(() => {
+    const onChange = (e: Event) => {
+      const next = (e as CustomEvent<Appearance>).detail;
+      if (serializeAppearance(next) === serializeAppearance(latest.current)) return;
+      setTheme(next.theme);
+      if (next.theme === "custom") setCustom(next.custom);
+    };
+    document.addEventListener(APPEARANCE_EVENT, onChange);
+    return () => document.removeEventListener(APPEARANCE_EVENT, onChange);
+  }, []);
 
   // apply instantly on every change; skip the very first render (already SSR'd)
   const first = useRef(true);
@@ -84,19 +102,26 @@ export function AppearanceSettings({ initial }: { initial: Appearance }) {
     applyAppearance(appearance);
   }, [appearance]);
 
+  // The OS scheme is only known on the client: start as dark so the server and
+  // the first client render agree, then follow the media query.
+  const [osLight, setOsLight] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    const sync = () => setOsLight(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   const preview = useMemo(() => {
     if (theme === "custom") {
       const g = generateCustom(custom);
       return { mode: g.mode, t: g.tokens };
     }
     const id: ThemeId =
-      theme === "system"
-        ? typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: light)").matches
-          ? "light"
-          : "dark"
-        : theme;
+      theme === "system" ? (resolvedMode({ theme }, osLight) === "light" ? "light" : "dark") : theme;
     return { mode: id === "light" ? ("light" as const) : ("dark" as const), t: tokens[id] };
-  }, [theme, custom]);
+  }, [theme, custom, osLight]);
 
   const style = themeToStyle(preview.t as never, preview.mode) as CSSProperties;
   const ratio = (fg: "ink" | "ink-muted" | "ink-subtle") =>

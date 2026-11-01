@@ -343,30 +343,30 @@ The second signature is the **glint** — a four-point sparkle glyph (`{componen
 - **Signal Azure** (`{colors.accent}` — `#339fee`): the only chromatic accent. Primary action fill, inline links, focus ring, active-nav indicator, and the glint glyph. ~7.0:1 contrast on `{colors.canvas}`.
 - **Azure Hover** (`{colors.accent-hover}` — `#59b5ff`): lighter azure — hovered primary CTA, hovered link.
 - **Azure Pressed** (`{colors.accent-pressed}` — `#1c8fdd`): pressed/active fill.
-- **Azure Soft** (`{colors.accent-soft}` — `rgba(62,161,247,0.14)`): translucent azure wash — selected row background, active nav item, "this thing is targeted" state.
-- **On Accent** (`{colors.on-accent}` — `#07090d`): text/icons on azure fills — near-black, not white (azure at ~7.0:1 against near-black vs ~2.9:1 against white).
+- **Azure Soft** (`{colors.accent-soft}` — `rgba(51,159,238,0.14)`): translucent azure wash — selected row background, active nav item, "this thing is targeted" state.
+- **On Accent** (`{colors.on-accent}` — `#090909`): text/icons on azure fills — near-black, not white (azure at ~7.0:1 against near-black vs ~2.9:1 against white).
 
 ### Surface (dark, default)
 - **Canvas** (`{colors.canvas}` — `#090909`): app background. Neutral near-black, no blue tint — never true `#000`.
 - **Surface 1** (`{colors.surface-1}` — `#0f0f0f`): cards, panels, inputs. The workhorse lift.
-- **Surface 2** (`{colors.surface-2}` — `#0f1620`): raised panels — command palette, popovers, hover-state fills.
-- **Surface 3** (`{colors.surface-3}` — `#141e2a`): nested insets — code blocks, quote panels, active palette rows.
-- **Surface 4** (`{colors.surface-4}` — `#192535`): deepest lift — pinned/sticky regions inside panels.
-- **Overlay** (`{colors.overlay}` — `rgba(3,4,6,0.72)`): scrim behind palette/dialogs.
+- **Surface 2** (`{colors.surface-2}` — `#161616`): raised panels — command palette, popovers, hover-state fills.
+- **Surface 3** (`{colors.surface-3}` — `#1e1e1e`): nested insets — code blocks, quote panels, active palette rows.
+- **Surface 4** (`{colors.surface-4}` — `#252525`): deepest lift — pinned/sticky regions inside panels.
+- **Overlay** (`{colors.overlay}` — `rgba(1,1,1,0.72)`): scrim behind palette/dialogs.
 
 ### The Silver Lining
 The lining is a separate border system from generic dividers. Generic dividers use `lining-faint`; the **lining** tokens are the signature edge.
 
-- **Lining Faint** (`{colors.lining-faint}` — `#1d242d`): inner table rules, row bottom borders, quiet separators. Structurally present, visually recessive.
-- **Lining** (`{colors.lining}` — `#3b434d`): the default 1px metallic hairline on every card, panel, input, and bordered button. Dull silver at rest — a cool, desaturated blue-gray that reads as metal, not as a color.
-- **Lining Strong** (`{colors.lining-strong}` — `#717a84`): hover/focus strengthening of the same edge; outer border of floating surfaces (palette, menus).
-- **Lining Bright** (`{colors.lining-bright}` — `#c9d3de`): the lit lining. Bright silver — used ONLY when a surface enters an attention state (blocked, failed, overdue, conflict). The brightening is the decoration-as-signal: the edge of the thing that needs you literally shines. A `lining-bright` state is never naked — it always carries a status color (dot/pill) AND a recommended action (button or `Cmd+K` action).
+- **Lining Faint** (`{colors.lining-faint}` — `#242424`): inner table rules, row bottom borders, quiet separators. Structurally present, visually recessive.
+- **Lining** (`{colors.lining}` — `#434343`): the default 1px metallic hairline on every card, panel, input, and bordered button. Dull silver at rest — a neutral grey that reads as metal, not as a color.
+- **Lining Strong** (`{colors.lining-strong}` — `#797979`): hover/focus strengthening of the same edge; outer border of floating surfaces (palette, menus).
+- **Lining Bright** (`{colors.lining-bright}` — `#d3d3d3`): the lit lining. Bright silver — used ONLY when a surface enters an attention state (blocked, failed, overdue, conflict). The brightening is the decoration-as-signal: the edge of the thing that needs you literally shines. A `lining-bright` state is never naked — it always carries a status color (dot/pill) AND a recommended action (button or `Cmd+K` action).
 
 ### Text
-- **Ink** (`{colors.ink}` — `#e0e5eb`): titles, emphasized body, selected states.
-- **Ink Muted** (`{colors.ink-muted}` — `#c1cad5`): secondary text, palette row text.
-- **Ink Subtle** (`{colors.ink-subtle}` — `#969faa`): metadata, timestamps, placeholders, unselected nav. ~7.5:1 on canvas, 5.8:1 on surface-4 — minimum for body text (floor 4.5:1).
-- **Ink Tertiary** (`{colors.ink-tertiary}` — `#8c949f`): footnotes, decorative-only text. 6.5:1 on canvas, 5.0:1 on surface-4 (floor 4.5:1). Disabled text uses `{colors.ink-disabled}` (floor 3:1, never the only signal).
+- **Ink** (`{colors.ink}` — `#e5e5e5`): titles, emphasized body, selected states.
+- **Ink Muted** (`{colors.ink-muted}` — `#cacaca`): secondary text, palette row text.
+- **Ink Subtle** (`{colors.ink-subtle}` — `#9f9f9f`): metadata, timestamps, placeholders, unselected nav. ~7.5:1 on canvas, 5.8:1 on surface-4 — minimum for body text (floor 4.5:1).
+- **Ink Tertiary** (`{colors.ink-tertiary}` — `#949494`): footnotes, decorative-only text. 6.5:1 on canvas, 5.0:1 on surface-4 (floor 4.5:1). Disabled text uses `{colors.ink-disabled}` (floor 3:1, never the only signal).
 
 ### Status — the fixed 4-color system
 Pinned values; do not author alternates for the dark theme (all four pass ≥4.5:1 as text on canvas).
@@ -385,10 +385,10 @@ Pinned values; do not author alternates for the dark theme (all four pass ≥4.5
 ### Inverse theme (light, secondary)
 A complete inverse set for documentation, emails, print-exported issues, and the optional light mode. Applied as a theme swap — token names map 1:1 with `light-` prefixes on values.
 
-- **Light Canvas** (`{colors.light-canvas}` — `#f4f5f7`): silver-white, not pure white — the canvas keeps the metallic cast.
-- **Light Surface 1–4** (`#ffffff` → `#edeef0` → `#e6e7e9` → `#dfe0e2`): cards rise to white; insets sink a step darker.
-- **Light Ink** (`{colors.light-ink}` — `#1a1a1c`) / **Muted** (`#323539`) / **Subtle** (`#515458`).
-- **Light Lining** (`{colors.light-lining}` — `#adafb5`): the literal silver value — the resting hairline on light. **Strong** `#727479`; **Bright** `{colors.light-lining-bright}` `#2c2e33` (on light, "lit" reads as darker-contrast silver).
+- **Light Canvas** (`{colors.light-canvas}` — `#f5f5f5`): neutral off-white, not pure white.
+- **Light Surface 1–4** (`#ffffff` → `#eeeeee` → `#e7e7e7` → `#e0e0e0`): cards rise to white; insets sink a step darker.
+- **Light Ink** (`{colors.light-ink}` — `#1a1a1a`) / **Muted** (`#343434`) / **Subtle** (`#535353`).
+- **Light Lining** (`{colors.light-lining}` — `#afafaf`): the literal silver value — the resting hairline on light. **Strong** `#747474`; **Bright** `{colors.light-lining-bright}` `#2e2e2e` (on light, "lit" reads as darker-contrast silver).
 - **Light Accent** (`{colors.light-accent}` — `#005fba`): darkened azure, ~6.3:1 on white — the azure is hue-stable across themes, only lightness moves.
 - **Light status ink**: `#b91c1c` / `#92400e` / `#036149` / `#4b5563` for status text on light; the pinned 500-values remain the dot/indicator colors.
 

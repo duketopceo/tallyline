@@ -3,7 +3,7 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { forceTheme } from "./helpers";
 
-// Frontend polish U2: system default, visible theme toggle in the chrome.
+// System default and the visible theme toggle in the app chrome.
 const tokens = JSON.parse(
   readFileSync(new URL("../../../packages/silver-lining/tokens.json", import.meta.url), "utf8"),
 ) as { themes: Record<string, { tokens: Record<string, string> }> };
@@ -136,6 +136,18 @@ test.describe("toggle", () => {
     await page.reload();
     await expect.poll(() => dataTheme(page)).toBe("light");
     await choose(page, "System");
+  });
+
+  test("Settings > Appearance and the toggle stay in sync on the same page", async ({ page }) => {
+    await page.goto("/settings/appearance");
+    await expect(toggle(page)).toBeVisible();
+    await choose(page, "Light");
+    await expect(page.getByRole("radio", { name: /^Light/ })).toBeChecked();
+    await page.getByRole("radio", { name: /^Dark/ }).check();
+    await expect(toggle(page)).toHaveAccessibleName("Theme: Dark");
+    expect(await dataTheme(page)).toBe("dark");
+    await choose(page, "System");
+    await expect(page.getByRole("radio", { name: /Follow system/ })).toBeChecked();
   });
 
   test("high contrast and custom: toggle reflects it, choosing a mode replaces it and keeps the custom values", async ({
