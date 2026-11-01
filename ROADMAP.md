@@ -31,6 +31,8 @@ None. Everything an agent can build has shipped; the rest needs Luke or is defer
 
 The full open-question list is at the end of the requirements document.
 
+Ordered handoff with files and checks: [docs/next-tasks.md](./docs/next-tasks.md).
+
 ## Done
 
 | Area | Units | Evidence |
