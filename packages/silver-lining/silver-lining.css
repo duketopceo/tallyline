@@ -6,26 +6,26 @@
 html.dark,
 html.dark[data-theme] {
   color-scheme: dark;
-  --sl-canvas: #06080c;
-  --sl-surface-1: #0a0f15;
-  --sl-surface-2: #0f1620;
-  --sl-surface-3: #141e2a;
-  --sl-surface-4: #192535;
-  --sl-lining-faint: #1d242d;
-  --sl-lining: #3b434d;
-  --sl-lining-strong: #717a84;
-  --sl-lining-bright: #c9d3de;
-  --sl-control: #717a84;
-  --sl-ink: #e0e5eb;
-  --sl-ink-muted: #c1cad5;
-  --sl-ink-subtle: #969faa;
-  --sl-ink-tertiary: #8c949f;
-  --sl-ink-disabled: #6b747e;
+  --sl-canvas: #090909;
+  --sl-surface-1: #0f0f0f;
+  --sl-surface-2: #161616;
+  --sl-surface-3: #1e1e1e;
+  --sl-surface-4: #252525;
+  --sl-lining-faint: #242424;
+  --sl-lining: #434343;
+  --sl-lining-strong: #797979;
+  --sl-lining-bright: #d3d3d3;
+  --sl-control: #797979;
+  --sl-ink: #e5e5e5;
+  --sl-ink-muted: #cacaca;
+  --sl-ink-subtle: #9f9f9f;
+  --sl-ink-tertiary: #949494;
+  --sl-ink-disabled: #747474;
   --sl-accent: #339fee;
   --sl-accent-hover: #59b5ff;
   --sl-accent-pressed: #1c8fdd;
   --sl-accent-soft: rgba(51,159,238,0.14);
-  --sl-on-accent: #07090d;
+  --sl-on-accent: #090909;
   --sl-status-urgent: #f06a6a;
   --sl-status-attention: #f59e0b;
   --sl-status-healthy: #10b981;
@@ -35,34 +35,34 @@ html.dark[data-theme] {
   --sl-status-healthy-soft: rgba(16,185,129,0.14);
   --sl-status-neutral-soft: rgba(156,163,175,0.14);
   --sl-glint: #339fee;
-  --sl-glint-silver: #c9d3de;
-  --sl-overlay: rgba(1,1,2,0.72);
-  --sl-scrim: rgba(1,1,2,0.5);
+  --sl-glint-silver: #d3d3d3;
+  --sl-overlay: rgba(1,1,1,0.72);
+  --sl-scrim: rgba(1,1,1,0.5);
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
     color-scheme: light;
-    --sl-canvas: #f4f5f7;
+    --sl-canvas: #f5f5f5;
     --sl-surface-1: #ffffff;
-    --sl-surface-2: #edeef0;
-    --sl-surface-3: #e6e7e9;
-    --sl-surface-4: #dfe0e2;
-    --sl-lining-faint: #d8dae0;
-    --sl-lining: #adafb5;
-    --sl-lining-strong: #727479;
-    --sl-lining-bright: #2c2e33;
-    --sl-control: #727479;
-    --sl-ink: #1a1a1c;
-    --sl-ink-muted: #323539;
-    --sl-ink-subtle: #515458;
-    --sl-ink-tertiary: #5a5c61;
-    --sl-ink-disabled: #787a7f;
+    --sl-surface-2: #eeeeee;
+    --sl-surface-3: #e7e7e7;
+    --sl-surface-4: #e0e0e0;
+    --sl-lining-faint: #dadada;
+    --sl-lining: #afafaf;
+    --sl-lining-strong: #747474;
+    --sl-lining-bright: #2e2e2e;
+    --sl-control: #747474;
+    --sl-ink: #1a1a1a;
+    --sl-ink-muted: #343434;
+    --sl-ink-subtle: #535353;
+    --sl-ink-tertiary: #5c5c5c;
+    --sl-ink-disabled: #7a7a7a;
     --sl-accent: #005fba;
     --sl-accent-hover: #0054a6;
     --sl-accent-pressed: #004992;
     --sl-accent-soft: rgba(0,95,186,0.14);
-    --sl-on-accent: #f2f5fc;
+    --sl-on-accent: #f5f5f5;
     --sl-status-urgent: #b91c1c;
     --sl-status-attention: #92400e;
     --sl-status-healthy: #036149;
@@ -72,9 +72,9 @@ html.dark[data-theme] {
     --sl-status-healthy-soft: rgba(3,97,73,0.14);
     --sl-status-neutral-soft: rgba(75,85,99,0.14);
     --sl-glint: #005fba;
-    --sl-glint-silver: #2c2e33;
-    --sl-overlay: rgba(20,22,27,0.4);
-    --sl-scrim: rgba(20,22,27,0.24);
+    --sl-glint-silver: #2e2e2e;
+    --sl-overlay: rgba(22,22,22,0.4);
+    --sl-scrim: rgba(22,22,22,0.24);
   }
 }
 
@@ -82,26 +82,26 @@ html.dark[data-theme] {
 html.light,
 html.light[data-theme] {
   color-scheme: light;
-  --sl-canvas: #f4f5f7;
+  --sl-canvas: #f5f5f5;
   --sl-surface-1: #ffffff;
-  --sl-surface-2: #edeef0;
-  --sl-surface-3: #e6e7e9;
-  --sl-surface-4: #dfe0e2;
-  --sl-lining-faint: #d8dae0;
-  --sl-lining: #adafb5;
-  --sl-lining-strong: #727479;
-  --sl-lining-bright: #2c2e33;
-  --sl-control: #727479;
-  --sl-ink: #1a1a1c;
-  --sl-ink-muted: #323539;
-  --sl-ink-subtle: #515458;
-  --sl-ink-tertiary: #5a5c61;
-  --sl-ink-disabled: #787a7f;
+  --sl-surface-2: #eeeeee;
+  --sl-surface-3: #e7e7e7;
+  --sl-surface-4: #e0e0e0;
+  --sl-lining-faint: #dadada;
+  --sl-lining: #afafaf;
+  --sl-lining-strong: #747474;
+  --sl-lining-bright: #2e2e2e;
+  --sl-control: #747474;
+  --sl-ink: #1a1a1a;
+  --sl-ink-muted: #343434;
+  --sl-ink-subtle: #535353;
+  --sl-ink-tertiary: #5c5c5c;
+  --sl-ink-disabled: #7a7a7a;
   --sl-accent: #005fba;
   --sl-accent-hover: #0054a6;
   --sl-accent-pressed: #004992;
   --sl-accent-soft: rgba(0,95,186,0.14);
-  --sl-on-accent: #f2f5fc;
+  --sl-on-accent: #f5f5f5;
   --sl-status-urgent: #b91c1c;
   --sl-status-attention: #92400e;
   --sl-status-healthy: #036149;
@@ -111,33 +111,33 @@ html.light[data-theme] {
   --sl-status-healthy-soft: rgba(3,97,73,0.14);
   --sl-status-neutral-soft: rgba(75,85,99,0.14);
   --sl-glint: #005fba;
-  --sl-glint-silver: #2c2e33;
-  --sl-overlay: rgba(20,22,27,0.4);
-  --sl-scrim: rgba(20,22,27,0.24);
+  --sl-glint-silver: #2e2e2e;
+  --sl-overlay: rgba(22,22,22,0.4);
+  --sl-scrim: rgba(22,22,22,0.24);
 }
 
 :root[data-theme="hc-dark"] {
   color-scheme: dark;
-  --sl-canvas: #06070a;
-  --sl-surface-1: #0a0e13;
-  --sl-surface-2: #0f141c;
-  --sl-surface-3: #141b26;
-  --sl-surface-4: #19232f;
-  --sl-lining-faint: #232930;
-  --sl-lining: #424951;
-  --sl-lining-strong: #787e87;
-  --sl-lining-bright: #d0d8e1;
-  --sl-control: #787e87;
-  --sl-ink: #e0e4e9;
-  --sl-ink-muted: #c9d1da;
-  --sl-ink-subtle: #9ca3ad;
-  --sl-ink-tertiary: #8f97a0;
-  --sl-ink-disabled: #6e747d;
+  --sl-canvas: #070707;
+  --sl-surface-1: #0e0e0e;
+  --sl-surface-2: #151515;
+  --sl-surface-3: #1d1d1d;
+  --sl-surface-4: #242424;
+  --sl-lining-faint: #282828;
+  --sl-lining: #484848;
+  --sl-lining-strong: #808080;
+  --sl-lining-bright: #dadada;
+  --sl-control: #808080;
+  --sl-ink: #e4e4e4;
+  --sl-ink-muted: #d3d3d3;
+  --sl-ink-subtle: #a5a5a5;
+  --sl-ink-tertiary: #989898;
+  --sl-ink-disabled: #757575;
   --sl-accent: #51bcff;
   --sl-accent-hover: #8dd0ff;
   --sl-accent-pressed: #3eacee;
   --sl-accent-soft: rgba(81,188,255,0.14);
-  --sl-on-accent: #07090d;
+  --sl-on-accent: #090909;
   --sl-status-urgent: #ff8a8a;
   --sl-status-attention: #fbbf24;
   --sl-status-healthy: #34d399;
@@ -147,9 +147,9 @@ html.light[data-theme] {
   --sl-status-healthy-soft: rgba(52,211,153,0.14);
   --sl-status-neutral-soft: rgba(203,213,225,0.14);
   --sl-glint: #51bcff;
-  --sl-glint-silver: #d0d8e1;
-  --sl-overlay: rgba(1,1,2,0.72);
-  --sl-scrim: rgba(1,1,2,0.5);
+  --sl-glint-silver: #dadada;
+  --sl-overlay: rgba(1,1,1,0.72);
+  --sl-scrim: rgba(1,1,1,0.5);
 }
 
 /* Aliases for names apps/web already used (Tailwind --color-*). */

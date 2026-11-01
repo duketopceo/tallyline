@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { agentIssue, failSession, SAME_ORIGIN } from "./helpers";
+import { agentIssue, failSession, forceTheme, SAME_ORIGIN } from "./helpers";
 
 // PLAN-044: every app screen, WCAG 2.0/2.1/2.2 A + AA tags, both themes,
 // desktop and phone widths. Zero violations gates the run.
@@ -58,15 +58,6 @@ async function issueKey(page: Page): Promise<string> {
   return match![0];
 }
 
-async function setTheme(page: Page, theme: (typeof THEMES)[number]) {
-  await page.evaluate((t) => {
-    document.documentElement.classList.remove("light", "dark");
-    document.documentElement.classList.add(t);
-  }, theme);
-  // colour transitions (<=150ms) must finish before axe samples contrast
-  await page.waitForTimeout(400);
-}
-
 async function scan(page: Page) {
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   return results.violations.map(
@@ -102,7 +93,7 @@ for (const vp of VIEWPORTS) {
         test(`@a11y ${path}`, async ({ page }) => {
           await page.goto(path.replace(":key", key).replace(":project", projectId));
           await page.waitForLoadState("networkidle");
-          await setTheme(page, theme);
+          await forceTheme(page, theme);
           const violations = await scan(page);
           expect(violations, violations.join("\n")).toHaveLength(0);
         });
@@ -117,7 +108,7 @@ test.describe("axe logged-out", () => {
     test(`@a11y ${path} ${theme}`, async ({ page }) => {
       await page.goto(path);
       await page.waitForLoadState("networkidle");
-      await setTheme(page, theme);
+      await forceTheme(page, theme);
       const violations = await scan(page);
       expect(violations, violations.join("\n")).toHaveLength(0);
     });
@@ -132,7 +123,7 @@ for (const vp of VIEWPORTS) {
       test(`@a11y peek + picker + palette`, async ({ page }) => {
         await page.goto("/issues");
         await page.waitForSelector("[data-qc-ready]", { timeout: 20_000 });
-        await setTheme(page, theme);
+        await forceTheme(page, theme);
         const row = page.locator("[data-issue-row]").first();
         await row.hover();
         await page.keyboard.press("Space");
@@ -169,7 +160,7 @@ for (const vp of VIEWPORTS) {
         await failSession(f);
         await page.goto(`/issues/${f.issueKey}`);
         await page.waitForLoadState("networkidle");
-        await setTheme(page, theme);
+        await forceTheme(page, theme);
         const violations = await scan(page);
         expect(violations, violations.join("\n")).toHaveLength(0);
       });

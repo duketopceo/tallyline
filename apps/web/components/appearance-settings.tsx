@@ -1,55 +1,29 @@
 "use client";
 
 import {
-  APPEARANCE_COOKIE,
   type Appearance,
   type CustomTheme,
   DEFAULT_CUSTOM,
   THEME_LABELS,
   type ThemeId,
   contrastRatio,
-  generateCustom,
-  normalizeCustom,
   serializeAppearance,
   themeToStyle,
+  generateCustom,
+  normalizeCustom,
   tokens,
 } from "@tallyline/silver-lining";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { resolvedMode } from "@/lib/appearance";
+import { APPEARANCE_EVENT, applyAppearance, readStoredCustom } from "@/lib/appearance-client";
 
 // Settings > Appearance. Choosing a theme (or moving a custom slider) applies
 // instantly to <html> with no reload and is remembered per device in a cookie
 // that the root layout reads, so the next page load paints the same theme.
 
-const ONE_YEAR = 60 * 60 * 24 * 365;
-
-function applyToDocument(appearance: Appearance) {
-  const root = document.documentElement;
-  for (const prop of [...root.style]) {
-    if (prop.startsWith("--sl-") || prop === "color-scheme") root.style.removeProperty(prop);
-  }
-  if (appearance.theme === "system") {
-    root.removeAttribute("data-theme");
-  } else if (appearance.theme === "custom") {
-    const { mode, tokens: t } = generateCustom(appearance.custom);
-    root.setAttribute("data-theme", "custom");
-    for (const [k, v] of Object.entries(themeToStyle(t, mode))) {
-      root.style.setProperty(k === "colorScheme" ? "color-scheme" : k, v);
-    }
-  } else {
-    root.setAttribute("data-theme", appearance.theme);
-  }
-  try {
-    document.cookie = `${APPEARANCE_COOKIE}=${encodeURIComponent(
-      serializeAppearance(appearance),
-    )}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
-  } catch {
-    // cookies blocked: the theme still applies for this page view
-  }
-}
-
 const THEME_CHOICES: { id: Appearance["theme"]; label: string; hint: string }[] = [
   { id: "system", label: "Follow system", hint: "Dark or light, matching your OS." },
-  { id: "dark", label: THEME_LABELS.dark, hint: "Default. Easy on the eyes in long sessions." },
+  { id: "dark", label: THEME_LABELS.dark, hint: "Easy on the eyes in long sessions." },
   { id: "light", label: THEME_LABELS.light, hint: "Silver-white canvas." },
   { id: "hc-dark", label: THEME_LABELS["hc-dark"], hint: "Wider text and edge contrast." },
   { id: "custom", label: "Custom", hint: "Your own base, accent and contrast." },
@@ -95,6 +69,29 @@ export function AppearanceSettings({ initial }: { initial: Appearance }) {
     [theme, custom],
   );
 
+  // restore the last custom theme so the sliders are not reset after a mode switch
+  useEffect(() => {
+    if (initial.theme === "custom") return;
+    const stored = readStoredCustom();
+    if (stored) setCustom(stored);
+  }, [initial.theme]);
+
+  // follow changes made elsewhere while this page is open (sidebar toggle,
+  // palette "Theme:" commands) so the radios never go stale. Only differing
+  // values are set, which also keeps applyAppearance -> event -> setState from looping.
+  const latest = useRef(appearance);
+  latest.current = appearance;
+  useEffect(() => {
+    const onChange = (e: Event) => {
+      const next = (e as CustomEvent<Appearance>).detail;
+      if (serializeAppearance(next) === serializeAppearance(latest.current)) return;
+      setTheme(next.theme);
+      if (next.theme === "custom") setCustom(next.custom);
+    };
+    document.addEventListener(APPEARANCE_EVENT, onChange);
+    return () => document.removeEventListener(APPEARANCE_EVENT, onChange);
+  }, []);
+
   // apply instantly on every change; skip the very first render (already SSR'd)
   const first = useRef(true);
   useEffect(() => {
@@ -102,8 +99,19 @@ export function AppearanceSettings({ initial }: { initial: Appearance }) {
       first.current = false;
       return;
     }
-    applyToDocument(appearance);
+    applyAppearance(appearance);
   }, [appearance]);
+
+  // The OS scheme is only known on the client: start as dark so the server and
+  // the first client render agree, then follow the media query.
+  const [osLight, setOsLight] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    const sync = () => setOsLight(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   const preview = useMemo(() => {
     if (theme === "custom") {
@@ -111,13 +119,9 @@ export function AppearanceSettings({ initial }: { initial: Appearance }) {
       return { mode: g.mode, t: g.tokens };
     }
     const id: ThemeId =
-      theme === "system"
-        ? typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: light)").matches
-          ? "light"
-          : "dark"
-        : theme;
+      theme === "system" ? (resolvedMode({ theme }, osLight) === "light" ? "light" : "dark") : theme;
     return { mode: id === "light" ? ("light" as const) : ("dark" as const), t: tokens[id] };
-  }, [theme, custom]);
+  }, [theme, custom, osLight]);
 
   const style = themeToStyle(preview.t as never, preview.mode) as CSSProperties;
   const ratio = (fg: "ink" | "ink-muted" | "ink-subtle") =>

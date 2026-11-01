@@ -36,6 +36,9 @@ export {
   CellSignalHigh as IconHigh,
   UserCircleDashed as IconUnassigned,
   SidebarSimple as IconPeek,
+  Sun as IconSun,
+  Moon as IconMoon,
+  Monitor as IconMonitor,
 } from "@phosphor-icons/react";
 
 import {

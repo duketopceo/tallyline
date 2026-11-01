@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import type { Appearance } from "@tallyline/silver-lining";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { filtersFromObject, filtersToQuery } from "@/lib/filters";
 import { TallyMark } from "../tally-mark";
@@ -9,6 +10,7 @@ import { useRegisterActions } from "./actions";
 import { NavIcon } from "./nav-icons";
 import { useMeta } from "./providers";
 import { Kbd } from "./ui";
+import { ThemeToggle } from "./theme-toggle";
 
 interface Item { href: string; label: string; hint: string; icon: string; count?: number }
 
@@ -30,7 +32,15 @@ function write(key: string, v: unknown) {
   }
 }
 
-export function Shell({ children, peek }: { children: ReactNode; peek: ReactNode }) {
+export function Shell({
+  children,
+  peek,
+  appearance,
+}: {
+  children: ReactNode;
+  peek: ReactNode;
+  appearance: Appearance;
+}) {
   const meta = useMeta();
   const router = useRouter();
   const pathname = usePathname();
@@ -214,7 +224,7 @@ export function Shell({ children, peek }: { children: ReactNode; peek: ReactNode
       <div className={`flex shrink-0 gap-1 border-t border-lining-faint p-2 ${rail ? "flex-col items-center" : "flex-col"}`}>
         {!rail && <p className="truncate px-2 text-[12px] text-ink-muted" title={meta.userName}>{meta.userName}</p>}
         <div className={`flex items-center gap-1 ${rail ? "flex-col" : ""}`}>
-        <Link href="/settings/appearance" title="Appearance" className="flex h-8 items-center rounded-sm px-2 text-[12px] text-ink-subtle hover:bg-surface-2 hover:text-ink">{rail ? "Aa" : "Appearance"}</Link>
+        <ThemeToggle initial={appearance} rail={rail} />
         <form action="/api/logout" method="post" className={rail ? "" : "ml-auto"}>
           <button type="submit" className="h-8 whitespace-nowrap rounded-sm px-2 text-[12px] text-ink-subtle hover:bg-surface-2 hover:text-ink">{rail ? "Out" : "Sign out"}</button>
         </form>

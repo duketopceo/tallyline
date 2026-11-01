@@ -33,8 +33,8 @@ Following Linear's approach, themes are generated, not hand-picked. Each theme i
 
 | Input | Meaning | Default (dark) |
 |---|---|---|
-| `base` | Hue and lightness of the canvas | `oklch(0.16 0.012 255)` (≈ `#0a0c10`, cool silver cast) |
-| `accent` | The single chromatic accent | `oklch(0.68 0.15 245)` (≈ `#3ea1f7`, signal azure) |
+| `base` | Chroma, hue and lightness of the canvas | `oklch(0.16 0 0)` (≈ `#090909`, neutral grey: no hue bias in any shipped theme) |
+| `accent` | The single chromatic accent | `#339fee` dark / `#005fba` light (signal azure, owner pick A); the one input for web, iOS and brand assets |
 | `contrast` | 0–100; spreads the surface ladder and text steps | `30` |
 
 From those three inputs the generator derives:

@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { forceTheme } from "./helpers";
 
 // PLAN-016 (public legal/trust pages) and PLAN-059 (Settings > Usage).
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -9,14 +10,6 @@ const VIEWPORTS = [
   { name: "1440", width: 1440, height: 900 },
   { name: "390", width: 390, height: 844 },
 ] as const;
-
-async function setTheme(page: Page, theme: (typeof THEMES)[number]) {
-  await page.evaluate((t) => {
-    document.documentElement.classList.remove("light", "dark");
-    document.documentElement.classList.add(t);
-  }, theme);
-  await page.waitForTimeout(400); // colour transitions settle before axe samples
-}
 
 async function violations(page: Page): Promise<string[]> {
   const r = await new AxeBuilder({ page }).withTags(TAGS).analyze();
@@ -101,7 +94,7 @@ test.describe("public trust pages (logged out)", () => {
           await page.setViewportSize({ width: vp.width, height: vp.height });
           await page.goto(path);
           await page.waitForLoadState("networkidle");
-          await setTheme(page, theme);
+          await forceTheme(page, theme);
           const v = await violations(page);
           expect(v, v.join("\n")).toHaveLength(0);
           // axe 4.11 no longer reports duplicate ids; check them directly
@@ -151,7 +144,7 @@ test.describe("Settings > Usage", () => {
         await page.goto("/settings/usage");
         await page.waitForLoadState("networkidle");
         await expect(page.getByRole("heading", { name: "Agent runs", exact: true })).toBeVisible({ timeout: 15_000 });
-        await setTheme(page, theme);
+        await forceTheme(page, theme);
         const v = await violations(page);
         expect(v, v.join("\n")).toHaveLength(0);
       });

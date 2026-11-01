@@ -1,12 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import {
-  APPEARANCE_COOKIE,
   generateCustom,
-  parseAppearance,
   themeToStyle,
-  tokens,
 } from "@tallyline/silver-lining";
-import { cookies } from "next/headers";
 import type { CSSProperties, ReactNode } from "react";
 import "@fontsource/atkinson-hyperlegible-next/400.css";
 import "@fontsource/atkinson-hyperlegible-next/400-italic.css";
@@ -15,6 +11,8 @@ import "@fontsource/atkinson-hyperlegible-next/600.css";
 import "@fontsource/commit-mono/400.css";
 import "@fontsource/commit-mono/500.css";
 import "./globals.css";
+import { themeColorsFor } from "@/lib/appearance";
+import { readAppearanceCookie } from "@/lib/appearance-server";
 
 // CSP nonces are per-request, so every page must render dynamically
 // (see lib/security-headers.ts); static HTML cannot carry a nonce.
@@ -33,20 +31,24 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: "Tallyline", statusBarStyle: "black-translucent" },
 };
 
-// viewport-fit=cover lets the app paint under the phone notch; the canvas color
-// tints the browser chrome and the installed app's status bar.
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-  themeColor: tokens.dark.canvas,
-};
+// viewport-fit=cover lets the app paint under the phone notch. The theme colour
+// tints the browser chrome and the installed app's status bar: a light/dark
+// media pair while following the OS, one colour for an explicit choice.
+export async function generateViewport(): Promise<Viewport> {
+  const appearance = await readAppearanceCookie();
+  return {
+    width: "device-width",
+    initialScale: 1,
+    viewportFit: "cover",
+    themeColor: themeColorsFor(appearance),
+  };
+}
 
 // Per-device appearance (Settings > Appearance) lives in a cookie so the first
 // paint already has the right theme: no flash, no reload. "system" sets no
 // data-theme and lets prefers-color-scheme in silver-lining.css decide.
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const appearance = parseAppearance((await cookies()).get(APPEARANCE_COOKIE)?.value);
+  const appearance = await readAppearanceCookie();
   const themeProps =
     appearance.theme === "system"
       ? {}

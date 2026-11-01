@@ -4,7 +4,9 @@ import type { MetadataRoute } from "next";
 const CANVAS = tokens.dark.canvas;
 
 // Installable web app: "Add to Home Screen" on a phone opens Tallyline
-// standalone, straight into the app. Colors are the DESIGN.md canvas.
+// standalone, straight into the app. A manifest cannot follow the theme, so
+// its colours are the dark canvas; the page's own theme-color meta tags
+// (app/layout.tsx) follow light and dark.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Tallyline",
