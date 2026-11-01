@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 
 const API = `http://localhost:${process.env.E2E_API_PORT ?? "4000"}`;
 
@@ -51,6 +52,16 @@ export const SAME_ORIGIN = { "sec-fetch-site": "same-origin" } as const;
 
 export type ForcedTheme = "dark" | "light" | "hc-dark";
 
+// generated canvas per theme (packages/silver-lining/tokens.json)
+const tokensJson = JSON.parse(
+  readFileSync(new URL("../../../packages/silver-lining/tokens.json", import.meta.url), "utf8"),
+) as { themes: Record<string, { tokens: Record<string, string> }> };
+const CANVAS_BY_THEME: Record<ForcedTheme, string> = {
+  dark: tokensJson.themes.dark!.tokens.canvas!,
+  light: tokensJson.themes.light!.tokens.canvas!,
+  "hc-dark": tokensJson.themes["hc-dark"]!.tokens.canvas!,
+};
+
 /**
  * Force a theme for a scan and prove it took effect. With the default now
  * "system" (no `data-theme`), a bare `html.dark` class loses to the
@@ -63,13 +74,20 @@ export async function forceTheme(page: Page, theme: ForcedTheme) {
   await page.evaluate((t) => {
     const root = document.documentElement;
     root.classList.remove("light", "dark");
-    root.classList.add(t === "light" ? "light" : "dark");
+    // hc-dark must not carry a class: html.dark[data-theme] outranks
+    // :root[data-theme="hc-dark"] and would silently scan plain dark
+    if (t !== "hc-dark") root.classList.add(t);
     root.setAttribute("data-theme", t);
   }, theme);
   const expected = theme === "light" ? "light" : "dark";
   await expect
     .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).colorScheme))
     .toBe(expected);
+  // prove the intended token set applied, not just the scheme
+  const canvas = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue("--sl-canvas").trim(),
+  );
+  expect(canvas, `--sl-canvas for ${theme}`).toBe(CANVAS_BY_THEME[theme]);
   // colour transitions (<=150ms) must finish before axe samples contrast
   await page.waitForTimeout(400);
 }

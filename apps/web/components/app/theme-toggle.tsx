@@ -93,7 +93,6 @@ export function ThemeToggle({ initial, rail }: { initial: Appearance; rail: bool
       <button
         ref={trigger}
         type="button"
-        aria-haspopup="true"
         aria-expanded={open}
         aria-label={`Theme: ${state}`}
         title={`Theme: ${state}`}

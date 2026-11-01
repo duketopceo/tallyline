@@ -689,34 +689,34 @@ Token commitments: see Colors and Typography above. Radius 8px cards, 14px overl
 | Status shapes (diamond, triangle, circle, hollow circle) | WCAG 1.4.1; `assets/brand/status-glyphs.svg` | Status only | Colour is never the only carrier; matters on the dense list where dots are 8px |
 | Keycap hints in the footer bar and `g`+letter on nav rows | Product screenshots; `plans/...` R7 | Hint text only | Teaches the keyboard model where the pointer already is |
 | Mono for IDs, 13px Inter for titles | Existing DESIGN.md | Type roles | IDs are copied into commits and branches |
-| Input and control borders use `lining-strong` (dark) and `light-lining-bright` (light) | Contrast audit below | UI-component 3:1 | The default `lining` is 1.87:1 and fails for control boundaries |
+| Input and control borders use `lining-strong` (dark) and `light-lining-bright` (light) | Contrast audit below | UI-component 3:1 | The default `lining` is 2.01:1 and fails for control boundaries |
 | Hide empty board columns by default | Screenshot review; roadmap U10 | Layout | Six columns overflow at 1760 px; empty ones carry no information |
 | No `prefers-color-scheme` dependence in docs assets | Logo construction | Brand | Separate light and dark files avoid wrong-theme renders on GitHub |
 
-### Contrast audit (WCAG 2.x, computed 2026-10-10 from the hex values above)
+### Contrast audit (WCAG 2.x, recomputed 2026-10-31 from the generated neutral tokens above)
 
 Thresholds: 4.5:1 text, 3:1 large text and UI components.
 
 | Pair | Ratio | Verdict |
 |---|---|---|
-| `ink` on `canvas` | 17.29 | pass |
-| `ink-muted` on `canvas` | 11.77 | pass |
-| `ink-subtle` on `canvas` / on `surface-2` | 6.34 / 5.59 | pass |
-| `ink-tertiary` on `canvas` | 5.25 | pass |
-| `accent` on `canvas` / on `surface-2` | 7.13 / 6.29 | pass |
-| `on-accent` on `accent` | 7.30 | pass |
-| `status-urgent` on `canvas` / on `surface-1` | 5.20 / 4.90 | pass |
-| `status-attention` on `canvas` | 9.11 | pass |
-| `status-healthy` on `canvas` | 7.72 | pass |
-| `status-neutral` on `canvas` | 7.71 | pass |
-| `lining-bright` on `canvas` | 12.27 | pass |
-| `lining-strong` on `canvas` | 3.18 | pass as control boundary |
-| `lining` on `canvas` | 1.87 | decorative only; fails as a control boundary |
-| light `ink` / `ink-muted` / `ink-subtle` on `light-canvas` | 16.12 / 8.57 / 4.59 | pass |
-| light `accent` on white | 5.55 | pass |
-| light status inks (urgent, attention, healthy, neutral) on `light-canvas` | 5.93 / 4.61 / 5.03 / 6.93 | pass |
-| light `lining` / `lining-strong` on `light-canvas` | 1.46 / 2.14 | fail as control boundary |
-| light `lining-bright` on `light-canvas` | 5.15 | pass |
+| `ink` on `canvas` | 15.81 | pass |
+| `ink-muted` on `canvas` | 12.15 | pass |
+| `ink-subtle` on `canvas` / on `surface-2` | 7.52 / 6.84 | pass |
+| `ink-tertiary` on `canvas` | 6.56 | pass |
+| `accent` on `canvas` / on `surface-2` | 6.95 / 6.32 | pass |
+| `on-accent` on `accent` | 6.95 | pass |
+| `status-urgent` on `canvas` / on `surface-1` | 6.61 / 6.37 | pass |
+| `status-attention` on `canvas` | 9.27 | pass |
+| `status-healthy` on `canvas` | 7.85 | pass |
+| `status-neutral` on `canvas` | 7.84 | pass |
+| `lining-bright` on `canvas` | 13.30 | pass |
+| `lining-strong` on `canvas` | 4.57 | pass as control boundary |
+| `lining` on `canvas` | 2.01 | decorative only; fails as a control boundary |
+| light `ink` / `ink-muted` / `ink-subtle` on `light-canvas` | 15.96 / 11.42 / 7.06 | pass |
+| light `accent` on white | 6.28 | pass |
+| light status inks (urgent, attention, healthy, neutral) on `light-canvas` | 5.93 / 6.50 / 6.85 / 6.93 | pass |
+| light `lining` / `lining-strong` on `light-canvas` | 2.01 / 4.29 | `lining` fails as a control boundary; `lining-strong` passes |
+| light `lining-bright` on `light-canvas` | 12.46 | pass |
 
 Findings to apply in code (not changed in this pass): control and input borders must use
 `lining-strong` in dark and `light-lining-bright` in light; `lining` and `lining-faint` stay
