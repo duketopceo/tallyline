@@ -98,6 +98,8 @@ Blocking questions carry a recommended default so work proceeds. Luke can overru
 
 ### Status ledger (every unit in every existing plan)
 
+This ledger is the 2026-10-17 audit that mapped older plans onto U1-U25; it is not updated as units ship. As of 2026-10-31 every U-unit an agent can build is done (U14 web feed and U20 inbox mentions in #197; U19, U23, U25 re-verified in #207 and #212); U2, U3, U6, U11 and U21 wait on Luke. The live board is [ROADMAP.md](../../ROADMAP.md).
+
 Status: done, partial, PR (open PR), todo, deferred. "Now" names where it lands in this plan.
 
 | Source unit | What | Status | Now |

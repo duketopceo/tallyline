@@ -39,7 +39,23 @@ See the origin requirements for R1 to R26, decisions D1 to D15, the acceptance
 examples AE1 to AE5, the CLI design screens, and the open questions. This plan
 does not restate them. Where a unit below names `R#` or `D#`, it means those.
 
+## Status by stage (2026-10-31)
+
+Read from `main` at `730037d`. ROADMAP.md is the live board; this table is the plan's own snapshot.
+
+| Stage | Built (repo side) | Left |
+|---|---|---|
+| S1 CLI | all units (#179-#181, #183, #189) | Luke: live `connect`/`doctor` check against the hosted server |
+| S2 install | `setup`, `stop`/`resume`/`backup`/`update`, installer script, Railway config, status endpoint and `/welcome` checklist (#190, #194) | Luke: publish public images, host and pin the installer, Homebrew tap, Railway template, clean-machine run, S2-U6 reachability spike |
+| S3 providers | S3-U1 spike, S3-U2 bring-your-own provider with sealed keys and spend limit, S3-U3 Connect OpenRouter (PKCE) and compatible endpoints, S3-U4 and S3-U4b agent actions and drafts, S3-U6 one-step coding-agent connect, S3-U7 Settings → AI (#187, #200, #202, #203, #205, #213) | S3-U5 ChatGPT-plan provider deferred by the spike; Luke: open questions 4 and 5, spend cap, one live OpenRouter connect |
+| S4 mobile server | S4-U1 redirect schemes, S4-U2 QR pairing and devices, S4-U3 content-free push relay, S4-U4 deltas and idempotent writes (#182, #184, #186, #206) | Luke: run the production relay with the Apple push key, one sandbox push |
+| S5 iOS v1 | S5-U2/U3 scaffold and pairing, S5-U4 typed client (real API shapes with contract fixtures, #210), S5-U5/U6 issue loop, review queue, board tabs, S5-U7 generated theme and iPad split view, xtool TestFlight path (#191-#193, #208, #210, 897088d) | Luke: S5-U1 Apple setup (App IDs, push, App Group), S5-U8 first TestFlight build; never run on a device yet |
+| S6 iOS quality | S6-U1 cache and offline outbox, S6-U2 push settings and tap routing, S6-U3 widgets, S6-U4 share extension (links and text), S6-U5 App Shortcuts, S6-U6 accessibility pass (#211, #214-#218) | device verification after S5-U8; share extension images wait for attachments |
+| S7 App Store | nothing | Luke decides: external TestFlight, listing, submission |
+
 ## Current state (re-verified 2026-10-29; original pass 2026-10-28 at `acd20dd`)
+
+Historical: the facts below were true on 2026-10-29 and are kept as the plan's baseline (for example `apps/ios` now exists and the push relay is built). Use the status table above for what is true now.
 
 **Shipped since the 10-28 verification** — S4-U1 native redirect schemes, S4-U2
 QR pairing + device registry (migration `0039`), S4-U4 delta cursors +
