@@ -16,6 +16,7 @@ const intakeSchema = z.object({
   severity: z.enum(["fatal", "error", "warning", "info"]).optional(),
   occurredAt: z.string().max(64).optional(),
   payload: z.record(z.string(), z.unknown()).optional(),
+  skipRank: z.boolean().optional(),
 });
 
 // Automated intake: GlitchTip, GitHub, help/bug-report senders post normalized
@@ -27,7 +28,8 @@ export const intakeRoutes = new Hono().post(
   async (c) => {
     const ws = await requireWorkspace(c);
     const actor = actorFromHeaders(c);
-    const result = await ingestIntake(ws.id, c.req.valid("json"), actor);
+    const { skipRank, ...event } = c.req.valid("json");
+    const result = await ingestIntake(ws.id, event, actor, { skipRank });
     return c.json(result, result.status === "created" ? 201 : 200);
   },
 );

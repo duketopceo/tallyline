@@ -30,7 +30,7 @@ Errors and feedback reach tallyline only when a human or agent files them by han
 
 ## Units
 
-**U1 — `POST /v1/hooks/error/:token`.** Token mint/list/revoke under `webhook-endpoints`-style management (new table or reuse `webhookEndpoints` with `kind`). Verify Sentry signature when present; normalize payload (title = error title, fingerprint = Sentry `event_id`/group fingerprint, externalRef = project+release+url, description = exception value + culprit + first frames, capped). Feed `ingestIntake(provider:"sentry")`. Per-token rate limit + 413 body cap. Append-only `intakeEvents` already records deliveries.
+**U1 — `POST /v1/hooks/error/:token`.** Token mint/list/revoke under `webhook-endpoints`-style management (new table or reuse `webhookEndpoints` with `kind`). Verify Sentry signature when present; normalize payload (title = error title, fingerprint = the Sentry **group** fingerprint (stable across occurrences), externalRef = project+release+url; `event_id` goes to delivery idempotency, description = exception value + culprit + first frames, capped). Feed `ingestIntake(provider:"sentry")`. Per-token rate limit + 413 body cap. Append-only `intakeEvents` already records deliveries.
 - Files: `apps/api/src/routes/` new `error-hooks.ts`; `apps/api/src/routes/index.ts` mount; schema for tokens (migration, append-only) or reuse `webhookEndpoints`.
 - Test: valid Sentry envelope → issue created; GlitchTip body shape → same path; bad token → 401; bad signature → 401; replayed delivery id → deduped; fingerprint repeat → occurrenceCount bump.
 

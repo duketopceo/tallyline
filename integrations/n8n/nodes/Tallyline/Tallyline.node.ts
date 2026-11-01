@@ -887,6 +887,7 @@ async function runOperation(
 		for (const f of ["body", "provider", "fingerprint", "externalId", "url", "severity"] as const) {
 			const v = fields[f];
 			if (typeof v === "string" && v !== "") body[f] = v;
+			else if (typeof v === "number" || typeof v === "boolean") body[f] = String(v);
 		}
 		return apiRequest(ctx, {
 			method: "POST",

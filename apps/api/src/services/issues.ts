@@ -120,7 +120,11 @@ export async function createIssue(input: CreateIssueInput) {
     issueKey: issue.key,
   });
   await evaluateIssueCreatedLoops({ workspaceId: input.workspaceId, issue });
-  return issue;
+  const [fresh] = await db
+    .select()
+    .from(issues)
+    .where(and(eq(issues.id, issue.id), eq(issues.workspaceId, input.workspaceId)));
+  return fresh ?? issue;
 }
 
 export async function transitionIssue(

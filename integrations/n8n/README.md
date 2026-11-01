@@ -44,7 +44,9 @@ pickers for teams, labels, projects, cycles, and assignees.
 The **Intake** resource submits external events (errors, bugs, help
 requests) into the intake pipeline: set a stable **fingerprint** from the
 source so repeats dedupe into one issue with an occurrence count instead
-of flooding the board.
+of flooding the board. Fingerprints match workspace-wide regardless of
+provider — namespace them (`sentry:my-project:123`) so unrelated sources
+don't merge.
 
 ## tallyline Trigger (webhook trigger)
 
