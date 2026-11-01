@@ -165,8 +165,8 @@ function LoginInner() {
           <p className="max-w-md pr-12 text-[17px] font-semibold leading-snug tracking-[-0.2px]">Agents are teammates here: identities, sessions and a review queue.</p>
           <div className="mt-6 overflow-hidden rounded-l-lg border border-r-0 border-lining-strong">
             <picture>
-              <source media="(prefers-color-scheme: light)" srcSet="/landing/board-light.webp" />
-              <img src="/landing/board-dark.webp" alt="" width={1280} height={800} decoding="async" className="block h-auto w-full" />
+              <source media="(prefers-color-scheme: light)" srcSet="/landing/review-light.webp" />
+              <img src="/landing/review-dark.webp" alt="" width={1280} height={800} decoding="async" className="block h-auto w-full" />
             </picture>
           </div>
         </div>
