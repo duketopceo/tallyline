@@ -112,6 +112,7 @@ export class Tallyline implements INodeType {
 				options: [
 					{ name: "Agent", value: "agent" },
 					{ name: "Cycle", value: "cycle" },
+					{ name: "Intake", value: "intake" },
 					{ name: "Issue", value: "issue" },
 					{ name: "Label", value: "label" },
 					{ name: "Project", value: "project" },
@@ -183,6 +184,23 @@ export class Tallyline implements INodeType {
 				name: "operation",
 				type: "options",
 				noDataExpression: true,
+				displayOptions: { show: { resource: ["intake"] } },
+				default: "submit",
+				options: [
+					{
+						name: "Submit Event",
+						value: "submit",
+						description:
+							"Send a feedback or error event into the intake pipeline — dedupes by fingerprint and lands in triage",
+						action: "Submit intake event",
+					},
+				],
+			},
+			{
+				displayName: "Operation",
+				name: "operation",
+				type: "options",
+				noDataExpression: true,
 				displayOptions: {
 					show: { resource: ["team", "project", "cycle", "label", "agent"] },
 				},
@@ -193,6 +211,61 @@ export class Tallyline implements INodeType {
 						value: "getAll",
 						description: "List all records of this resource",
 						action: "Get many",
+					},
+				],
+			},
+
+			// ── intake: submit params ────────────────────────────
+			{
+				displayName: "Kind",
+				name: "intakeKind",
+				type: "options",
+				required: true,
+				default: "error",
+				displayOptions: {
+					show: { resource: ["intake"], operation: ["submit"] },
+				},
+				options: [
+					{ name: "Error", value: "error" },
+					{ name: "Bug", value: "bug" },
+					{ name: "Help", value: "help" },
+					{ name: "Issue", value: "issue" },
+				],
+			},
+			{
+				displayName: "Title",
+				name: "intakeTitle",
+				type: "string",
+				required: true,
+				default: "",
+				displayOptions: {
+					show: { resource: ["intake"], operation: ["submit"] },
+				},
+			},
+			{
+				displayName: "Details",
+				name: "intakeFields",
+				type: "collection",
+				default: {},
+				placeholder: "Add Field",
+				displayOptions: {
+					show: { resource: ["intake"], operation: ["submit"] },
+				},
+				options: [
+					{ displayName: "Body", name: "body", type: "string", default: "", typeOptions: { rows: 4 } },
+					{ displayName: "Provider", name: "provider", type: "string", default: "", description: "Source system name (sentry, glitchtip, helpdesk…)" },
+					{ displayName: "Fingerprint", name: "fingerprint", type: "string", default: "", description: "Dedupe key — repeated reports bump occurrence count instead of new issues" },
+					{ displayName: "External ID", name: "externalId", type: "string", default: "", description: "Delivery idempotency key from the source" },
+					{ displayName: "URL", name: "url", type: "string", default: "" },
+					{
+						displayName: "Severity", name: "severity", type: "options", default: "",
+						options: [
+							{ name: "Unset", value: "" },
+							{ name: "Fatal", value: "fatal" },
+							{ name: "Error", value: "error" },
+							{ name: "Warning", value: "warning" },
+							{ name: "Info", value: "info" },
+						],
 					},
 				],
 			},
@@ -794,6 +867,33 @@ async function runOperation(
 ): Promise<unknown> {
 	if (resource === "issue") {
 		return runIssueOperation(ctx, operation, itemIndex);
+	}
+	if (resource === "intake") {
+		if (operation !== "submit") {
+			throw new NodeOperationError(
+				ctx.getNode(),
+				`Unknown intake operation '${operation}'`,
+			);
+		}
+		const fields = ctx.getNodeParameter(
+			"intakeFields",
+			itemIndex,
+			{},
+		) as IDataObject;
+		const body: IDataObject = {
+			kind: ctx.getNodeParameter("intakeKind", itemIndex) as string,
+			title: ctx.getNodeParameter("intakeTitle", itemIndex) as string,
+		};
+		for (const f of ["body", "provider", "fingerprint", "externalId", "url", "severity"] as const) {
+			const v = fields[f];
+			if (typeof v === "string" && v !== "") body[f] = v;
+			else if (typeof v === "number" || typeof v === "boolean") body[f] = String(v);
+		}
+		return apiRequest(ctx, {
+			method: "POST",
+			path: "/intake",
+			body,
+		});
 	}
 	if (operation !== "getAll") {
 		throw new NodeOperationError(

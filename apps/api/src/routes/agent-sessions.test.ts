@@ -1027,6 +1027,76 @@ describe("loops / workflow definitions (plan L6)", () => {
     const bodies = (thread.body.comments as { body: string }[]).map((c) => c.body);
     expect(bodies).toContain("Automated review checklist posted");
   });
+
+  it("evaluates issue.created triggers on both normal and intake creates", async () => {
+    const wf = await req(`/v1/workspaces/${SLUG}/workflows`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: "Comment on every new issue",
+        trigger: "issue.created",
+        condition: {},
+        action: { type: "comment", body: "Automated created-loop comment" },
+      }),
+    });
+    expect(wf.status).toBe(201);
+
+    const scoped = await req(`/v1/workspaces/${SLUG}/workflows`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: "Comment only on intake",
+        trigger: "issue.created",
+        condition: { source: "intake" },
+        action: { type: "comment", body: "Automated intake-only comment" },
+      }),
+    });
+    expect(scoped.status).toBe(201);
+
+    const off = await req(`/v1/workspaces/${SLUG}/workflows`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: "Disabled created loop",
+        trigger: "issue.created",
+        enabled: false,
+        action: { type: "comment", body: "should never appear" },
+      }),
+    });
+    expect(off.status).toBe(201);
+
+    const iss = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({ title: "Created loop issue" }),
+    });
+    expect(iss.status).toBe(201);
+    const key = iss.body.key as string;
+
+    const thread = await req(`/v1/workspaces/${SLUG}/issues/${key}/comments`);
+    expect(thread.status).toBe(200);
+    const bodies = (thread.body.comments as { body: string }[]).map((c) => c.body);
+    expect(bodies).toContain("Automated created-loop comment");
+    expect(bodies).not.toContain("Automated intake-only comment");
+    expect(bodies).not.toContain("should never appear");
+
+    const intakeKey = `intake-loop-${key}`;
+    const intake = await req(`/v1/workspaces/${SLUG}/intake`, {
+      method: "POST",
+      body: JSON.stringify({
+        kind: "error",
+        title: "Intake created loop issue",
+        fingerprint: intakeKey,
+      }),
+    });
+    expect([201, 200]).toContain(intake.status);
+    const ikey = (
+      (intake.body as { issue?: { key: string } }).issue ??
+      (intake.body as { key: string })
+    ).key;
+
+    const ithread = await req(`/v1/workspaces/${SLUG}/issues/${ikey}/comments`);
+    expect(ithread.status).toBe(200);
+    const ibodies = (ithread.body.comments as { body: string }[]).map((c) => c.body);
+    expect(ibodies).toContain("Automated created-loop comment");
+    expect(ibodies).toContain("Automated intake-only comment");
+  });
 });
 
 describe("delta sync read path (plan L7)", () => {

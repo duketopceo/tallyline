@@ -41,6 +41,13 @@ list/search (state, priority, team, assignee, cycle, project, label,
 source, full-text), comment, and transition — plus loadOptions-driven
 pickers for teams, labels, projects, cycles, and assignees.
 
+The **Intake** resource submits external events (errors, bugs, help
+requests) into the intake pipeline: set a stable **fingerprint** from the
+source so repeats dedupe into one issue with an occurrence count instead
+of flooding the board. Fingerprints match workspace-wide regardless of
+provider — namespace them (`sentry:my-project:123`) so unrelated sources
+don't merge.
+
 ## tallyline Trigger (webhook trigger)
 
 On activation, the node registers a `webhook_endpoints` row on the

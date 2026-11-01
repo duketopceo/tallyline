@@ -1485,6 +1485,7 @@ export const issueRelations = pgTable(
 // ── Loops / workflow definitions (plan L6) ───────────────────────
 export const workflowTriggers = [
   "issue.transition",
+  "issue.created",
   "schedule",
   "webhook",
   "pull_request",
