@@ -144,6 +144,47 @@ image — the var is build-time), restart. Webhooks (GitHub/Slack) then
 reach the API through the tunnel; their signature checks are unchanged.
 Cookie `Secure` engages automatically via `NODE_ENV=production` + HTTPS.
 
+### Offline page (optional Cloudflare Worker)
+
+When the host behind the tunnel is down, Cloudflare shows its generic error
+page. `deploy/cloudflare/offline-worker` is a small pass-through Worker that
+replaces it with a branded "Tallyline is offline, back soon" page. Browsers get
+HTML, API-style requests get the JSON error envelope, and both carry
+`503` and `Retry-After`. It is not part of the compose stack and CI never
+deploys it.
+
+How it behaves:
+
+- Requests go to the origin untouched. The page is served only when the origin
+  answers 520-530, answers 502/503/504 with something other than JSON or an event
+  stream, errors, or sends no response headers within `ORIGIN_TIMEOUT_MS`
+  (30 s). A 502/503/504 that the app sent as JSON passes through unchanged.
+- The timeout covers the wait for headers only, so live event streams are not cut.
+- Only `GET`/`HEAD` requests that accept HTML get the page. Writes get JSON,
+  because a timed-out write may or may not have been applied.
+
+Enable it (needs a Cloudflare account that owns the zone; the hostname must be a
+proxied DNS record pointing at the tunnel, which `cloudflared tunnel route dns`
+creates):
+
+1. Edit `deploy/cloudflare/offline-worker/wrangler.jsonc`: set `routes` to your
+   hostname and zone. Optionally change `RETRY_AFTER_SECONDS` and
+   `ORIGIN_TIMEOUT_MS` under `vars`.
+2. Sign in with `pnpm --filter @tallyline/offline-worker exec wrangler login`,
+   or export a `CLOUDFLARE_API_TOKEN` that can edit Workers scripts and
+   Workers routes on that zone.
+3. Deploy: `pnpm --filter @tallyline/offline-worker deploy`.
+4. Check it: with the stack running, `curl -sI https://tallyline.example/` is
+   unchanged (no `x-tallyline-offline` header). Stop the tunnel
+   (for example `sudo systemctl stop cloudflared`), then
+   `curl -si -H 'accept: text/html' https://tallyline.example/` should return
+   `503`, `retry-after: 120` and `x-tallyline-offline: 1`. Start the tunnel again.
+
+To turn it off, delete the route (Workers & Pages, `tallyline-offline`,
+Settings, Domains & Routes) or run
+`pnpm --filter @tallyline/offline-worker exec wrangler delete`. The free
+Workers plan covers a small instance (100,000 requests a day).
+
 ## Railway — managed path
 
 A Railway project maps cleanly onto three services:

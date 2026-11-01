@@ -1,0 +1,36 @@
+{
+  // Optional: a pass-through Worker that serves a friendly "offline, back soon"
+  // page when the origin behind the Cloudflare Tunnel is down. It is not
+  // deployed by CI; see docs/deploy.md ("Offline page") for how to enable it.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tallyline-offline",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-30",
+
+  // The Worker proxies to the origin through its own route, so a public
+  // workers.dev URL would only loop back to itself.
+  "workers_dev": false,
+  "preview_urls": false,
+
+  // Edit the hostname and zone to match your deployment. The hostname must be a
+  // proxied (orange cloud) DNS record pointing at the tunnel.
+  "routes": [
+    { "pattern": "tallyline.app/*", "zone_name": "tallyline.app" }
+    // Optional: also cover the API hostname (API clients get a JSON 503).
+    // Do not enable this once a Worker on the same zone calls the API by its
+    // public hostname: same-zone Worker-to-Worker fetch fails.
+    // { "pattern": "api.tallyline.app/*", "zone_name": "tallyline.app" }
+  ],
+
+  "vars": {
+    // seconds sent in Retry-After on the offline response
+    "RETRY_AFTER_SECONDS": "120",
+    // how long to wait for the origin to start answering (response headers)
+    "ORIGIN_TIMEOUT_MS": "30000"
+  },
+
+  "observability": {
+    "enabled": true,
+    "traces": { "enabled": true }
+  }
+}
