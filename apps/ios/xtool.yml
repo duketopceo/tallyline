@@ -1,4 +1,5 @@
 version: 1
+product: tallyline_ios
 bundleID: app.tallyline.ios
 iconPath: Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png
 infoPath: Info.plist
