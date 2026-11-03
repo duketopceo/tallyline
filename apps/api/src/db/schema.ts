@@ -446,6 +446,65 @@ export const intakeCredentials = pgTable(
   (t) => [index().on(t.workspaceId), index().on(t.workspaceId, t.projectId)],
 );
 
+// Reporter follow-up handles (plan 2026-11-03 U3): an opaque capability URL
+// for the person who filed a report. No account, no session — the token is
+// the credential, it expires, and only the hash is stored.
+export const reporterHandles = pgTable(
+  "reporter_handles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    // provenance: which embedding app filed it; null once that key is gone
+    credentialId: uuid("credential_id").references(() => intakeCredentials.id, {
+      onDelete: "set null",
+    }),
+    // where a staff reply is emailed; null = the handle is the only path back
+    reporterEmail: text("reporter_email"),
+    reporterName: text("reporter_name"),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // last time the reporter opened the handle, so a stalled thread is visible
+    lastViewedAt: timestamp("last_viewed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.issueId), index().on(t.workspaceId)],
+);
+
+// One row per staff reply that reached a reporter. The unique comment id is
+// the delivery guard: a retried send finds the claim and does not mail twice.
+export const reporterReplyDeliveries = pgTable(
+  "reporter_reply_deliveries",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    handleId: uuid("handle_id").references(() => reporterHandles.id, {
+      onDelete: "set null",
+    }),
+    commentId: uuid("comment_id")
+      .notNull()
+      .references(() => comments.id, { onDelete: "cascade" }),
+    toEmail: text("to_email").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [unique().on(t.commentId), index().on(t.issueId)],
+);
+
 export const sessions = pgTable(
   "sessions",
   {
@@ -513,6 +572,10 @@ export const comments = pgTable(
     actorType: actorTypeEnum("actor_type").notNull(),
     actorId: uuid("actor_id"),
     body: text("body").notNull(),
+    // reporter follow-up (plan 2026-11-03 U3): only 'public' comments are
+    // served through a reporter handle. Everything else stays internal —
+    // sync, agent and automation comments are never echoed to a reporter.
+    visibility: text("visibility").notNull().default("internal"),
     // sync provenance: 'github' marks comments created by inbound sync so
     // the outbound mirror never echoes them back to GitHub (#60)
     via: text("via"),

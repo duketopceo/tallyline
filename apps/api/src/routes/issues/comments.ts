@@ -11,6 +11,7 @@ import { assertWithinLimit } from "../../services/entitlements.js";
 import { mirrorIssueComment } from "../../services/github-sync.js";
 import { notifyUsers } from "../../services/notifications.js";
 import { queueDeliveries } from "../../services/outbound.js";
+import { deliverReporterReply } from "../../services/reporters.js";
 import { requireWorkspace } from "../workspaces.js";
 import { track } from "../../services/background.js";
 import { idempotent } from "../../lib/idempotency.js";
@@ -57,6 +58,7 @@ export const commentRoutes = new Hono()
           actorType: actor.type,
           actorId: actor.id,
           body: body.body,
+          visibility: body.public ? "public" : "internal",
         })
         .returning();
 
@@ -88,6 +90,19 @@ export const commentRoutes = new Hono()
           via: comment!.via,
         }),
       );
+
+      // a public staff reply reaches the reporter exactly once: the mailer
+      // path claims the comment id before sending, so a retry cannot repeat it
+      if (comment!.visibility === "public") {
+        track(
+          deliverReporterReply({
+            workspaceId: ws.id,
+            issueId: issue.id,
+            commentId: comment!.id,
+            body: comment!.body,
+          }),
+        );
+      }
 
       // @mentions split two ways: an agent name creates a dispatch; a
       // member name creates a notification. The same token can hit both —

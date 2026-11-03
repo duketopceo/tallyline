@@ -33,6 +33,7 @@ import { glitchtipWebhookRoutes } from "./routes/glitchtip-webhook.js";
 import { intakeRoutes } from "./routes/intake.js";
 import { appleAuthRoutes } from "./routes/apple-auth.js";
 import { intakePublicRoutes } from "./routes/intake-public.js";
+import { reporterPublicRoutes } from "./routes/reporters.js";
 import { deviceAuthPublicRoutes, deviceAuthWorkspaceRoutes } from "./routes/device-auth.js";
 import { aiProviderRoutes } from "./routes/ai-providers.js";
 import { inviteAcceptRoutes, inviteRoutes } from "./routes/invites.js";
@@ -117,6 +118,9 @@ export const app = new Hono()
   // public: a per-project intake key is the credential, no session involved.
   // Must stay ABOVE requireSession or an outside app cannot report at all.
   .route("/v1", intakePublicRoutes)
+  // public: a reporter handle is a capability token, no session involved.
+  // Same rule as intake — this must stay ABOVE requireSession.
+  .route("/v1", reporterPublicRoutes)
   .use("/v1/*", requireSession)
   .use("/v1/*", async (c, next) => {
     await next();

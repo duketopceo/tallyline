@@ -1,7 +1,10 @@
 import { zValidator } from "@hono/zod-validator";
 import { bodyLimit } from "hono/body-limit";
 import { Hono } from "hono";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
+import { db } from "../db/client.js";
+import { intakeEvents, issues } from "../db/schema.js";
 import { config_ } from "../env.js";
 import { apiError } from "../lib/errors.js";
 import { createKeyedLimiter } from "../lib/rate-limit.js";
@@ -11,6 +14,7 @@ import {
   touchIntakeCredential,
   type ResolvedIntakeCredential,
 } from "../services/intake-public.js";
+import { issueReporterHandle } from "../services/reporters.js";
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -43,11 +47,60 @@ const reportSchema = z.object({
   severity: z.enum(["fatal", "error", "warning", "info"]).optional(),
   occurredAt: z.string().max(64).optional(),
   payload: z.record(z.string(), z.unknown()).optional(),
+  // the reporter's way back (U3): an address to reply to, or just a request
+  // for a follow-up handle
+  reporter: z
+    .object({
+      email: z.email().max(320).optional(),
+      name: z.string().min(1).max(200).optional(),
+      followUp: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 // Public intake: an outside app files a report with a per-project key and no
 // human session. Mounted BEFORE requireSession in index.ts — and before the
 // per-identity limiter, so this route carries its own credential limiter.
+type ReportInput = z.infer<typeof reportSchema>;
+
+/** mint a follow-up handle only when the reporter asked for one and we know the issue */
+async function followUpToken(
+  credential: ResolvedIntakeCredential,
+  reporter: ReportInput["reporter"],
+  issueId: string | null,
+): Promise<string | null> {
+  if (!issueId) return null;
+  if (!reporter?.email && !reporter?.followUp) return null;
+  const handle = await issueReporterHandle({
+    workspaceId: credential.workspaceId,
+    issueId,
+    credentialId: credential.id,
+    reporterEmail: reporter.email ?? null,
+    reporterName: reporter.name ?? null,
+  });
+  return handle.token;
+}
+
+/** the issue a replayed delivery already filed, if any */
+async function priorIssueId(
+  credential: ResolvedIntakeCredential,
+  event: ReportInput,
+): Promise<string | null> {
+  if (!event.externalId) return null;
+  const [row] = await db
+    .select({ issueId: intakeEvents.issueId })
+    .from(intakeEvents)
+    .where(
+      and(
+        eq(intakeEvents.workspaceId, credential.workspaceId),
+        eq(intakeEvents.provider, event.provider ?? "intake"),
+        eq(intakeEvents.externalId, `${credential.id}:${event.externalId}`),
+      ),
+    )
+    .limit(1);
+  return row?.issueId ?? null;
+}
+
 export const intakePublicRoutes = new Hono().post(
   "/intake/:key",
   bodyLimit({
@@ -107,14 +160,40 @@ export const intakePublicRoutes = new Hono().post(
 
     // never echo the workspace, its slug, or any issue but this one
     if (result.status === "duplicate_delivery") {
-      return c.json({ deduped: true, reporterToken: null }, 200);
+      // a replay of an accepted delivery still owes the caller a way back if
+      // it asked for one, so resolve the issue the first delivery filed
+      const token = await followUpToken(
+        credential,
+        event.reporter,
+        await priorIssueId(credential, event),
+      );
+      return c.json({ deduped: true, reporterToken: token }, 200);
+    }
+
+    let reporterToken: string | null = null;
+    if (result.issue) {
+      const [filed] = await db
+        .select({ id: issues.id })
+        .from(issues)
+        .where(
+          and(
+            eq(issues.workspaceId, credential.workspaceId),
+            eq(issues.key, result.issue.key),
+          ),
+        )
+        .limit(1);
+      reporterToken = await followUpToken(
+        credential,
+        event.reporter,
+        filed?.id ?? null,
+      );
     }
     return c.json(
       {
         issueKey: result.issue?.key,
-        // reserved for the reporter follow-up handle (U3); a public report has
-        // no reply path yet
-        reporterToken: null,
+        // the reporter's handle (U3): present only when they asked to be
+        // followed up with, and shown once — only its hash is stored
+        reporterToken,
         deduped: result.status === "deduped",
       },
       result.status === "created" ? 201 : 200,
