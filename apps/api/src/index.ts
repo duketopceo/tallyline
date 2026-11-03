@@ -32,6 +32,7 @@ import { glitchtipRoutes } from "./routes/glitchtip.js";
 import { glitchtipWebhookRoutes } from "./routes/glitchtip-webhook.js";
 import { intakeRoutes } from "./routes/intake.js";
 import { appleAuthRoutes } from "./routes/apple-auth.js";
+import { intakePublicRoutes } from "./routes/intake-public.js";
 import { deviceAuthPublicRoutes, deviceAuthWorkspaceRoutes } from "./routes/device-auth.js";
 import { aiProviderRoutes } from "./routes/ai-providers.js";
 import { inviteAcceptRoutes, inviteRoutes } from "./routes/invites.js";
@@ -113,6 +114,9 @@ export const app = new Hono()
   .route("/v1/auth", accountPublicRoutes)
   .route("/v1/auth", devicePublicRoutes)
   .route("/v1/auth", appleAuthRoutes)
+  // public: a per-project intake key is the credential, no session involved.
+  // Must stay ABOVE requireSession or an outside app cannot report at all.
+  .route("/v1", intakePublicRoutes)
   .use("/v1/*", requireSession)
   .use("/v1/*", async (c, next) => {
     await next();

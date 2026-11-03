@@ -39,6 +39,9 @@ export const config_ = {
   rateLimitAnonPerMin: Number(env("RATE_LIMIT_ANON_PER_MIN", "120")),
   // login / bootstrap / invite-accept / OAuth start+callback per client IP
   rateLimitAuthPerMin: Number(env("RATE_LIMIT_AUTH_PER_MIN", "30")),
+  // public intake reports per credential (not per IP: one embedding app may
+  // report from a fleet behind one egress address); 0 disables
+  intakeRatePerMin: Number(env("INTAKE_RATE_PER_MIN", "60")),
   // GlitchTip webhook, per integration (not per IP: GlitchTip egresses from
   // one address for every workspace). Deliveries per minute and issues
   // created per hour; 0 disables either cap.
