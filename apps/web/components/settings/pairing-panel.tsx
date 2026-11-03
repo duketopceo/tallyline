@@ -11,7 +11,6 @@ export function PairingPanel() {
   async function create() {
     setPending(true);
     setError(null);
-    setCode(null);
     try {
       const res = await fetch("/api/settings/devices/pairing", { method: "POST" });
       if (!res.ok) {
@@ -38,7 +37,16 @@ export function PairingPanel() {
         <button type="button" onClick={create} disabled={pending} className={`${primaryBtn} mt-4`}>
           {pending ? "Creating..." : "Create pairing code"}
         </button>
-        {code && <SecretReveal label="pairing code" value={code} onDismiss={() => setCode(null)} />}
+        {code && (
+          // keyed by value: a re-minted code gets a fresh five-minute reveal
+          // window, and a failed mint leaves the previous code on screen
+          <SecretReveal
+            key={code}
+            label="pairing code"
+            value={code}
+            onDismiss={() => setCode(null)}
+          />
+        )}
       </Panel>
     </div>
   );
