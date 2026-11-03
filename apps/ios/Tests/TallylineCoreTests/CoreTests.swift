@@ -32,6 +32,17 @@ final class PairingCodeTests: XCTestCase {
     func testEmptyQueryValueFallsBack() {
         XCTAssertNil(PairingCode.suggestedServer("tallyline://pair?s=&c=tlpair_xyz"))
     }
+
+    func testQuerySkipsEmptyDuplicateItems() {
+        XCTAssertEqual(
+            PairingCode.normalize("tallyline://pair?code=&code=tlpair_xyz"),
+            "tlpair_xyz"
+        )
+        XCTAssertEqual(
+            PairingCode.suggestedServer("tallyline://pair?server=&server=https%3A%2F%2Fapi.example.com"),
+            URL(string: "https://api.example.com")
+        )
+    }
 }
 
 final class APIClientURLTests: XCTestCase {

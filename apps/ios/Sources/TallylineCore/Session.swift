@@ -22,7 +22,9 @@ public enum PairingCode {
     private static func query(_ components: URLComponents, _ names: [String]) -> String? {
         let items = components.queryItems ?? []
         for name in names {
-            if let v = items.first(where: { $0.name == name })?.value, !v.isEmpty { return v }
+            for item in items where item.name == name {
+                if let value = item.value, !value.isEmpty { return value }
+            }
         }
         return nil
     }
