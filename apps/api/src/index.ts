@@ -78,6 +78,20 @@ const anonymousLimiter = createAnonymousLimiter(
 
 export const app = new Hono()
   .use("*", securityHeaders)
+  // Access log: method, path, status, refusal code, duration. No query strings
+  // and no bodies — pairing codes and tokens travel in bodies — so this is
+  // safe to keep on in production and enough to tell "no request arrived"
+  // apart from "the request was refused, and why".
+  .use("*", async (c, next) => {
+    const started = performance.now();
+    await next();
+    if (c.req.path === "/health") return;
+    const ms = Math.round(performance.now() - started);
+    const code = c.get("errorCode");
+    console.log(
+      `${c.req.method} ${c.req.path} ${c.res.status}${code ? ` ${code}` : ""} ${ms}ms`,
+    );
+  })
   .use("*", anonymousLimiter)
   .get("/health", async (c) => {
     const report = await checkHealth(config_.databaseUrl);
