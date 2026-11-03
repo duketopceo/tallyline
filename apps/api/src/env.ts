@@ -1,7 +1,7 @@
 import { readEnv } from "@tallyline/types";
 import { config } from "dotenv";
 import { parseKeyExpiryDays } from "./lib/key-expiry.js";
-import { assertProductionSecrets, DEV_JWT_SECRET } from "./lib/startup-guard.js";
+import { assertProductionSecrets, DEV_JWT_SECRET, warnMissingProviderSecrets } from "./lib/startup-guard.js";
 
 config({ path: new URL("../../../.env", import.meta.url) });
 
@@ -15,6 +15,12 @@ const env = (key: string, fallback?: string): string => {
 
 // production boot refuses unset/default/weak secrets (see lib/startup-guard.ts)
 assertProductionSecrets({
+  nodeEnv: process.env.NODE_ENV,
+  jwtSecret: readEnv(process.env, "JWT_SECRET"),
+  authSecretKey: readEnv(process.env, "AUTH_SECRET_KEY"),
+});
+// optional, but say so once at boot instead of only when a save fails
+warnMissingProviderSecrets({
   nodeEnv: process.env.NODE_ENV,
   jwtSecret: readEnv(process.env, "JWT_SECRET"),
   authSecretKey: readEnv(process.env, "AUTH_SECRET_KEY"),

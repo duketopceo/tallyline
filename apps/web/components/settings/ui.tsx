@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { armSecretExpiry, secretTestId } from "@/lib/secret-expiry";
+import { apiFailure } from "@/lib/secrets-key";
 import { SettingsTabs } from "@/components/settings-tabs";
 
 export const field =
@@ -79,10 +80,7 @@ export function Notice({
 }
 
 export async function errorMessage(res: Response, fallback: string): Promise<string> {
-  const d = (await res.json().catch(() => null)) as {
-    error?: { message?: string };
-  } | null;
-  return d?.error?.message ?? fallback;
+  return (await apiFailure(res, fallback)).message;
 }
 
 export function ConfirmDialog({
