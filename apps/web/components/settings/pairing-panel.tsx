@@ -52,13 +52,10 @@ export function PairingPanel() {
           // window and a fresh QR, and a failed mint leaves both on screen
           <div key={minted.code}>
             {minted.qrSvg && (
-              <div className="mt-4 w-fit overflow-hidden rounded-md bg-white p-2">
-                <div
-                  aria-hidden
-                  data-testid="pairing-qr"
-                  // the SVG is generated server-side from our own pairingUrl
-                  dangerouslySetInnerHTML={{ __html: minted.qrSvg }}
-                />
+              // the SVG carries its own light-theme quiet zone, so the page
+              // theme never has to fight a scanner for contrast
+              <div className="mt-4 w-fit overflow-hidden rounded-md" data-testid="pairing-qr">
+                <div aria-hidden dangerouslySetInnerHTML={{ __html: minted.qrSvg }} />
                 <p className="sr-only">QR code containing the pairing link</p>
               </div>
             )}
