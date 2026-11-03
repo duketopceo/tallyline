@@ -20,6 +20,29 @@ final class PairingCodeTests: XCTestCase {
         )
         XCTAssertNil(PairingCode.suggestedServer("tlpair_abc"))
     }
+
+    /// The API mints `?server=…&code=…`; an unread shape meant the scanner
+    /// posted the whole URL as the code.
+    func testAPIPairingURLShape() {
+        let minted = "tallyline://pair?server=https%3A%2F%2Fapi.tallyline.app&code=tlpair_xyz"
+        XCTAssertEqual(PairingCode.normalize(minted), "tlpair_xyz")
+        XCTAssertEqual(PairingCode.suggestedServer(minted), URL(string: "https://api.tallyline.app"))
+    }
+
+    func testEmptyQueryValueFallsBack() {
+        XCTAssertNil(PairingCode.suggestedServer("tallyline://pair?s=&c=tlpair_xyz"))
+    }
+
+    func testQuerySkipsEmptyDuplicateItems() {
+        XCTAssertEqual(
+            PairingCode.normalize("tallyline://pair?code=&code=tlpair_xyz"),
+            "tlpair_xyz"
+        )
+        XCTAssertEqual(
+            PairingCode.suggestedServer("tallyline://pair?server=&server=https%3A%2F%2Fapi.example.com"),
+            URL(string: "https://api.example.com")
+        )
+    }
 }
 
 final class APIClientURLTests: XCTestCase {

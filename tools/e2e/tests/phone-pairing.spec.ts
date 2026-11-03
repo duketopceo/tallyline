@@ -6,6 +6,8 @@ test("a signed-in person can create and redeem a phone pairing code", async ({ p
   await page.getByRole("button", { name: "Create pairing code" }).click();
   const reveal = page.getByRole("status", { name: "pairing code created" });
   await expect(reveal).toBeVisible();
+  // the QR carries the same tallyline://pair URL the app's scanner reads
+  await expect(page.getByTestId("pairing-qr").locator("svg")).toBeVisible();
   const code = await reveal.getByTestId("secret-value").textContent();
   expect(code).toMatch(/^tlpair_/);
 
