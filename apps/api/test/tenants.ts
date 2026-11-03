@@ -23,6 +23,7 @@ import {
   invites,
   issueExternalRefs,
   issueLabels,
+  intakeCredentials,
   intakeEvents,
   issueRelations,
   issueSuggestions,
@@ -48,6 +49,7 @@ import {
 import { RESOURCE } from "../src/services/mcp-oauth.js";
 import { createAgentKey } from "../src/services/agents.js";
 import { createSession, hashPassword } from "../src/services/auth.js";
+import { hashIntakeKey } from "../src/services/intake-credentials.js";
 import { createUserToken, hashToken } from "../src/services/tokens.js";
 
 // Two-tenant fixture shared by the permission matrix and the tenancy suite.
@@ -492,6 +494,24 @@ export async function mkToken(t: Tenant, userId: string) {
   return createUserToken(userId, t.ws.id, `pat ${t.sentinel}-${uniq()}`, ["read"]);
 }
 
+/** an intake credential row; the plaintext is discarded — only its hash lives */
+export async function mkIntakeCredential(t: Tenant, projectId?: string) {
+  const key = `tlintake_${randomBytes(24).toString("base64url")}`;
+  const [row] = await db
+    .insert(intakeCredentials)
+    .values({
+      workspaceId: t.ws.id,
+      projectId: projectId ?? (await mkProject(t)).id,
+      teamId: t.team.id,
+      label: `intake ${t.sentinel}-${uniq()}`,
+      keyHash: hashIntakeKey(key),
+      keyLast4: key.slice(-4),
+      createdBy: t.people.owner.id,
+    })
+    .returning();
+  return row!;
+}
+
 export async function mkProvider(workspaceId: string | null = null) {
   const [row] = await db
     .insert(authProviders)
@@ -628,6 +648,7 @@ export interface Entities {
   extraAgent: Awaited<ReturnType<typeof mkAgent>>;
   agentKey: Awaited<ReturnType<typeof mkAgentKey>>;
   token: Awaited<ReturnType<typeof mkToken>>;
+  intakeCredential: Awaited<ReturnType<typeof mkIntakeCredential>>;
   github: Awaited<ReturnType<typeof mkGithub>>;
   externalRef: Awaited<ReturnType<typeof mkExternalRef>>;
   slackLink: Awaited<ReturnType<typeof mkSlackLink>>;
@@ -686,6 +707,7 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
     extraAgent: await mkAgent(t),
     agentKey: await mkAgentKey(t, t.agent.id),
     token: await mkToken(t, t.people.owner.id),
+    intakeCredential: await mkIntakeCredential(t, project.id),
     github: await mkGithub(t, issue.id),
     externalRef: await mkExternalRef(t, issue.id),
     slackLink: await mkSlackLink(t, issue.id),

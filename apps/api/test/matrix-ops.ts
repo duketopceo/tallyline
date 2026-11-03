@@ -10,6 +10,7 @@ import {
   mkDelivery,
   mkDispatch,
   mkEndpoint,
+  mkIntakeCredential,
   mkInvite,
   mkIssue,
   mkLabel,
@@ -459,6 +460,23 @@ export const OPERATIONS: Record<string, Builder> = {
   "DELETE /v1/workspaces/{ws}/tokens/{id}": async (t, who) => {
     const tok = await mkToken(t, who.userId ?? t.people.owner.id);
     return { method: "DELETE", path: `${base(t)}/tokens/${tok.id}` };
+  },
+
+  // ── intake credentials ─────────────────────────────────────────────────────
+  "GET /v1/workspaces/{ws}/intake-credentials": get(
+    (t) => `${base(t)}/intake-credentials`,
+  ),
+  "POST /v1/workspaces/{ws}/intake-credentials": async (t) => {
+    const p = await mkProject(t);
+    return {
+      method: "POST",
+      path: `${base(t)}/intake-credentials`,
+      body: { projectId: p.id, label: "matrix intake" },
+    };
+  },
+  "DELETE /v1/workspaces/{ws}/intake-credentials/{id}": async (t) => {
+    const cred = await mkIntakeCredential(t);
+    return { method: "DELETE", path: `${base(t)}/intake-credentials/${cred.id}` };
   },
 
   // ── projects / milestones / cycles / views ────────────────────────────────

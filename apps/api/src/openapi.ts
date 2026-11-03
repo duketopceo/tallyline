@@ -463,6 +463,44 @@ const basePaths = {
         },
       },
     },
+    "/v1/workspaces/{ws}/intake-credentials": {
+      get: {
+        summary:
+          "List intake credentials for this workspace — label, key last4, last use and revocation only; never the key or its hash. Human session, member",
+        parameters: [wsParam],
+        responses: { "200": { description: "Intake credentials" } },
+      },
+      post: {
+        summary:
+          "Mint a per-project intake key `tlintake_*` — plaintext returned once, hash stored; human session, member",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["projectId", "label"],
+          properties: {
+            projectId: { type: "string", format: "uuid" },
+            teamId: { type: "string", format: "uuid" },
+            label: { type: "string" },
+            reporterNotifyEmail: { type: "string", format: "email" },
+          },
+        }),
+        responses: {
+          "201": { description: "Credential minted, plaintext key included once" },
+          "422": { description: "PROJECT_NOT_FOUND, TEAM_NOT_FOUND or BAD_LABEL" },
+        },
+      },
+    },
+    "/v1/workspaces/{ws}/intake-credentials/{id}": {
+      delete: {
+        summary:
+          "Revoke an intake credential — idempotent, keeps the first revokedAt; another workspace's id is 404. Human session, member",
+        parameters: [wsParam, idParam],
+        responses: {
+          "200": { description: "Revoked (or already revoked)" },
+          "404": { description: "Credential not found in this workspace" },
+        },
+      },
+    },
     "/v1/workspaces/{ws}/agents": {
       get: {
         summary: "List registered agents",

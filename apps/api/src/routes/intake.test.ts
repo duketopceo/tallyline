@@ -12,6 +12,7 @@ import {
   githubIssueLinks,
   githubRepos,
   githubWebhookEvents,
+  intakeCredentials,
   intakeEvents,
   invites,
   issues,
@@ -30,6 +31,13 @@ import {
   workspaceMembers,
   workspaces,
 } from "../db/schema.js";
+import { hashIntakeKey } from "../services/intake-credentials.js";
+import {
+  mkProject,
+  newSession,
+  seedTenant,
+  type Tenant,
+} from "../../test/tenants.js";
 
 const SLUG = "intake-test";
 
@@ -216,5 +224,166 @@ describe("automated intake", () => {
     expect(res.status).toBe(400);
     const res2 = await postIntake({ kind: "nonsense", title: "x" });
     expect(res2.status).toBe(400);
+  });
+});
+
+// U1 — per-project intake credentials (plan 2026-11-03). A key is minted from a
+// human member session, shown once, and can only be revoked inside its own
+// workspace. Nothing after mint may carry key material.
+describe("intake credentials", () => {
+  let A: Tenant;
+  let B: Tenant;
+  let projectA: { id: string };
+  let memberCookie: string;
+  let ownerCookie: string;
+  let bAdminCookie: string;
+
+  beforeAll(async () => {
+    A = await seedTenant("icred-a", "ICA");
+    B = await seedTenant("icred-b", "ICB");
+    projectA = await mkProject(A);
+    memberCookie = `tly_session=${await newSession(A, "member")}`;
+    ownerCookie = `tly_session=${await newSession(A, "owner")}`;
+    bAdminCookie = `tly_session=${await newSession(B, "admin")}`;
+  });
+
+  const call = async (
+    path: string,
+    init: { method?: string; cookie?: string; bearer?: string; body?: unknown } = {},
+  ) => {
+    const res = await app.fetch(
+      new Request(`http://api.test${path}`, {
+        method: init.method ?? "GET",
+        headers: {
+          "content-type": "application/json",
+          ...(init.cookie ? { cookie: init.cookie } : {}),
+          ...(init.bearer ? { authorization: `Bearer ${init.bearer}` } : {}),
+        },
+        ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+      }),
+    );
+    const text = await res.text();
+    return { status: res.status, text, body: JSON.parse(text) as Record<string, unknown> };
+  };
+
+  const credsPath = (t: Tenant) =>
+    `/v1/workspaces/${t.ws.slug}/intake-credentials`;
+
+  const mint = (cookie = memberCookie, t = A, body: Record<string, unknown> = {}) =>
+    call(credsPath(t), {
+      method: "POST",
+      cookie,
+      body: { projectId: projectA.id, label: "web-checkout", ...body },
+    });
+
+  it("mints tlintake_… once, stores only the hash, and never repeats the key", async () => {
+    const minted = await mint(memberCookie, A, { teamId: A.team.id });
+    expect(minted.status).toBe(201);
+    const key = minted.body.key as string;
+    expect(key).toMatch(/^tlintake_[A-Za-z0-9_-]{32}$/);
+    expect(minted.body.keyLast4).toBe(key.slice(-4));
+    expect(minted.body.projectId).toBe(projectA.id);
+    expect(minted.body.teamId).toBe(A.team.id);
+
+    // a project with no team leaves the credential unscoped — ingest falls
+    // back to the workspace's default team (U2)
+    expect((await mint()).body.teamId).toBeNull();
+
+    // the row holds the hash, not the plaintext
+    const [row] = await db
+      .select()
+      .from(intakeCredentials)
+      .where(eq(intakeCredentials.id, minted.body.id as string));
+    expect(row!.keyHash).toBe(hashIntakeKey(key));
+    expect(row!.keyHash).not.toContain(key);
+    expect(row!.keyLast4).toBe(key.slice(-4));
+
+    const list = await call(credsPath(A), { cookie: memberCookie });
+    expect(list.status).toBe(200);
+    const rows = list.body.credentials as Record<string, unknown>[];
+    const shown = rows.find((r) => r.id === minted.body.id);
+    expect(shown).toMatchObject({ label: "web-checkout", revokedAt: null });
+    // the list is not a second reveal and carries no hash
+    expect(shown).not.toHaveProperty("key");
+    expect(shown).not.toHaveProperty("keyHash");
+    expect(shown).not.toHaveProperty("hash");
+    expect(list.text).not.toContain(key);
+    expect(list.text).not.toContain(row!.keyHash);
+  });
+
+  it("requires a member session: a foreign admin, an agent key and a PAT are refused", async () => {
+    const foreign = await mint(bAdminCookie, A);
+    expect(foreign.status).toBe(403);
+    expect(foreign.body.error).toMatchObject({ code: "FORBIDDEN_WORKSPACE" });
+
+    const asAgent = await call(credsPath(A), {
+      method: "POST",
+      bearer: A.agentKeys.write,
+      body: { projectId: projectA.id, label: "agent" },
+    });
+    expect(asAgent.status).toBe(403);
+    expect(asAgent.text).toContain("FORBIDDEN_AGENT");
+
+    const asPat = await call(credsPath(A), {
+      method: "POST",
+      bearer: A.pats.write,
+      body: { projectId: projectA.id, label: "pat" },
+    });
+    expect(asPat.status).toBe(403);
+
+    // listing is gated the same way
+    expect((await call(credsPath(A), { bearer: A.agentKeys.read })).status).toBe(403);
+    expect((await call(credsPath(A), { cookie: bAdminCookie })).status).toBe(403);
+
+    // an owner is a member too
+    const owned = await mint(ownerCookie, A);
+    expect(owned.status).toBe(201);
+  });
+
+  it("rejects a project from another workspace", async () => {
+    const res = await mint(memberCookie, A, { projectId: (await mkProject(B)).id });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toMatchObject({ code: "PROJECT_NOT_FOUND" });
+  });
+
+  it("revoke is idempotent and keeps the first revokedAt", async () => {
+    const minted = await mint();
+    const id = minted.body.id as string;
+    const first = await call(`${credsPath(A)}/${id}`, {
+      method: "DELETE",
+      cookie: memberCookie,
+    });
+    expect(first.status).toBe(200);
+    const revokedAt = (first.body.credential as { revokedAt: string }).revokedAt;
+    expect(revokedAt).toBeTruthy();
+
+    const second = await call(`${credsPath(A)}/${id}`, {
+      method: "DELETE",
+      cookie: ownerCookie,
+    });
+    expect(second.status).toBe(200);
+    expect((second.body.credential as { revokedAt: string }).revokedAt).toBe(revokedAt);
+
+    const list = await call(credsPath(A), { cookie: memberCookie });
+    const shown = (list.body.credentials as { id: string; revokedAt: string }[]).find(
+      (r) => r.id === id,
+    );
+    expect(shown!.revokedAt).toBe(revokedAt);
+  });
+
+  it("another workspace's credential id is 404 and leaves it unrevoked", async () => {
+    const minted = await mint();
+    const id = minted.body.id as string;
+    const foreign = await call(`${credsPath(B)}/${id}`, {
+      method: "DELETE",
+      cookie: bAdminCookie,
+    });
+    expect(foreign.status).toBe(404);
+
+    const list = await call(credsPath(A), { cookie: memberCookie });
+    const shown = (list.body.credentials as { id: string; revokedAt: string | null }[]).find(
+      (r) => r.id === id,
+    );
+    expect(shown!.revokedAt).toBeNull();
   });
 });

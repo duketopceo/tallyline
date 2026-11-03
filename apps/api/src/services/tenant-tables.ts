@@ -38,6 +38,8 @@ export const TENANT_TABLES: Record<string, TenantTablePolicy> = {
   github_issue_links: { export: true },
   github_repos: { export: true },
   intake_events: { export: true },
+  // public-intake keys: hash only, never exported as usable credentials
+  intake_credentials: { export: true, redact: ["key_hash"] },
   invites: { export: true, redact: ["token_hash"] },
   issue_external_refs: { export: true },
   issue_relations: { export: true },

@@ -409,6 +409,43 @@ export const intakeEvents = pgTable(
   ],
 );
 
+// Per-project intake credentials (plan 2026-11-03 U1): the capability an
+// outside app embeds so it can post intake without a human session. The
+// plaintext `tlintake_…` key is returned once at mint; only its sha256 hash is
+// stored. Revocation is a timestamp rather than a delete so the public path can
+// fail closed with 410 INTAKE_KEY_REVOKED. A deleted project takes its keys with
+// it — a credential with nowhere to post must not survive.
+export const intakeCredentials = pgTable(
+  "intake_credentials",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id").references(() => teams.id, {
+      onDelete: "set null",
+    }),
+    label: text("label").notNull(),
+    keyHash: text("key_hash").notNull().unique(),
+    // last four of the plaintext key, the only fragment ever shown again
+    keyLast4: text("key_last4").notNull(),
+    // where a staff reply is delivered (U5); null = follow-up handle only
+    reporterNotifyEmail: text("reporter_notify_email"),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.workspaceId), index().on(t.workspaceId, t.projectId)],
+);
+
 export const sessions = pgTable(
   "sessions",
   {
