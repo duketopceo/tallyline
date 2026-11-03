@@ -14,6 +14,7 @@ const GOTO: Record<string, string> = {
   b: "/board",
   c: "/cycle",
   a: "/issues",
+  u: "/support",
   s: "/insights",
   e: "/activity",
   p: "/roadmap",

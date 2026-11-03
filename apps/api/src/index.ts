@@ -32,6 +32,7 @@ import { glitchtipRoutes } from "./routes/glitchtip.js";
 import { glitchtipWebhookRoutes } from "./routes/glitchtip-webhook.js";
 import { intakeRoutes } from "./routes/intake.js";
 import { appleAuthRoutes } from "./routes/apple-auth.js";
+import { supportRoutes } from "./routes/support.js";
 import { intakePublicRoutes } from "./routes/intake-public.js";
 import { reporterPublicRoutes } from "./routes/reporters.js";
 import { deviceAuthPublicRoutes, deviceAuthWorkspaceRoutes } from "./routes/device-auth.js";
@@ -136,6 +137,7 @@ export const app = new Hono()
   .route("/v1", eventRoutes)
   .route("/v1", issueRoutes)
   .route("/v1", intakeRoutes)
+  .route("/v1", supportRoutes)
   .route("/v1", glitchtipRoutes)
   .route("/v1", agentRoutes)
   .route("/v1", resourceRoutes)

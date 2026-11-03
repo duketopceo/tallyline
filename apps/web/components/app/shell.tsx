@@ -101,6 +101,7 @@ export function Shell({
     { href: "/review", label: "Review", hint: "g r", icon: "review", count: meta.counts.review },
     { href: "/board", label: "Board", hint: "g b", icon: "board" },
     { href: "/issues", label: "Issues", hint: "g a", icon: "issues" },
+    { href: "/support", label: "Support", hint: "g u", icon: "inbox" },
     { href: "/cycle", label: "Cycles", hint: "g c", icon: "cycle" },
     { href: "/roadmap", label: "Roadmap", hint: "g p", icon: "roadmap" },
     { href: "/projects", label: "Projects", hint: "g o", icon: "roadmap" },
