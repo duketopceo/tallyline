@@ -47,6 +47,9 @@ export const config_ = {
   // created per hour; 0 disables either cap.
   glitchtipRatePerMin: Number(env("GLITCHTIP_RATE_PER_MIN", "60")),
   glitchtipIssuesPerHour: Number(env("GLITCHTIP_ISSUES_PER_HOUR", "100")),
+  // Sentry signs its webhooks with this shared secret (HMAC-SHA256). Empty
+  // means Sentry deliveries are refused; GlitchTip needs nothing here.
+  sentrySigningSecret: env("SENTRY_SIGNING_SECRET", ""),
   // dispatch ack window: a dispatch still `queued` this long is dead —
   // delivery retries (max ~7.5 min) must finish inside it. 0 disables.
   dispatchAckTimeoutMs: Number(env("DISPATCH_ACK_TIMEOUT_MS", "600000")),

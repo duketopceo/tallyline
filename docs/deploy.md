@@ -88,6 +88,7 @@ Set these in `.env` next to the compose file (it reads `.env` automatically):
 | `AUTH_AUTO_JOIN_SINGLE_WORKSPACE` | no | **off** | **Default changed from on.** `1` lets new OAuth users auto-join when the instance has one workspace — open membership, only for private installs |
 | `TALLYLINE_ALLOW_WORKSPACE_CREATE` | no | off | **New.** Off: only instance admins can `POST /v1/workspaces`. `1`: any signed-in human can (self-serve orgs on a shared install) |
 | `TALLYLINE_WEBHOOK_ALLOW_PRIVATE` | no | off | **New.** Off: webhook/agent-dispatch URLs resolving to private, loopback, link-local, CGNAT, ULA or metadata addresses are rejected (at save and at delivery; redirects are not followed). `1` for self-hosters delivering to LAN services |
+| `SENTRY_SIGNING_SECRET` | no | — | Sentry webhook client secret (hex HMAC-SHA256, checked on `sentry-hook-signature` before the body is parsed). Empty = Sentry deliveries are refused with `503 SENTRY_NOT_CONFIGURED`; GlitchTip needs no signature. See [intake.md](./intake.md) |
 | `TRUSTED_PROXY` | no | off | `1` trusts `CF-Connecting-IP`, then the last `X-Forwarded-For` hop, for rate limits, and `X-Forwarded-Proto` for HSTS/`Secure` cookies — only behind Cloudflare or a real reverse proxy that overwrites them |
 | `GITHUB_CLIENT_ID`/`_SECRET` | no | — | "Sign in with GitHub" — the App's OAuth credentials double as the provider's (see [auth.md](./auth.md)) |
 | `GOOGLE_CLIENT_ID`/`_SECRET` | no | — | "Sign in with Google" — callback `{API_BASE_URL}/v1/auth/oauth/google/callback` |

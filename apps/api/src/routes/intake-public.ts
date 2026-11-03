@@ -9,6 +9,7 @@ import { config_ } from "../env.js";
 import { apiError } from "../lib/errors.js";
 import { createKeyedLimiter } from "../lib/rate-limit.js";
 import { ingestIntake } from "../services/intake.js";
+import { normalizeFirstPartyReport } from "../services/intake-normalize.js";
 import {
   resolveIntakeCredential,
   touchIntakeCredential,
@@ -145,12 +146,14 @@ export const intakePublicRoutes = new Hono().post(
 
     const result = await ingestIntake(
       credential.workspaceId,
-      {
+      // the same normaliser the Sentry and GlitchTip receivers use, so every
+      // source lands in one shape
+      normalizeFirstPartyReport({
         ...event,
         fingerprint,
         externalId,
         provider: event.provider ?? "intake",
-      },
+      }),
       // the reporter is not a member; provenance is the credential's
       { type: "system", id: null },
       // outside text never reaches the triage ranker, and the issue lands on
