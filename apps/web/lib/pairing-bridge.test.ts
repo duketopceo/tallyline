@@ -47,4 +47,20 @@ describe("phone pairing bridge", () => {
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: { code: "EMAIL_UNVERIFIED", message: "confirm your email first" } });
   });
+
+  it("answers 502 when the API mint is unreadable", async () => {
+    proxy.mockResolvedValue(new Response("not json", { status: 201 }));
+    const req = new Request("https://tallyline.example/api/settings/devices/pairing", { method: "POST" });
+    const res = await POST(req);
+    expect(res.status).toBe(502);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("PAIRING_BRIDGE_FAILED");
+  });
+
+  it("answers 502 when the bridge cannot reach the API", async () => {
+    proxy.mockRejectedValue(new Error("ECONNREFUSED"));
+    const req = new Request("https://tallyline.example/api/settings/devices/pairing", { method: "POST" });
+    const res = await POST(req);
+    expect(res.status).toBe(502);
+  });
 });

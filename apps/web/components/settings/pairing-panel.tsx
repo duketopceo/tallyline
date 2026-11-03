@@ -19,7 +19,16 @@ export function PairingPanel() {
         setError(await errorMessage(res, "Could not create a pairing code."));
         return;
       }
-      setMinted((await res.json()) as Minted);
+      const data = (await res.json().catch(() => null)) as { code?: unknown; qrSvg?: unknown } | null;
+      if (typeof data?.code !== "string") {
+        setError("The server sent an unexpected response. Try again.");
+        return;
+      }
+      setMinted(
+        typeof data.qrSvg === "string"
+          ? { code: data.code, qrSvg: data.qrSvg }
+          : { code: data.code },
+      );
     } catch {
       setError("Could not reach the server. Try again.");
     } finally {

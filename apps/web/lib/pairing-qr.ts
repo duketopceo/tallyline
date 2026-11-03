@@ -9,7 +9,7 @@ export async function pairingQrSvg(pairingUrl: string): Promise<string> {
   return QRCode.toString(pairingUrl, {
     type: "svg",
     errorCorrectionLevel: "M",
-    margin: 1,
+    margin: 4,
     width: 208,
     // QR readers need dark modules on light ones; the web app has a dark
     // theme, so the colours are fixed rather than inherited.
