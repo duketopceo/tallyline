@@ -7,12 +7,13 @@ import {
   Notice,
   Panel,
   dangerBtn,
-  errorMessage,
   field,
   ghostBtn,
   labelCls,
   primaryBtn,
 } from "./ui";
+import { apiFailure, isSecretsKeyMissing, type ApiFailure } from "@/lib/secrets-key";
+import { SecretsKeyCallout } from "./secrets-key-callout";
 
 interface ProviderView {
   source: "workspace" | "environment";
@@ -37,7 +38,7 @@ const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 export function AiProviderPanel() {
   const [state, setState] = useState<ProviderState | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<ApiFailure | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [test, setTest] = useState<TestResult | null>(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
@@ -45,7 +46,7 @@ export function AiProviderPanel() {
   const load = useCallback(async () => {
     const res = await fetch("/api/settings/ai/provider");
     if (!res.ok) {
-      setError(await errorMessage(res, "could not load the AI provider"));
+      setFailure(await apiFailure(res, "could not load the AI provider"));
       return;
     }
     setState((await res.json()) as ProviderState);
@@ -56,7 +57,7 @@ export function AiProviderPanel() {
 
   async function connectOpenRouter() {
     setPending("connect");
-    setError(null);
+    setFailure(null);
     const res = await fetch("/api/settings/ai/openrouter/start", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -64,7 +65,7 @@ export function AiProviderPanel() {
     });
     if (!res.ok) {
       setPending(null);
-      setError(await errorMessage(res, "could not start connecting OpenRouter"));
+      setFailure(await apiFailure(res, "could not start connecting OpenRouter"));
       return;
     }
     const { authUrl } = (await res.json()) as { authUrl: string };
@@ -77,7 +78,7 @@ export function AiProviderPanel() {
     const fd = new FormData(form);
     const apiKey = String(fd.get("apiKey") ?? "");
     setPending("save");
-    setError(null);
+    setFailure(null);
     const res = await fetch("/api/settings/ai/provider", {
       method: "PUT",
       headers: { "content-type": "application/json" },
@@ -95,7 +96,7 @@ export function AiProviderPanel() {
       form.reset();
       await load();
     } else {
-      setError(await errorMessage(res, "could not save the endpoint"));
+      setFailure(await apiFailure(res, "could not save the endpoint"));
     }
   }
 
@@ -106,11 +107,11 @@ export function AiProviderPanel() {
     const raw = String(new FormData(e.currentTarget).get("cap") ?? "").trim();
     const cents = raw === "" ? null : Math.round(Number(raw) * 100);
     if (cents !== null && (!Number.isFinite(cents) || cents < 0)) {
-      setError("enter a dollar amount, or leave it blank for no limit");
+      setFailure({ message: "enter a dollar amount, or leave it blank for no limit" });
       return;
     }
     setPending("cap");
-    setError(null);
+    setFailure(null);
     const res = await fetch("/api/settings/ai/provider", {
       method: "PUT",
       headers: { "content-type": "application/json" },
@@ -124,7 +125,7 @@ export function AiProviderPanel() {
     });
     setPending(null);
     if (res.ok) await load();
-    else setError(await errorMessage(res, "could not change the limit"));
+    else setFailure(await apiFailure(res, "could not change the limit"));
   }
 
   async function runTest() {
@@ -133,7 +134,7 @@ export function AiProviderPanel() {
     const res = await fetch("/api/settings/ai/provider/test", { method: "POST" });
     setPending(null);
     if (res.ok) setTest((await res.json()) as TestResult);
-    else setError(await errorMessage(res, "could not run the test"));
+    else setFailure(await apiFailure(res, "could not run the test"));
     await load();
   }
 
@@ -144,7 +145,7 @@ export function AiProviderPanel() {
     setPending(null);
     setTest(null);
     if (res.ok) await load();
-    else setError(await errorMessage(res, "could not disconnect"));
+    else setFailure(await apiFailure(res, "could not disconnect"));
   }
 
   const p = state?.provider ?? null;
@@ -156,7 +157,13 @@ export function AiProviderPanel() {
         title="Current provider"
         hint="Summaries, triage suggestions and drafts use this. Each call is counted against the monthly limit."
       >
-        <ErrorLine message={error} />
+        {isSecretsKeyMissing(failure) ? (
+          <div className="mt-3">
+            <SecretsKeyCallout />
+          </div>
+        ) : (
+          <ErrorLine message={failure?.message ?? null} />
+        )}
         {state === null ? (
           <p role="status" className="mt-3 text-sm text-ink-subtle">
             Loading…

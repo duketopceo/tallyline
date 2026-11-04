@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { apiFailure, isSecretsKeyMissing, type ApiFailure } from "@/lib/secrets-key";
+import { SecretsKeyCallout } from "@/components/settings/secrets-key-callout";
 
 export interface ProviderRow {
   id?: string;
@@ -32,14 +34,14 @@ export function ProviderPanel({ providers }: { providers: ProviderRow[] }) {
   const [pending, setPending] = useState(false);
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<ApiFailure | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<ProviderRow | null>(null);
   const [editing, setEditing] = useState<ProviderRow | null>(null);
 
   async function create(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPending(true);
-    setError(null);
+    setFailure(null);
     const fd = new FormData(e.currentTarget);
     const res = await fetch("/api/settings/providers", {
       method: "POST",
@@ -57,14 +59,11 @@ export function ProviderPanel({ providers }: { providers: ProviderRow[] }) {
       }),
     });
     setPending(false);
-    const d = (await res.json().catch(() => null)) as {
-      error?: { message?: string };
-    } | null;
     if (res.ok) {
       (e.target as HTMLFormElement).reset();
       router.refresh();
     } else {
-      setError(d?.error?.message ?? "could not add provider");
+      setFailure(await apiFailure(res, "could not add provider"));
     }
   }
 
@@ -96,10 +95,7 @@ export function ProviderPanel({ providers }: { providers: ProviderRow[] }) {
     if (res.ok) {
       router.refresh();
     } else {
-      const d = (await res.json().catch(() => null)) as {
-        error?: { message?: string };
-      } | null;
-      setError(d?.error?.message ?? "could not delete provider");
+      setFailure(await apiFailure(res, "could not delete provider"));
     }
   }
 
@@ -122,10 +118,7 @@ export function ProviderPanel({ providers }: { providers: ProviderRow[] }) {
       setEditing(null);
       router.refresh();
     } else {
-      const d = (await res.json().catch(() => null)) as {
-        error?: { message?: string };
-      } | null;
-      setError(d?.error?.message ?? "could not update provider");
+      setFailure(await apiFailure(res, "could not update provider"));
     }
   }
 
@@ -144,13 +137,19 @@ export function ProviderPanel({ providers }: { providers: ProviderRow[] }) {
           the same key.
         </p>
 
-        {error && (
-          <p
-            role="alert"
-            className="mt-3 rounded-sm border border-lining-bright px-3 py-2 text-sm text-ink-muted"
-          >
-            {error}
-          </p>
+        {isSecretsKeyMissing(failure) ? (
+          <div className="mt-3">
+            <SecretsKeyCallout />
+          </div>
+        ) : (
+          failure && (
+            <p
+              role="alert"
+              className="mt-3 rounded-sm border border-lining-bright px-3 py-2 text-sm text-ink-muted"
+            >
+              {failure.message}
+            </p>
+          )
         )}
 
         <div className="grid grid-cols-2 gap-3">

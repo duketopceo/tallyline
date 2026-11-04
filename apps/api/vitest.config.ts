@@ -6,6 +6,7 @@ export default defineConfig({
     setupFiles: ["./test/setup-file.ts"],
     env: {
       GITHUB_WEBHOOK_SECRET: "test-webhook-secret",
+      SENTRY_SIGNING_SECRET: "test-sentry-signing-secret",
       GITHUB_APP_SLUG: "tallyline-test",
       SLACK_BOT_TOKEN: "xoxb-test-token",
       SLACK_SIGNING_SECRET: "test-slack-secret",

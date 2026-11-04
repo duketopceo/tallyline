@@ -70,3 +70,27 @@ export function assertProductionSecrets(input: GuardInput): void {
     );
   }
 }
+
+/**
+ * AUTH_SECRET_KEY stays optional, but without it provider keys and sign-in
+ * client secrets cannot be sealed: the UI answers 503 SECRETS_KEY_MISSING.
+ * One warning at boot names the variable before an operator hits that.
+ */
+export function providerSecretsWarning(input: GuardInput): string | null {
+  if (!isProduction(input.nodeEnv)) return null;
+  if (input.authSecretKey && input.authSecretKey.trim() !== "") return null;
+  return (
+    "AUTH_SECRET_KEY is unset: AI provider keys and sign-in client secrets " +
+    "cannot be stored (the settings panel will answer SECRETS_KEY_MISSING). " +
+    "Set it to a random value that differs from JWT_SECRET and restart. " +
+    "See docs/deploy.md."
+  );
+}
+
+export function warnMissingProviderSecrets(
+  input: GuardInput,
+  log: (message: string) => void = console.warn,
+): void {
+  const warning = providerSecretsWarning(input);
+  if (warning) log(warning);
+}

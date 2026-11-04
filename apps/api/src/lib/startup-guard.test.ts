@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   assertProductionSecrets,
   DEV_JWT_SECRET,
+  providerSecretsWarning,
   StartupGuardError,
+  warnMissingProviderSecrets,
 } from "./startup-guard.js";
 
 const strong = "a".repeat(64);
@@ -96,6 +98,36 @@ describe("assertProductionSecrets", () => {
       });
     } catch (e) {
       expect((e as Error).message).not.toContain("hunter2");
+    }
+  });
+});
+
+describe("missing AUTH_SECRET_KEY warning", () => {
+  it("warns once in production when the key is absent", () => {
+    const lines: string[] = [];
+    warnMissingProviderSecrets(
+      { nodeEnv: "production", jwtSecret: strong, authSecretKey: "" },
+      (line) => lines.push(line),
+    );
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("AUTH_SECRET_KEY");
+    expect(lines[0]).toContain("SECRETS_KEY_MISSING");
+    expect(
+      providerSecretsWarning({
+        nodeEnv: "production",
+        jwtSecret: strong,
+        authSecretKey: undefined,
+      }),
+    ).toContain("AUTH_SECRET_KEY");
+  });
+
+  it("stays quiet when the key is set or outside production", () => {
+    for (const input of [
+      { nodeEnv: "production", jwtSecret: strong, authSecretKey: strong2 },
+      { nodeEnv: "development", jwtSecret: DEV_JWT_SECRET, authSecretKey: "" },
+      { nodeEnv: undefined, jwtSecret: undefined, authSecretKey: undefined },
+    ]) {
+      expect(providerSecretsWarning(input)).toBeNull();
     }
   });
 });

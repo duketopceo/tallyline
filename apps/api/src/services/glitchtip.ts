@@ -5,11 +5,14 @@ import { glitchtipIntegrations, teams, workspaces } from "../db/schema.js";
 import { HttpError } from "../lib/errors.js";
 import {
   parseGlitchtipAlert,
-  renderBody,
   type GlitchtipItem,
 } from "../lib/glitchtip.js";
 import { clock } from "./clock.js";
-import { ingestIntake, type IntakeResult } from "./intake.js";
+import { ingestIntake, type IntakeInput, type IntakeResult } from "./intake.js";
+import {
+  normalizeGlitchtipItem,
+  normalizeSentryAlert,
+} from "./intake-normalize.js";
 import { hashToken } from "./tokens.js";
 
 export type GlitchtipIntegration = typeof glitchtipIntegrations.$inferSelect;
@@ -95,7 +98,7 @@ export interface AlertOutcome {
 
 function teamFor(
   integration: GlitchtipIntegration,
-  item: GlitchtipItem,
+  item: { projectName: string | undefined },
 ): string | undefined {
   // own-property lookup: a project called "constructor" must not hit Object.prototype
   const name = item.projectName?.toLowerCase();
@@ -117,33 +120,36 @@ function externalIdFor(rawBody: string, index: number): string {
   return `${digest}:${Math.floor(clock.ms() / 60_000)}`;
 }
 
-export async function ingestGlitchtipAlert(
+// One delivery path for every error source: the sender-specific parser has
+// produced IntakeInputs, and only the routing and idempotency stay here.
+interface ErrorEntry {
+  input: IntakeInput;
+  projectName: string | undefined;
+}
+
+async function deliverErrorItems(
   integration: GlitchtipIntegration,
   rawBody: string,
-  body: unknown,
+  entries: ErrorEntry[],
+  dropped: number,
 ): Promise<AlertOutcome> {
-  const parsed = parseGlitchtipAlert(body, integration.glitchtipHost);
-  if (parsed.items.length === 0) {
-    return { ignored: true, dropped: parsed.dropped, results: [] };
-  }
-
   // decide every destination before ingesting anything so a batch never
   // half-lands
-  const destinations: { item: GlitchtipItem; teamKey: string }[] = [];
-  const unmapped: GlitchtipItem[] = [];
-  for (const item of parsed.items) {
-    const teamKey = teamFor(integration, item);
-    if (teamKey) destinations.push({ item, teamKey });
-    else unmapped.push(item);
+  const destinations: { entry: ErrorEntry; teamKey: string }[] = [];
+  const unmapped: ErrorEntry[] = [];
+  for (const entry of entries) {
+    const teamKey = teamFor(integration, entry);
+    if (teamKey) destinations.push({ entry, teamKey });
+    else unmapped.push(entry);
   }
   if (unmapped.length > 0) {
     const names = [
-      ...new Set(unmapped.map((item) => item.projectName ?? "(no project)")),
+      ...new Set(unmapped.map((entry) => entry.projectName ?? "(no project)")),
     ].slice(0, 10);
     throw new HttpError(
       422,
       "UNMAPPED_PROJECT",
-      `no team mapped for GlitchTip project ${names.join(", ")} and no default team is set`,
+      `no team mapped for project ${names.join(", ")} and no default team is set`,
     );
   }
   const missing = await missingTeamKeys(
@@ -160,31 +166,18 @@ export async function ingestGlitchtipAlert(
 
   await db
     .update(glitchtipIntegrations)
-    .set({
-      lastReceivedAt: clock.now(),
-      ...(integration.glitchtipHost ? {} : { glitchtipHost: parsed.items[0]!.host }),
-    })
+    .set({ lastReceivedAt: clock.now() })
     .where(eq(glitchtipIntegrations.id, integration.id));
 
   const results: AlertResult[] = [];
-  for (const [i, { item, teamKey }] of destinations.entries()) {
+  for (const [i, { entry, teamKey }] of destinations.entries()) {
     const r = await ingestIntake(
       integration.workspaceId,
+      // a sender that carries its own delivery id (Sentry's event_id) keeps
+      // it; GlitchTip has none, so the body hash stands in
       {
-        kind: "error",
-        title: item.title,
-        body: renderBody(item),
-        provider: "glitchtip",
-        fingerprint: item.fingerprint,
-        externalId: externalIdFor(rawBody, i),
-        url: item.url,
-        severity: item.severity,
-        occurredAt: clock.now().toISOString(),
-        payload: {
-          project: item.projectName ?? null,
-          culprit: item.culprit ?? null,
-          fields: item.fields,
-        },
+        ...entry.input,
+        externalId: entry.input.externalId ?? externalIdFor(rawBody, i),
       },
       { type: "system", id: null },
       { teamKey, skipRank: true },
@@ -197,5 +190,60 @@ export async function ingestGlitchtipAlert(
         : {}),
     });
   }
-  return { ignored: false, dropped: parsed.dropped, results };
+  return { ignored: false, dropped, results };
+}
+
+export async function ingestGlitchtipAlert(
+  integration: GlitchtipIntegration,
+  rawBody: string,
+  body: unknown,
+): Promise<AlertOutcome> {
+  const parsed = parseGlitchtipAlert(body, integration.glitchtipHost);
+  if (parsed.items.length === 0) {
+    return { ignored: true, dropped: parsed.dropped, results: [] };
+  }
+  const outcome = await deliverErrorItems(
+    integration,
+    rawBody,
+    parsed.items.map((item: GlitchtipItem) => ({
+      input: normalizeGlitchtipItem(item, clock.now().toISOString()),
+      projectName: item.projectName,
+    })),
+    parsed.dropped,
+  );
+  // remember the host so later deliveries can reject foreign issue links
+  if (!integration.glitchtipHost) {
+    await db
+      .update(glitchtipIntegrations)
+      .set({ glitchtipHost: parsed.items[0]!.host })
+      .where(eq(glitchtipIntegrations.id, integration.id));
+  }
+  return outcome;
+}
+
+/**
+ * Sentry webhook -> intake. The payload's signature is verified by the route
+ * before this runs; from here it is the same delivery path as GlitchTip.
+ */
+export async function ingestSentryAlert(
+  integration: GlitchtipIntegration,
+  rawBody: string,
+  body: unknown,
+): Promise<AlertOutcome> {
+  const parsed = normalizeSentryAlert(body);
+  if (parsed.items.length === 0) {
+    return { ignored: true, dropped: parsed.dropped, results: [] };
+  }
+  return deliverErrorItems(
+    integration,
+    rawBody,
+    parsed.items.map((input) => ({
+      input,
+      projectName:
+        typeof input.payload?.project === "string"
+          ? input.payload.project
+          : undefined,
+    })),
+    parsed.dropped,
+  );
 }

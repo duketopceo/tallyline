@@ -1,15 +1,15 @@
 {
   "queue": [
     {
-      "id": "4e091f3b-fac4-4de4-84f0-c572cc27e74d",
-      "key": "IOS-37700002",
-      "title": "Issue tlysentinelios-contractbc13d368",
+      "id": "1bcbffa5-281b-422a-b0b5-ab218f4a139c",
+      "key": "IOS-55200002",
+      "title": "Issue tlysentinelios-contract94c7f81b",
       "priority": "none",
-      "updatedAt": "2026-10-30T23:45:21.814Z",
-      "dispatchId": "866731af-5222-4671-9526-94aecdc7a763",
+      "updatedAt": "2026-11-04T09:56:40.405Z",
+      "dispatchId": "00b2122e-852b-4022-92a0-ae4a2529bdf5",
       "dispatchStatus": "claimed",
-      "agentName": "bot-ios-contract-bc13d368",
-      "sessionAt": "2026-10-30T23:45:21.815Z"
+      "agentName": "bot-ios-contract-94c7f81b",
+      "sessionAt": "2026-11-04T09:56:40.406Z"
     }
   ]
 }
