@@ -34,6 +34,7 @@ export interface SupportItem {
   kind: SupportKind;
   provider: string;
   reporter: SupportReporter | null;
+  handleExpired: boolean;
   publicReplies: number;
   lastPublicReplyAt: string | null;
   occurrences: number;
@@ -297,6 +298,9 @@ export function SupportBoard({
                       </span>
                       <span className="mt-1 flex items-center gap-2 text-xs text-ink-subtle">
                         <span className="truncate">{reporterLabel(row.reporter)}</span>
+                        {row.handleExpired && (
+                          <span className="shrink-0 text-ink-tertiary">link expired</span>
+                        )}
                         {row.projectName && (
                           <span className="truncate text-ink-tertiary">{row.projectName}</span>
                         )}
@@ -353,6 +357,9 @@ export function SupportBoard({
               <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-subtle">
                 <span>
                   Reporter <span className="text-ink-muted">{reporterLabel(item.reporter)}</span>
+                  {item.handleExpired && (
+                    <span className="text-attention"> · link expired</span>
+                  )}
                 </span>
                 <span>
                   via <span className="text-ink-muted">{item.provider}</span>

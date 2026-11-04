@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { app } from "../index.js";
 import { closeDb, db } from "../db/client.js";
 import { runMigrations } from "../db/migrate.js";
-import { intakeCredentials, issues } from "../db/schema.js";
+import { intakeCredentials, issues, reporterHandles } from "../db/schema.js";
 import { hashIntakeKey } from "../services/intake-credentials.js";
 import { REPORT_TOKEN_PREFIX } from "../services/reporters.js";
 import {
@@ -80,6 +80,7 @@ interface SupportRow {
   kind: string;
   provider: string;
   reporter: { name: string | null; email: string | null } | null;
+  handleExpired: boolean;
   publicReplies: number;
   projectId: string | null;
   title: string;
@@ -108,10 +109,27 @@ describe("helpdesk list", () => {
       kind: "bug",
       provider: "acme-web",
       publicReplies: 0,
+      handleExpired: false,
     });
     // the reporter's address comes from the handle minted at report time
     expect(row?.reporter?.email).toContain("@example.test");
     expect(body.issues.some((i) => i.title.includes("hand filed"))).toBe(false);
+  });
+
+  it("keeps an expired report listed, with its handle marked expired", async () => {
+    const filed = await fileReport(A, { title: "Lapsed reporter link" });
+    await db
+      .update(reporterHandles)
+      .set({ expiresAt: new Date(Date.now() - 60_000) })
+      .where(eq(reporterHandles.issueId, filed.issueId));
+
+    const { status, body } = await list(A);
+    expect(status).toBe(200);
+    const row = body.issues.find((i) => i.key === filed.issueKey);
+    // the issue stays on the helpdesk; only its link is dead
+    expect(row).toBeDefined();
+    expect(row!.handleExpired).toBe(true);
+    expect(row!.reporter?.email).toContain("@example.test");
   });
 
   it("never lists another workspace's reports", async () => {

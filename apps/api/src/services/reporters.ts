@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, asc, desc, eq, gt, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull } from "drizzle-orm";
 import { db } from "../db/client.js";
 import {
   agents,
@@ -206,10 +206,14 @@ export type ReplyDeliveryStatus =
   | { status: "failed"; error: string };
 
 /**
- * Email one staff reply to the address given at report time. A fresh handle is
- * minted for the link so the message carries a live token and the row keeps
- * only its hash. The delivery row is claimed before sending; the unique
- * comment id means a retry finds the claim and does not mail twice.
+ * Email one staff reply to the address given at report time. The target is the
+ * handle minted by the report itself — the oldest one on the issue — not the
+ * newest: a second reporter (a replay asking for follow-up with a different
+ * address, or a later handle for the same report) must never receive a reply
+ * meant for the reporter who filed it. A fresh handle is minted for the link so
+ * the message carries a live token and the row keeps only its hash, keeping the
+ * filing credential's provenance. The delivery row is claimed before sending;
+ * the unique comment id means a retry finds the claim and does not mail twice.
  */
 export async function deliverReporterReply(input: {
   workspaceId: string;
@@ -220,6 +224,7 @@ export async function deliverReporterReply(input: {
   const [handle] = await db
     .select({
       id: reporterHandles.id,
+      credentialId: reporterHandles.credentialId,
       reporterEmail: reporterHandles.reporterEmail,
       reporterName: reporterHandles.reporterName,
     })
@@ -232,7 +237,7 @@ export async function deliverReporterReply(input: {
         gt(reporterHandles.expiresAt, clock.now()),
       ),
     )
-    .orderBy(desc(reporterHandles.createdAt))
+    .orderBy(asc(reporterHandles.createdAt))
     .limit(1);
   if (!handle?.reporterEmail) {
     return { status: "skipped", reason: "no_reporter_email" };
@@ -263,6 +268,7 @@ export async function deliverReporterReply(input: {
     const fresh = await issueReporterHandle({
       workspaceId: input.workspaceId,
       issueId: input.issueId,
+      credentialId: handle.credentialId,
       reporterEmail: handle.reporterEmail,
       reporterName: handle.reporterName,
     });

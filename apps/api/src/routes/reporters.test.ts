@@ -251,6 +251,29 @@ describe("reporter handle", () => {
     ).toHaveLength(2);
   });
 
+  it("mails the reporter who filed the report, not a later handle on the same issue", async () => {
+    clearDevInbox();
+    const filed = await fileReport(A);
+    // a second reporter on the same issue — e.g. a replay that asked for
+    // follow-up with a different address. Only the filing reporter's mail
+    // counts, so a staff reply must not reach this one.
+    const laterEmail = `later-${randomBytes(4).toString("hex")}@example.test`;
+    await issueReporterHandle({
+      workspaceId: A.ws.id,
+      issueId: filed.issueId,
+      reporterEmail: laterEmail,
+    });
+
+    const cookie = `tly_session=${await newSession(A, "owner")}`;
+    const posted = await reply(A, filed.issueKey, cookie, "Only the filer hears this.", true);
+    expect(posted.status).toBe(201);
+    await settleBackground();
+
+    const mails = devInbox().filter((m) => m.kind === "reporter_reply");
+    expect(mails.map((m) => m.to)).toEqual([filed.email]);
+    expect(mails.some((m) => m.to === laterEmail)).toBe(false);
+  });
+
   it("sends nothing when the handle has no address, and stays in its tenant", async () => {
     clearDevInbox();
     // a handle requested without an address (followUp: true) has nowhere to mail

@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { IssueState } from "@tallyline/types";
 import { db } from "../db/client.js";
 import {
@@ -60,6 +60,8 @@ export interface SupportIssue {
   kind: SupportKind;
   provider: string;
   reporter: SupportReporter | null;
+  /** the newest handle for this report has lapsed: show the issue, not a dead link */
+  handleExpired: boolean;
   publicReplies: number;
   lastPublicReplyAt: string | null;
   occurrences: number;
@@ -114,14 +116,17 @@ export async function listSupportIssues(
   const truncated = rows.length === SUPPORT_LIST_LIMIT;
   const ids = rows.map((r) => r.id);
 
-  // newest live handle per issue: the reporter who filed most recently, and
-  // the credential whose project the report belongs to
+  // newest handle per issue: the reporter who filed most recently, and the
+  // credential whose project the report belongs to. Expired handles are read
+  // too — a lapsed link must leave the report on the list, marked expired,
+  // instead of making the reporter vanish.
   const handleRows = ids.length
     ? await db
         .select({
           issueId: reporterHandles.issueId,
           reporterName: reporterHandles.reporterName,
           reporterEmail: reporterHandles.reporterEmail,
+          expiresAt: reporterHandles.expiresAt,
           credentialProjectId: intakeCredentials.projectId,
         })
         .from(reporterHandles)
@@ -133,20 +138,29 @@ export async function listSupportIssues(
           and(
             eq(reporterHandles.workspaceId, workspaceId),
             inArray(reporterHandles.issueId, ids),
-            gt(reporterHandles.expiresAt, clock.now()),
           ),
         )
         .orderBy(desc(reporterHandles.createdAt))
     : [];
+  const now = clock.now().getTime();
   const handles = new Map<
     string,
-    { reporter: SupportReporter; credentialProjectId: string | null }
+    {
+      reporter: SupportReporter;
+      credentialProjectId: string | null;
+      expired: boolean;
+    }
   >();
   for (const h of handleRows) {
-    if (handles.has(h.issueId)) continue;
+    const expired = h.expiresAt.getTime() <= now;
+    const prev = handles.get(h.issueId);
+    // rows are newest first: keep the first, but a lapsed newest handle must
+    // not hide an older live one
+    if (prev && (!prev.expired || expired)) continue;
     handles.set(h.issueId, {
       reporter: { name: h.reporterName, email: h.reporterEmail },
       credentialProjectId: h.credentialProjectId,
+      expired,
     });
   }
 
@@ -207,6 +221,7 @@ export async function listSupportIssues(
       kind: provenance?.kind ?? "unknown",
       provider: provenance?.provider ?? "intake",
       reporter: handle?.reporter ?? null,
+      handleExpired: handle?.expired ?? false,
       publicReplies: reply?.count ?? 0,
       lastPublicReplyAt: reply?.lastAt ? new Date(reply.lastAt).toISOString() : null,
       occurrences: r.occurrences,

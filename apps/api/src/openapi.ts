@@ -581,7 +581,7 @@ const basePaths = {
     "/v1/workspaces/{ws}/support": {
       get: {
         summary:
-          "Helpdesk list — intake-origin issues with kind, source app, reporter and public-reply count; newest first, at most 500 rows with a truncated flag. Read-only, any workspace member credential.",
+          "Helpdesk list — intake-origin issues with kind, source app, reporter (and handleExpired when the follow-up link lapsed) and public-reply count; newest first, at most 500 rows with a truncated flag. Read-only, any workspace member credential.",
         parameters: [
           wsParam,
           { name: "kind", in: "query", required: false, schema: { type: "string", enum: ["error", "bug", "help", "issue"] } },
