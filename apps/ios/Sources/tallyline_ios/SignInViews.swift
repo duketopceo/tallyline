@@ -35,8 +35,10 @@ struct InstancePickerView: View {
                         Task { await handleApple(result) }
                     }
                     .signInWithAppleButtonStyle(.black)
-                    .frame(height: 44)
-                    .padding(.horizontal)
+                    // Accessibility audit: hit area ≥ 44×44; prefer a tall control
+                    // so default Dynamic Type still clears the gate.
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .padding(.horizontal, 24)
                     .disabled(appleBusy)
 
                     if let error = session.lastError {
@@ -109,12 +111,19 @@ struct InstancePickerView: View {
                 session.setError("Apple did not return an identity token")
                 return
             }
-            try? await session.signInWithApple(
-                identityToken: identityToken,
-                rawNonce: rawNonce,
-                deviceName: UIDevice.current.name,
-                serverURL: TallylineConfig.defaultServerURL
-            )
+            do {
+                try await session.signInWithApple(
+                    identityToken: identityToken,
+                    rawNonce: rawNonce,
+                    deviceName: UIDevice.current.name,
+                    serverURL: TallylineConfig.defaultServerURL
+                )
+            } catch {
+                // SessionModel already sets lastError; keep a fallback message.
+                if session.lastError == nil {
+                    session.setError(error.localizedDescription)
+                }
+            }
         }
     }
 

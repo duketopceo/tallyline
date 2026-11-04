@@ -19,7 +19,7 @@ Words in **INFERRED** are design choices from the 2026-11-03/04 brainstorm, not 
 
 - **Objective:** One identity on Tallyline Cloud (email/password + Apple now, Google next); iOS and web feel like one product; users connect **their own** agents over hosted MCP and pay **their own** LLM bills.
 - **Means:** Extend existing `auth_identities` / `resolveIdentity` / device PAT + outbox sync (Approach **A**, user-approved). Do not build a parallel Nimbus-style JWT stack. Ship SIWA before deeper Linear clone chrome when they conflict.
-- **Authority:** This file is the living sequencing ledger for the cloud parity track. Deep unit specs stay in the linked plans below. Older ROADMAP “needs Luke” ops items remain authoritative for backups/deploy/TestFlight gates.
+- **Authority:** This file is the living sequencing ledger for the cloud parity track. Deep unit specs stay in the linked plans below. Older ROADMAP “needs owner” ops items remain authoritative for backups/deploy/TestFlight gates.
 - **Stop:** Do not open public signup or flip `BILLING=on` until C3 (entitlements + Stripe) is done and App Review is clear.
 
 ## 1. Inventory (what already exists in-repo)
@@ -28,10 +28,10 @@ Verified against local checkout + open GitHub plans (2026-11-04).
 
 | Artifact | Role |
 |---|---|
-| [ROADMAP.md](../../ROADMAP.md) | Status ledger as of ~2026-10-31; most agent-buildable U/S units **shipped**; remainder is Luke ops / deferred |
-| [docs/next-tasks.md](../next-tasks.md) | Ordered Luke-gated handoff (TestFlight, push, deploy, backups, …) |
+| [ROADMAP.md](../../ROADMAP.md) | Status ledger as of ~2026-10-31; most agent-buildable U/S units **shipped**; remainder is owner ops / deferred |
+| [docs/next-tasks.md](../next-tasks.md) | Ordered owner-gated handoff (TestFlight, push, deploy, backups, …) |
 | [docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md](./2026-10-17-0000-feat-tallyline-full-roadmap-plan.md) | PM-ready program U1–U25 (mostly done) |
-| [docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md](./2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md) | Self-host + iOS S1–S7 (client mostly done; Apple/TestFlight Luke-gated) |
+| [docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md](./2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md) | Self-host + iOS S1–S7 (client mostly done; Apple/TestFlight owner-gated) |
 | [docs/plans/2026-10-12-2107-feat-ios-app-plan.md](./2026-10-12-2107-feat-ios-app-plan.md) | Earlier iOS plan (superseded by S5/S6 + open #230) |
 | [docs/plans/2026-10-10-1506-feat-oauth-org-identity-plan.md](./2026-10-10-1506-feat-oauth-org-identity-plan.md) | Identity / OAuth foundation (`auth_identities`, Google/GitHub/OIDC) |
 | [docs/plans/2026-11-02-001-feat-app-review-demo-access-plan.md](./2026-11-02-001-feat-app-review-demo-access-plan.md) | App Review demo account + pairing notes (Guideline 2.1) |
@@ -49,9 +49,9 @@ Verified against local checkout + open GitHub plans (2026-11-04).
 
 | Surface | Status |
 |---|---|
-| **API / backend** | Production on cluster2; sync, pairing, MCP OAuth, BYOK AI, intake (session-gated), entitlements code present but `BILLING` off |
+| **API / backend** | Production hosted API; sync, pairing, MCP OAuth, BYOK AI, intake (session-gated), entitlements code present but `BILLING` off |
 | **Web** | Full tracker + settings + devices pairing (+ QR on main via #228); login = password + optional Google/GitHub/OIDC if env set; **no Apple button** |
-| **iOS** | Pairing-first; offline outbox; widgets/share/shortcuts; Linear-feel UI deferred to #230; **no SIWA**; TestFlight / App Review still Luke-gated |
+| **iOS** | Pairing-first; offline outbox; widgets/share/shortcuts; Linear-feel UI deferred to #230; **no SIWA**; TestFlight / App Review still owner-gated |
 | **Identity** | One user in prod historically; little data → wipe/reseed OK for Apple bootstrap |
 
 ## 3. Pricing (undercut Linear) + cost to serve
@@ -127,10 +127,10 @@ Yes: cloud customers OAuth their agent to **`https://api.tallyline.app/mcp`** (w
 | D2 | iOS parity first (user chose option 1): SIWA → workspace → Linear-feel issues/create; pairing kept for self-host. |
 | D3 | Undercut Linear on list price; users BYO LLM for MCP. |
 | D4 | Deep iOS UI stays in PR #230; intake in #231/#240 — this ledger sequences them **after** identity unless a PR is already mid-flight. |
-| D5 | **Wipe user, keep projects** (Luke 2026-11-04): clear/replace the human login identity for Apple bootstrap; **never** drop workspace projects/issues — re-link `workspace_members` (and ownership) to the post-SIWA user. |
+| D5 | **Wipe user, keep projects** (owner 2026-11-04): clear/replace the human login identity for Apple bootstrap; **never** drop workspace projects/issues — re-link `workspace_members` (and ownership) to the post-SIWA user. |
 | D6 | Cloud iOS SIWA always uses `https://api.tallyline.app`; instance URL + pairing only for self-host. |
 | D7 | **One ce-work** covers C1a → C1b → I1 → W1 (API + iOS SIWA + web Apple) in one pass. |
-| D8 | Apple Developer console (Services ID + iOS SIWA capability + env client IDs): **Luke TBD** — code can land behind env; live TF/web Apple blocked until set. |
+| D8 | Apple Developer console (Services ID + iOS SIWA capability + env client IDs): **owner TBD** — code can land behind env; live TF/web Apple blocked until set. |
 
 ## 5. Three-surface roadmaps
 
@@ -146,15 +146,15 @@ U-IDs below are **stable for this ledger** (`C` = cloud parity). Do not renumber
 | C2 | App Review demo workspace ops (per 2026-11-02 plan) | 🟡 plan exists | Demo account + mint path proven |
 | C3 | PLAN-060 Stripe + `BILLING=on` + Pro $8 / Business $14 copy | ⬜ | Checkout + portal; Free caps enforced |
 | C4 | Public intake credentials (PR #231 / #240) | 🟡 in flight | Outside apps post without human session |
-| C5 | Hardening: rate limits, abuse on auth + MCP, backup Luke gates (U2/U3) | 🟡 partial | Luke checklist in next-tasks green |
+| C5 | Hardening: rate limits, abuse on auth + MCP, backup owner gates (U2/U3) | 🟡 partial | owner checklist in next-tasks green |
 
-**Depends on Luke:** Apple Developer Services ID + iOS App ID SIWA capability; ASC; APNs for push (S4).
+**Depends on owner:** Apple Developer Services ID + iOS App ID SIWA capability; ASC; APNs for push (S4).
 
 ### 5.2 Web (`apps/web`)
 
 | U-ID | Milestone | Status | Done when |
 |---|---|---|---|
-| W1 | Login: Sign in with Apple beside password (+ Google when env set) | ⬜ | Methods from API; happy path to Luke workspace |
+| W1 | Login: Sign in with Apple beside password (+ Google when env set) | ⬜ | Methods from API; happy path to the owner workspace |
 | W2 | Settings → Security: connected identities (Apple link status) | ⬜ | Shows linked providers; disconnect rules documented |
 | W3 | Pricing / landing copy matches §3.2 | ⬜ | No Linear-beating claims we can’t deliver |
 | W4 | Helpdesk + intake admin UI (#231) | 🟡 planned | Staff can manage credentials + reporter thread |
@@ -166,18 +166,18 @@ U-IDs below are **stable for this ledger** (`C` = cloud parity). Do not renumber
 |---|---|---|---|
 | I1 | SIWA button on cloud path → C1b PAT → existing sync | ⬜ | Sign in → Issues without typing `tlpair_` |
 | I2 | Pairing retained (instance URL + code/QR) for self-host | ✅ keep | Regression tests still pass |
-| I3 | App Review / TestFlight (S5-U8, S7, 2026-11-02 plan) | 🟡 Luke | Reviewer enters; Guideline 2.1 closed |
+| I3 | App Review / TestFlight (S5-U8, S7, 2026-11-02 plan) | 🟡 owner | Reviewer enters; Guideline 2.1 closed |
 | I4 | Native UI plan (#230 U1–U12): shell, Now feed, projects, motion | 🟡 plan open | Feels first-party iOS 26; not a thin list clone |
 | I5 | Agent-first home / roadmap consumption (#231 U7 / #230 U5–U6) | 🟡 planned | Opens on living work, not only flat triage |
 
 ## 6. Next execution slice (recommended order)
 
 1. **C1a → C1b → I1 → W1** — Apple identity end-to-end (API → iOS → web). Highest leverage for “built like Linear” on the phone.
-2. **C2 + I3** — App Review unblocked (demo account / notes); can parallelize with Luke.
-3. **I4** — Merge/execute #230 UI plan once identity lands (or in parallel on a branch if Luke prefers chrome first — default is identity first per D2).
+2. **C2 + I3** — App Review unblocked (demo account / notes); can parallelize with the owner.
+3. **I4** — Merge/execute #230 UI plan once identity lands (or in parallel on a branch if the owner prefers chrome first — default is identity first per D2).
 4. **C4 / W4 / #240** — Public intake (already moving).
 5. **W3 + C3** — Public pricing + Stripe when ready to take money.
-6. Continue Luke ops from [docs/next-tasks.md](../next-tasks.md) (backups, deploy user, push relay, S2 publish).
+6. Continue owner ops from [docs/next-tasks.md](../next-tasks.md) (backups, deploy user, push relay, S2 publish).
 
 ## 7. Planning Contract (KTDs)
 
@@ -197,7 +197,7 @@ U-IDs below are **stable for this ledger** (`C` = cloud parity). Do not renumber
 | Identity | New Apple provider tests with fixture JWKS / stub IdP (no network) |
 | iOS core | `TALLYLINE_CORE_ONLY=1 swift test` in `apps/ios` |
 | Web | `pnpm --filter @tallyline/web typecheck` + login e2e when Apple test mode available |
-| Manual | Cloud: SIWA on phone → Luke issues visible; web Apple login same user; pairing still works against self-host URL |
+| Manual | Cloud: SIWA on phone → owner issues visible; web Apple login same user; pairing still works against self-host URL |
 | Billing (later) | With `BILLING=on`, Free hits 402 at seat/agent caps; Pro checkout grants `team`/`pro` |
 
 ## 9. Definition of Done (this track’s v1 “Linear-class enough”)
@@ -221,7 +221,7 @@ U-IDs below are **stable for this ledger** (`C` = cloud parity). Do not renumber
 
 **Blocks live Apple (not code start):**
 
-- **OQ4.** Apple Developer: enable Sign in with Apple on App ID `app.tallyline.ios` (or current bundle), create Services ID for web (`tallyline.app` / `api.tallyline.app` return URLs), put client id(s) in prod env. Luke: not sure yet — check ASC / developer.apple.com when ready.
+- **OQ4.** Apple Developer: enable Sign in with Apple on App ID `app.tallyline.ios` (or current bundle), create Services ID for web (`tallyline.app` / `api.tallyline.app` return URLs), put client id(s) in prod env. Owner: not sure yet — check ASC / developer.apple.com when ready.
 
 **Non-blocking for C1 code:**
 
