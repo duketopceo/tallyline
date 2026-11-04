@@ -147,6 +147,7 @@ U-IDs below are **stable for this ledger** (`C` = cloud parity). Do not renumber
 | C3 | PLAN-060 Stripe + `BILLING=on` + Pro $8 / Business $14 copy | ⬜ | Checkout + portal; Free caps enforced |
 | C4 | Public intake credentials (PR #231 / #240) | 🟡 in flight | Outside apps post without human session |
 | C5 | Hardening: rate limits, abuse on auth + MCP, backup owner gates (U2/U3) | 🟡 partial | owner checklist in next-tasks green |
+| C6 | Write contract for both clients: idempotency keys on every mutation, `409 STALE_WRITE` carrying the server version on conflict, one documented optimistic-update shape | ⬜ | Web and iOS share the contract; replaying any write is a no-op; a stale write fails with a recoverable code, never a silent overwrite |
 
 **Depends on owner:** Apple Developer Services ID + iOS App ID SIWA capability; ASC; APNs for push (S4).
 
@@ -176,8 +177,9 @@ U-IDs below are **stable for this ledger** (`C` = cloud parity). Do not renumber
 2. **C2 + I3** — App Review unblocked (demo account / notes); can parallelize with the owner.
 3. **I4** — Merge/execute #230 UI plan once identity lands (or in parallel on a branch if the owner prefers chrome first — default is identity first per D2).
 4. **C4 / W4 / #240** — Public intake (already moving).
-5. **W3 + C3** — Public pricing + Stripe when ready to take money.
-6. Continue owner ops from [docs/next-tasks.md](../next-tasks.md) (backups, deploy user, push relay, S2 publish).
+5. **C6** — Write contract before hardening, so every mutation path has one idempotency and conflict story.
+6. **W3 + C3** — Public pricing + Stripe when ready to take money.
+7. Continue owner ops from [docs/next-tasks.md](../next-tasks.md) (backups, deploy user, push relay, S2 publish).
 
 ## 7. Planning Contract (KTDs)
 
