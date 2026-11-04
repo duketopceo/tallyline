@@ -19,9 +19,23 @@ state, and a complete settings area. Nothing visual is specified anywhere
 else; #231 keeps the public-intake backend and web helpdesk, and its iOS
 unit (U7) becomes the "Now" feed described here.
 
+The app is already on TestFlight. This plan updates that app; it does not
+bootstrap a new one.
+
 ## What exists today (verified 2026-11-03 against `main` @ `63875a1`)
 
 - `apps/ios/Package.swift` targets **iOS 17**. No `#available` gates anywhere.
+- `apps/ios/scripts/xtool-testflight.sh` (the Linux fallback upload path)
+  stamps `MinimumOSVersion: 26.0` into the IPA and, per `apps/ios/README.md`,
+  builds **without** the widget and share extensions. The supported path is
+  `.github/workflows/ios-release.yml`. The three files disagree on the floor.
+- `ROADMAP.md` and `docs/next-tasks.md` still list S5-U1 (App IDs, App Group)
+  and S5-U8 (first TestFlight build) as open. Luke confirmed on 2026-11-03
+  that the app is on TestFlight. Those docs are stale and are reconciled in
+  U12.
+- App icon is a single 1024×1024 `AppIcon.png` in
+  `Resources/Assets.xcassets/AppIcon.appiconset`. No Icon Composer `.icon`
+  bundle, no dark/tinted/clear layers, no alternate icon sets.
 - `HomeView` (`BoardViews.swift`) switches on `horizontalSizeClass`:
   `TabView` on iPhone, `NavigationSplitView` with a `List` sidebar on iPad.
   Sections: Triage, Issues, Review, **Settings** (a tab). Command-1…4,
@@ -132,16 +146,19 @@ R8. iPad browses list → detail in two columns; selection survives rotation and
 R9. Motion follows the motion system; Reduce Motion collapses all of it.
 R10. Reduce Transparency, Increase Contrast, AX5, and VoiceOver one-sentence rows pass on every surface.
 R11. Offline semantics in `OfflineModel` are unchanged.
+R12. `Package.swift`, `project.yml`, `Info.plist`, and every upload script agree on one deployment floor.
 
 ### Scope Boundaries
 
-In: deployment floor, shell, motion system, shared components, rows, projects, roadmap, "Now" feed root, issue detail, composer, settings, pulse strip, iPad, Liquid Glass adoption, accessibility gate, `IssueCreate` widening, `Project`/`RoadmapSummary`/`Milestone` decoding.
+In: deployment floor, shell, motion system, shared components, rows, projects, roadmap, "Now" feed root, issue detail, composer, settings, pulse strip, iPad, Liquid Glass adoption, accessibility gate, `IssueCreate` widening, `Project`/`RoadmapSummary`/`Milestone` decoding, roadmap-doc reconciliation for S5.
 
-Out: public intake backend, web helpdesk, `SECRETS_KEY_MISSING` surfacing (#231 U1–U6, U8); rich-text comments; Sign in with Apple; widgets reading roadmap data; release pipelines; any API change beyond widening `IssueCreate`.
+Out: public intake backend, web helpdesk, `SECRETS_KEY_MISSING` surfacing (#231 U1–U6, U8); rich-text comments; Sign in with Apple; widgets reading roadmap data; release pipelines; new App Store assets beyond optional icon layers; any API change beyond widening `IssueCreate`.
 
 ### Key Decisions
 
-- **Deployment floor → iOS 18.** `Tab`, `sidebarAdaptable`, zoom transitions, `.wiggle` need it. iOS 26 APIs (Liquid Glass, `tabViewBottomAccessory`, `ConcentricRectangle`, `tabBarMinimizeBehavior`, `backgroundExtensionEffect`) sit behind `#available(iOS 26, *)` with a tested fallback. Luke confirms; default is 18.
+- **Deployment floor = iOS 18. Decided by Luke 2026-11-03.** `Tab`, `sidebarAdaptable`, zoom transitions, `.wiggle` need it. iOS 26 APIs (Liquid Glass, `tabViewBottomAccessory`, `ConcentricRectangle`, `tabBarMinimizeBehavior`, `backgroundExtensionEffect`) sit behind `#available(iOS 26, *)` with a tested fallback. The xtool script's `26.0` stamp is corrected to `18.0` in U12.
+- **App icon stays as shipped.** The existing `AppIcon.png` is the icon. Icon Composer layers (dark, tinted, clear) are an optional polish, not a gate; the alternate-icon picker in Settings is hidden until those assets exist.
+- **TestFlight is the delivery target, not a milestone.** Every unit must be shippable to the existing TestFlight app through `ios-release.yml`. No unit may regress a signed build.
 - **Root = Now, not Issues.** The first tab is a chronological feed of agent actions and review requests. Issues is a tab, not the root. This absorbs #231 U7.
 - **Only API-backed fields.** No owner avatar, lead, or health ring until an API contract exists. Progress rings are summary-count rings.
 - **Components live in `TallylineDesign`.** `StateGlyph`, `PriorityGlyph`, `PropertyPill`, `ProgressRing`, `IssueRowView`, `PulseBar`, `Motion`. App views compose; they do not restyle.
@@ -154,9 +171,10 @@ Each unit is one work order (`labels: work-order`). U1 and U2 gate the rest.
 
 ### U1 — Floor, shell, search tab, settings out of the bar
 
-`Package.swift`; `BoardViews.swift` → `Shell/ShellView.swift`.
+`Package.swift`, `project.yml`, `Info.plist`; `BoardViews.swift` → `Shell/ShellView.swift`.
 
-- `platforms: [.iOS(.v18), .macOS(.v14)]`.
+- `platforms: [.iOS(.v18), .macOS(.v14)]`; `IPHONEOS_DEPLOYMENT_TARGET: 18.0`
+  in `project.yml`; `MinimumOSVersion` consistent in `Info.plist`.
 - `TabView { Tab("Now"...) Tab("Issues"...) Tab("Projects"...) Tab("Review"...) Tab(role: .search) }`
   `.tabViewStyle(.sidebarAdaptable)`; iOS 26: `.tabBarMinimizeBehavior(.onScrollDown)`.
   Roadmap is reached from Projects (segmented `Projects | Roadmap` at the top of that tab), not a fifth tab.
@@ -171,7 +189,8 @@ Each unit is one work order (`labels: work-order`). U1 and U2 gate the rest.
 Acceptance: one declaration serves both devices; iPad shows the top tab bar
 with sidebar toggle; Settings is not in the bar; a cold launch from a push
 deep link lands on the right tab with a back stack; every shortcut appears
-in the Command-key overlay.
+in the Command-key overlay; `ios-release.yml` produces a TestFlight build
+from this branch.
 
 ### U2 — Core: roadmap summary, milestones, wider models, wider create
 
@@ -339,8 +358,9 @@ Presented as a sheet from the shell initials button. `Form`,
 
 **Appearance**
 - Theme: System / Light / Dark.
-- App icon: Default / Dark / Tinted / Mono via `setAlternateIconName`
-  (artwork blocked on Luke).
+- App icon: shipped icon only today. The alternate-icon row (`Default / Dark /
+  Tinted / Mono` via `setAlternateIconName`) is built behind a feature flag
+  and shown only when the alternate asset sets exist in the catalog.
 - Density: Comfortable / Compact (drives `Density`).
 - Accent for agent glint: Default / Reduced (grey Glint for colour-sensitive
   users). Nothing else is user-tintable.
@@ -353,14 +373,16 @@ Presented as a sheet from the shell initials button. `Form`,
 - Per-event toggles: Review requested, Agent finished, Mentioned, Assigned,
   Outbox parked. Quiet hours (start/end) if the push relay supports it;
   otherwise hidden.
-- **Send test notification**.
+- **Send test notification** (enabled only when the relay reports a
+  production key; otherwise the row explains why it is off).
 
 **Sync**
 - Outbox row with status pill (`All sent` / `N waiting` / `N need you` in
   `Theme.urgent`) → `OutboxView` with `pending | retrying | parked` labels,
   Retry all, Discard parked.
 - Last synced (relative), **Sync now**.
-- Cache: size, **Clear cached issues**; Sync on cellular toggle.
+- Cache: size (app container, plus the App Group container when the build
+  carries extensions), **Clear cached issues**; Sync on cellular toggle.
 
 **Agents**
 - List from `agents(ws:)`: name, status, last active. Tap → recent activity
@@ -369,6 +391,8 @@ Presented as a sheet from the shell initials button. `Form`,
 **About**
 - Version and build, server version (from health/whoami), licences
   (AGPL-3.0 app, MIT MCP/CLI), privacy policy, source link.
+- **TestFlight**: when `embedded.mobileprovision` is a TestFlight profile,
+  show a "Send feedback" row that opens the TestFlight feedback flow.
 - **Diagnostics**: copy a redacted bundle (device, OS, app build, server
   host, outbox counts, last sync) to the pasteboard; **Share logs**.
 
@@ -378,7 +402,8 @@ Presented as a sheet from the shell initials button. `Form`,
 Acceptance: every row is `LabeledContent`, `Toggle`, `Picker`, `Stepper`,
 `NavigationLink`, or `Button`; no custom chrome; VoiceOver "Dismiss" works;
 density and glint changes re-lay rows without relaunch; every toggle has a
-one-line footer explaining what it does.
+one-line footer explaining what it does; rows that depend on absent assets
+or keys are hidden or explained, never dead.
 
 ### U11 — iPad and large widths
 
@@ -397,12 +422,16 @@ Acceptance: rotating with an issue selected keeps it selected and visible;
 a 1/3-width Stage Manager window falls back to compact with no clipped
 toolbar; every shortcut appears in the Command-key overlay.
 
-### U12 — Liquid Glass adoption and accessibility gate
+### U12 — Liquid Glass adoption, accessibility gate, floor and doc reconciliation
 
-`Package.swift`, `.github/workflows`, `Tests/`.
+`Package.swift`, `scripts/xtool-testflight.sh`, `.github/workflows`,
+`Tests/`, `ROADMAP.md`, `docs/next-tasks.md`, `apps/ios/README.md`.
 
 - CI builds against the iOS 26 SDK and runs the fallback path in an iOS 18
   simulator.
+- `xtool-testflight.sh`: `--minimum-deployment-target 18.0` and
+  `MinimumOSVersion: 18.0`, matching `Package.swift`; a guard fails the
+  script if the two disagree.
 - Lint (Swift test over the source tree): no `glassEffect`,
   `GlassEffectContainer`, `.ultraThinMaterial`, `.regularMaterial` outside
   `Shell/`; no raw `.easeInOut(duration:)` outside `Motion.swift`.
@@ -412,10 +441,16 @@ toolbar; every shortcut appears in the Command-key overlay.
 - VoiceOver audit extended to every screen above.
 - Contrast assertions: every ink/surface pair ≥ 4.5:1 across the three
   trait resolutions, in `TallylineCoreTests`.
+- Docs: mark S5-U1 and S5-U8 done in `ROADMAP.md` and `docs/next-tasks.md`
+  with the date and the build that proved it; state in `apps/ios/README.md`
+  whether the shipped TestFlight build carries the widget and share
+  extensions (it does if it came from `ios-release.yml`; it does not if it
+  came from the xtool path).
 
 Acceptance: CI fails on any glass or raw-animation token outside the allowed
 files; all snapshot variants render without clipping; contrast test passes;
-audit passes on every listed screen.
+audit passes on every listed screen; no file in `apps/ios` states a floor
+other than 18.0; the roadmap no longer lists S5-U1/S5-U8 as open.
 
 ## Sequencing
 
@@ -425,6 +460,7 @@ U1 moves the floor and the shell so nothing is retrofitted. U2 and U3 are
 pure foundations. Detail and composer (U7, U8) land before projects (U6) so
 the project detail reuses a finished issue detail. Settings (U10) comes after
 the pulse (U9) so Sync can show the same state. U12 runs last over all of it.
+Every unit ends with a TestFlight build from `ios-release.yml`.
 
 Coordination: #231 U7 ("agent-first home") is replaced by U5 here and should
 be deleted from that plan; #231 keeps U1–U6 and U8. The duplicate copy of
@@ -432,8 +468,12 @@ this file on the #231 branch must be removed when it rebases.
 
 ## Risks
 
-- **Floor bump** drops iOS-17-pinned devices. Acceptable for a companion
-  app; recorded for Luke.
+- **Floor bump** drops iOS-17-pinned devices. Accepted by Luke 2026-11-03.
+- **Floor drift.** Three files already disagree (17 / 26.0 / unspecified).
+  Without the U12 guard the next upload will drift again.
+- **Extension gap.** If the current TestFlight build came from the xtool
+  path, testers have no widgets or share sheet and the App Group container
+  is empty; Sync → Cache must not assume it exists.
 - **Glass and animation sprawl** from generated SwiftUI. The U12 lint exists
   because of this.
 - **Pulse and Now feed lie when stale.** "As of" suffixes and sync-coupled
@@ -450,20 +490,30 @@ this file on the #231 branch must be removed when it rebases.
 - `TALLYLINE_CORE_ONLY=1 swift test` (Linux) for U2 decode and round-trip,
   U5 ordering, U12 contrast.
 - CI: iOS 26 SDK build, iOS 18 fallback run, snapshot matrix, a11y audit,
-  lint.
+  lint, floor-consistency guard.
+- TestFlight: every unit uploads through `ios-release.yml`; install on one
+  iPhone and one iPad from the existing TestFlight group.
 - Manual: iPhone compact pass; iPad in Stage Manager at 1/3, 1/2, full with
   external keyboard; airplane-mode pass for U8 and U9.
 - `pnpm check` when fixtures or `ios-contract.test.ts` change.
 
-## Blocked on Luke (not agent-buildable)
+## Decisions recorded (2026-11-03)
 
-- Confirm the iOS 18 floor.
-- App icon layers in Icon Composer (default, dark, tinted, mono).
-- App Group `group.app.tallyline.ios` and extension App IDs (`ROADMAP.md`
-  S5-U1); without them TestFlight builds lack widgets and share extension,
-  and Sync → Cache cannot report the shared container.
-- Production push relay key for a real sandbox push (needed for the
-  Notifications test button).
+- iOS 18 deployment floor: **confirmed by Luke.**
+- App icon: **existing `AppIcon.png` ships as-is.** Icon Composer layers are
+  optional polish; the Settings alternate-icon row stays hidden until they
+  exist.
+- Apple setup and TestFlight: **already live.** S5-U1 and S5-U8 are done in
+  practice; U12 fixes the docs that still say otherwise.
+
+## Still needs Luke
+
+- Which path produced the current TestFlight build: `ios-release.yml`
+  (with extensions) or `xtool-testflight.sh` (without). This decides the
+  README wording in U12 and whether Sync → Cache reads the App Group.
+- Production push relay key, only if the Notifications test button should
+  be live in TestFlight.
+- Optional: Icon Composer layers if the alternate-icon picker should ship.
 - Sign in with Apple stays deferred.
 
 ## Non-goals
