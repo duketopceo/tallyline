@@ -3,11 +3,6 @@ import SwiftUI
 import TallylineCore
 import TallylineDesign
 
-/// A state-filtered issue list with pull-to-refresh and delta reloads.
-struct OpenIssueKey: Identifiable {
-    let id: String
-}
-
 /// Issue detail: description, comments, state/priority controls, review actions.
 struct IssueDetailView: View {
     var session: SessionModel
