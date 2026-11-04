@@ -1,18 +1,18 @@
 {
   "type": "human",
-  "id": "4258b65f-0b8d-4c3b-a195-26a4e6891c94",
-  "name": "member tlysentinelios-contractbc13d368",
+  "id": "1eb171ee-95f7-4e73-ba67-536668f495a0",
+  "name": "member tlysentinelios-contract94c7f81b",
   "scopes": [
     "read",
     "write"
   ],
-  "workspaceId": "033d47ae-9629-4447-9d7c-434ff255e8a5",
-  "workspaceSlug": "tenant-ios-contract-bc13d368",
+  "workspaceId": "aa7562ca-2b9f-49b3-99c0-c1bf9ea90cec",
+  "workspaceSlug": "tenant-ios-contract-94c7f81b",
   "memberships": [
     {
-      "workspaceId": "033d47ae-9629-4447-9d7c-434ff255e8a5",
-      "workspaceSlug": "tenant-ios-contract-bc13d368",
-      "workspaceName": "Tenant tlysentinelios-contractbc13d368",
+      "workspaceId": "aa7562ca-2b9f-49b3-99c0-c1bf9ea90cec",
+      "workspaceSlug": "tenant-ios-contract-94c7f81b",
+      "workspaceName": "Tenant tlysentinelios-contract94c7f81b",
       "role": "member",
       "deletedAt": null,
       "purgeAfter": null

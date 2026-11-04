@@ -40,6 +40,10 @@ export const TENANT_TABLES: Record<string, TenantTablePolicy> = {
   intake_events: { export: true },
   // public-intake keys: hash only, never exported as usable credentials
   intake_credentials: { export: true, redact: ["key_hash"] },
+  // reporter handles: capability tokens, hash only, never exported as usable
+  reporter_handles: { export: true, redact: ["token_hash"] },
+  // staff replies that reached a reporter: the recipient address is PII
+  reporter_reply_deliveries: { export: true, redact: ["to_email"] },
   invites: { export: true, redact: ["token_hash"] },
   issue_external_refs: { export: true },
   issue_relations: { export: true },

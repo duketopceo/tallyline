@@ -3,6 +3,7 @@ import { db } from "../src/db/client.js";
 import { deviceAuthorizations } from "../src/db/schema.js";
 import { consentView, registerClient } from "../src/services/mcp-oauth.js";
 import { createAuthRequest, RESOURCE } from "../src/services/mcp-oauth.js";
+import { issueReporterHandle } from "../src/services/reporters.js";
 import {
   mkAgent,
   mkAgentSession,
@@ -11,6 +12,7 @@ import {
   mkDispatch,
   mkEndpoint,
   mkIntakeCredential,
+  mkIntakeKey,
   mkInvite,
   mkIssue,
   mkLabel,
@@ -477,6 +479,34 @@ export const OPERATIONS: Record<string, Builder> = {
   "DELETE /v1/workspaces/{ws}/intake-credentials/{id}": async (t) => {
     const cred = await mkIntakeCredential(t);
     return { method: "DELETE", path: `${base(t)}/intake-credentials/${cred.id}` };
+  },
+
+  // ── public intake + reporter handles ──────────────────────────────────────
+  "GET /v1/report/{token}": async (t) => {
+    const i = await mkIssue(t, { source: "intake" });
+    const { token } = await issueReporterHandle({ workspaceId: t.ws.id, issueId: i.id });
+    return { method: "GET", path: `/v1/report/${encodeURIComponent(token)}` };
+  },
+  "GET /v1/report/{token}/unsubscribe": async (t) => {
+    const i = await mkIssue(t, { source: "intake" });
+    const { token } = await issueReporterHandle({ workspaceId: t.ws.id, issueId: i.id });
+    return {
+      method: "GET",
+      path: `/v1/report/${encodeURIComponent(token)}/unsubscribe`,
+    };
+  },
+  "POST /v1/intake/{key}": async (t) => {
+    const key = await mkIntakeKey(t);
+    return {
+      method: "POST",
+      path: `/v1/intake/${encodeURIComponent(key)}`,
+      body: { kind: "bug", title: `Matrix report ${t.sentinel}` },
+    };
+  },
+  "GET /v1/workspaces/{ws}/support": get((t) => `${base(t)}/support`),
+  "POST /v1/workspaces/{ws}/support/{key}/handle": async (t) => {
+    const i = await mkIssue(t, { source: "intake" });
+    return { method: "POST", path: `${base(t)}/support/${i.key}/handle` };
   },
 
   // ── projects / milestones / cycles / views ────────────────────────────────

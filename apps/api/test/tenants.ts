@@ -35,6 +35,8 @@ import {
   projectMilestones,
   projectUpdates,
   projects,
+  reporterHandles,
+  reporterReplyDeliveries,
   slackLinks,
   teams,
   usageDaily,
@@ -50,6 +52,7 @@ import { RESOURCE } from "../src/services/mcp-oauth.js";
 import { createAgentKey } from "../src/services/agents.js";
 import { createSession, hashPassword } from "../src/services/auth.js";
 import { hashIntakeKey } from "../src/services/intake-credentials.js";
+import { hashReporterToken } from "../src/services/reporters.js";
 import { createUserToken, hashToken } from "../src/services/tokens.js";
 
 // Two-tenant fixture shared by the permission matrix and the tenancy suite.
@@ -512,6 +515,63 @@ export async function mkIntakeCredential(t: Tenant, projectId?: string) {
   return row!;
 }
 
+/** a live reporter handle for one issue; the plaintext token is discarded */
+export async function mkReporterHandle(
+  t: Tenant,
+  issueId: string,
+  credentialId: string | null = null,
+) {
+  const token = `tlreport_${randomBytes(24).toString("base64url")}`;
+  const [row] = await db
+    .insert(reporterHandles)
+    .values({
+      workspaceId: t.ws.id,
+      issueId,
+      credentialId,
+      reporterEmail: `reporter-${t.sentinel}@example.test`,
+      reporterName: `Reporter ${t.sentinel}`,
+      tokenHash: hashReporterToken(token),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    })
+    .returning();
+  return row!;
+}
+
+/** one staff reply that reached a reporter (unique per comment) */
+export async function mkReporterReplyDelivery(
+  t: Tenant,
+  issueId: string,
+  handleId: string,
+  commentId: string,
+) {
+  const [row] = await db
+    .insert(reporterReplyDeliveries)
+    .values({
+      workspaceId: t.ws.id,
+      issueId,
+      handleId,
+      commentId,
+      toEmail: `reporter-${t.sentinel}@example.test`,
+    })
+    .returning();
+  return row!;
+}
+
+/** an intake key whose plaintext the caller holds (public routes need the key) */
+export async function mkIntakeKey(t: Tenant): Promise<string> {
+  const key = `tlintake_${randomBytes(24).toString("base64url")}`;
+  await db.insert(intakeCredentials).values({
+    workspaceId: t.ws.id,
+    projectId: (await mkProject(t)).id,
+    teamId: t.team.id,
+    label: `intake key ${t.sentinel}-${uniq()}`,
+    keyHash: hashIntakeKey(key),
+    keyLast4: key.slice(-4),
+    createdBy: t.people.owner.id,
+  });
+  return key;
+}
+
 export async function mkProvider(workspaceId: string | null = null) {
   const [row] = await db
     .insert(authProviders)
@@ -680,6 +740,9 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
     .values({ workspaceId: t.ws.id, provider: "matrix", issueId: issue.id });
   const dispatch = await mkDispatch(t, issue.id);
   const agentSession = await mkAgentSession(t, dispatch.id, issue.id);
+  const comment = await mkComment(t, issue.id);
+  const reporterHandle = await mkReporterHandle(t, issue.id);
+  await mkReporterReplyDelivery(t, issue.id, reporterHandle.id, comment.id);
   await newSession(t, "owner"); // sessions row
   return {
     issue,
@@ -690,7 +753,7 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
     projectUpdate: await mkProjectUpdate(t, project.id),
     cycle,
     label,
-    comment: await mkComment(t, issue.id),
+    comment,
     event: await mkEvent(t, issue.id),
     view: await mkView(t, t.people.owner.id),
     endpoint,

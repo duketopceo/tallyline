@@ -1,10 +1,11 @@
 {
-  "id": "c063f25b-5a90-4caf-95c4-7c19faacfd95",
-  "workspaceId": "033d47ae-9629-4447-9d7c-434ff255e8a5",
-  "issueId": "53c9b025-3ac3-4cae-ae08-ecb764307c86",
+  "id": "fc204238-738a-4505-abf5-60c107350fd7",
+  "workspaceId": "aa7562ca-2b9f-49b3-99c0-c1bf9ea90cec",
+  "issueId": "9dcecdf9-e3c7-458f-bb62-5a737c424cd6",
   "actorType": "human",
-  "actorId": "4258b65f-0b8d-4c3b-a195-26a4e6891c94",
+  "actorId": "1eb171ee-95f7-4e73-ba67-536668f495a0",
   "body": "Looks right",
+  "visibility": "internal",
   "via": null,
-  "createdAt": "2026-10-30T23:45:21.777Z"
+  "createdAt": "2026-11-04T09:56:40.382Z"
 }
