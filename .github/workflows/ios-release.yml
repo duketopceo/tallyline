@@ -6,12 +6,16 @@ name: ios-release
 #   CURRENT_PROJECT_VERSION = github.run_number + 100 (above every build already uploaded)
 # and a GitHub release is created for the tag. Pull requests are built and tested, unsigned and
 # without secrets, by ios.yml; this workflow never runs on pull_request.
+# Runs on the self-hosted `promax` Mac runner; set the repo variable IOS_RUNNER to "macos-26" for a
+# GitHub-hosted runner instead (see RELEASING in the README). The self-hosted Mac also needs
+# KC_PASSWORD (its login keychain password) in the environment.
 # Runs only by hand or on an ios-v* tag, and only after a required reviewer
 # approves the `testflight` environment (Settings → Environments). Secrets live
 # in that environment, never in the repo:
 #   ASC_KEY_ID, ASC_ISSUER_ID   App Store Connect API key identifiers
 #   ASC_KEY_P8_BASE64           the AuthKey_<id>.p8 file, base64-encoded
 #   APPLE_TEAM_ID               Apple Developer team ID
+#   KC_PASSWORD                 login keychain password of the self-hosted Mac (unused when hosted)
 on:
   workflow_dispatch:
     inputs:
@@ -30,7 +34,7 @@ concurrency:
 
 jobs:
   testflight:
-    runs-on: macos-26
+    runs-on: ${{ fromJSON(vars.IOS_RUNNER || '["self-hosted","macOS","promax"]') }}
     timeout-minutes: 60
     environment: testflight
     permissions:
@@ -76,13 +80,25 @@ jobs:
       - name: Toolchain
         run: |
           xcodebuild -version
-          brew install xcodegen
+          command -v xcodegen >/dev/null || /opt/homebrew/bin/brew install xcodegen
       - name: Write the API key to a temp file
         env:
           ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
         run: |
           umask 077
           printf '%s' "$ASC_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+      - name: Unlock login keychain
+        if: runner.environment == 'self-hosted'
+        env:
+          KC_PASSWORD: ${{ secrets.KC_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # The runner Mac's own login keychain; no keychains are created and the search list is left alone.
+          KC="$HOME/Library/Keychains/login.keychain-db"
+          security unlock-keychain -p "$KC_PASSWORD" "$KC"
+          # Lets codesign use the private key non-interactively (else errSecInternalComponent).
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PASSWORD" "$KC" >/dev/null
+
       - name: Archive, export, upload
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}

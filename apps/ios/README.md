@@ -94,3 +94,13 @@ install to a registered phone. See the S5 stage in
 Tag `ios-vX.Y.Z` and push it: `git tag ios-v1.2.3 && git push origin ios-v1.2.3`. The
 `ios-release` workflow takes the version from the tag, uses `run_number + 100` as the build
 number, uploads to TestFlight and creates a GitHub release. Details in `docs/releasing.md`.
+
+**Backup runner.** The release job runs on the self-hosted `promax` Mac runner. To use a GitHub-hosted runner instead
+(for example when that Mac is offline), set the repo variable, and delete it to go back:
+
+```sh
+gh variable set IOS_RUNNER -R duketopceo/tallyline --body '"macos-26"'
+gh variable delete IOS_RUNNER -R duketopceo/tallyline
+```
+
+The release job waits for approval of the `testflight` environment, which also holds `KC_PASSWORD` (the login keychain password of the self-hosted runner Mac). It never runs on pull requests.
