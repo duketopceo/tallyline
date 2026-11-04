@@ -4,7 +4,7 @@ import Observation
 import TallylineCore
 
 /// Where the app should go next, set by pushes, widgets and Shortcuts.
-/// HomeView applies it and clears it.
+/// ShellView applies it and clears it.
 @MainActor @Observable
 public final class AppRouter {
     public static let shared = AppRouter()

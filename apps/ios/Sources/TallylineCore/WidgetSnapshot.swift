@@ -135,16 +135,31 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
 
 /// `tallyline://open/<destination>` links from widgets, shortcuts and pushes.
 public enum AppLink {
+    private static let paths: [(String, PushDestination)] = [
+        ("issues", .myIssues), ("review", .review), ("now", .now),
+        ("projects", .projects), ("roadmap", .roadmap), ("settings", .settings),
+    ]
+
     public static func url(_ destination: PushDestination) -> URL {
-        URL(string: "tallyline://open/\(destination == .review ? "review" : "issues")")!
+        let path = paths.first { $0.1 == destination }?.0 ?? "issues"
+        return URL(string: "tallyline://open/\(path)")!
+    }
+
+    public static func url(project id: String) -> URL {
+        URL(string: "tallyline://open/projects/\(id)")!
     }
 
     public static func destination(_ url: URL) -> PushDestination? {
         guard url.scheme == "tallyline", url.host == "open" else { return nil }
-        switch url.path {
-        case "/issues": return .myIssues
-        case "/review": return .review
-        default: return nil
-        }
+        let parts = url.path.split(separator: "/").map(String.init)
+        guard let head = parts.first, parts.count == 1 || head == "projects" else { return nil }
+        return paths.first { $0.0 == head }?.1
+    }
+
+    /// The project id in `tallyline://open/projects/<id>`, if present.
+    public static func projectID(_ url: URL) -> String? {
+        guard url.scheme == "tallyline", url.host == "open" else { return nil }
+        let parts = url.path.split(separator: "/").map(String.init)
+        return parts.count == 2 && parts[0] == "projects" ? parts[1] : nil
     }
 }
