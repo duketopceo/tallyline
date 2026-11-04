@@ -30,9 +30,7 @@ const defaultJwksFetcher: AppleJwksFetcher = async () => {
 };
 
 function b64urlToBuf(s: string): Buffer {
-  const pad = s.length % 4 === 2 ? "==" : s.length % 4 === 3 ? "=" : "";
-  const p = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
-  return Buffer.from(p, "base64");
+  return Buffer.from(s, "base64url");
 }
 
 function sha256Hex(s: string): string {

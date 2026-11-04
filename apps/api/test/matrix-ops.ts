@@ -432,6 +432,11 @@ export const OPERATIONS: Record<string, Builder> = {
     code: "tlpair_no-such-code-0000000000",
     deviceName: "matrix",
   }),
+  "POST /v1/auth/apple": simple("POST", () => "/v1/auth/apple", {
+    identityToken: "eyJhbGciOiJSUzI1NiJ9.e30.matrix",
+    rawNonce: "matrix-nonce-00000000",
+    deviceName: "matrix",
+  }),
   "GET /v1/workspaces/{ws}/ai/provider": get((t) => `${base(t)}/ai/provider`),
   "PUT /v1/workspaces/{ws}/ai/provider": simple("PUT", (t) => `${base(t)}/ai/provider`, {
     kind: "openrouter",
