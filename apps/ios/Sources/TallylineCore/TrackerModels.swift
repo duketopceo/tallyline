@@ -37,6 +37,21 @@ public struct Issue: Codable, Sendable, Identifiable, Hashable {
     public let occurrenceCount: Int
     public let createdAt: Date
     public let updatedAt: Date
+    /// Present on list and detail responses; absent on a bare create or patch.
+    public var labels: [IssueLabel]? = nil
+    /// True while an unfinished issue blocks this one (list responses).
+    public var blocked: Bool? = nil
+}
+
+/// The label fields an issue row carries.
+public struct IssueLabel: Codable, Sendable, Hashable, Identifiable {
+    public let id: String
+    public let name: String
+    public let color: String?
+
+    public init(id: String, name: String, color: String? = nil) {
+        self.id = id; self.name = name; self.color = color
+    }
 }
 
 public struct IssueComment: Codable, Sendable, Identifiable {
@@ -172,7 +187,9 @@ public struct Team: Codable, Sendable, Identifiable {
 }
 
 public struct Member: Codable, Sendable, Identifiable {
+    /// The membership id. Assign with `userId`.
     public let id: String
+    public let userId: String?
     public let name: String?
     public let email: String?
     public let role: String
@@ -220,7 +237,7 @@ public extension Issue {
     /// The issue as it will look once `patch` lands, for optimistic display.
     /// The server's answer replaces it on the next sync.
     func applying(_ patch: IssuePatch, at now: Date = Date()) -> Issue {
-        Issue(
+        var next = Issue(
             id: id, key: key, number: number,
             title: patch.title ?? title,
             description: patch.description ?? description,
@@ -228,15 +245,20 @@ public extension Issue {
             priority: patch.priority ?? priority,
             estimate: patch.estimate ?? estimate,
             dueDate: dueDate,
-            assigneeType: patch.assigneeId != nil ? (patch.assigneeType ?? "human") : assigneeType,
-            assigneeId: patch.assigneeId ?? assigneeId,
+            assigneeType: patch.cleared.contains(.assignee) ? nil : (patch.assigneeId != nil ? (patch.assigneeType ?? "human") : assigneeType),
+            assigneeId: patch.cleared.contains(.assignee) ? nil : (patch.assigneeId ?? assigneeId),
             delegateType: patch.delegateType ?? delegateType,
             delegateId: patch.delegateId ?? delegateId,
             creatorType: creatorType, creatorId: creatorId,
-            projectId: patch.projectId ?? projectId,
-            cycleId: patch.cycleId ?? cycleId,
+            projectId: patch.cleared.contains(.project) ? nil : (patch.projectId ?? projectId),
+            cycleId: patch.cleared.contains(.cycle) ? nil : (patch.cycleId ?? cycleId),
             parentId: parentId, source: source, occurrenceCount: occurrenceCount,
-            createdAt: createdAt, updatedAt: now
+            createdAt: createdAt, updatedAt: now,
+            labels: labels, blocked: blocked
         )
+        if let ids = patch.labelIds {
+            next.labels = (labels ?? []).filter { ids.contains($0.id) }
+        }
+        return next
     }
 }

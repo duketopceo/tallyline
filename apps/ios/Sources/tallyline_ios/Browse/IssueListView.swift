@@ -14,6 +14,7 @@ struct IssueListView: View {
     @State private var actionError: String?
     @State private var showCreate = false
     @State private var committedSwipes = 0
+    @Namespace private var zoom
 
     private var issues: [Issue] {
         session.offline.cachedIssues(workspaceSlug: credential.workspaceSlug, state: state)
@@ -35,6 +36,7 @@ struct IssueListView: View {
             .navigationTitle(state?.displayName ?? "Issues")
             .navigationDestination(for: Issue.self) { issue in
                 IssueDetailView(session: session, credential: credential, issue: issue)
+                    .navigationTransition(.zoom(sourceID: issue.id, in: zoom))
             }
             .toolbar {
                 ProfileToolbarItem(session: session)
@@ -105,6 +107,7 @@ struct IssueListView: View {
 
     private func row(_ issue: Issue) -> some View {
         NavigationLink(value: issue) { IssueRowView(issue: issue) }
+            .matchedTransitionSource(id: issue.id, in: zoom)
             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                 if let next = issue.state.forward {
                     Button { run { await actions.move(issue, to: next) } } label: {
