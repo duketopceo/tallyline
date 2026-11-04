@@ -91,6 +91,9 @@ Set these in `.env` next to the compose file (it reads `.env` automatically):
 | `TRUSTED_PROXY` | no | off | `1` trusts `CF-Connecting-IP`, then the last `X-Forwarded-For` hop, for rate limits, and `X-Forwarded-Proto` for HSTS/`Secure` cookies — only behind Cloudflare or a real reverse proxy that overwrites them |
 | `GITHUB_CLIENT_ID`/`_SECRET` | no | — | "Sign in with GitHub" — the App's OAuth credentials double as the provider's (see [auth.md](./auth.md)) |
 | `GOOGLE_CLIENT_ID`/`_SECRET` | no | — | "Sign in with Google" — callback `{API_BASE_URL}/v1/auth/oauth/google/callback` |
+| `APPLE_CLIENT_ID` | no | — | Sign in with Apple **Services ID** (web OAuth client id; also accepted as iOS token `aud`) |
+| `APPLE_BUNDLE_IDS` | no | — | Comma-separated iOS bundle ids allowed as identity-token audiences (e.g. `app.tallyline.ios`) |
+| `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` | no | — | Web Apple only: Team ID, Key ID, and `.p8` PEM (use `\n` for newlines in env) to mint the client_secret JWT. iOS SIWA (`POST /v1/auth/apple`) needs only CLIENT_ID and/or BUNDLE_IDS |
 | `OIDC_ISSUER`/`_CLIENT_ID`/`_CLIENT_SECRET`/`_DISPLAY_NAME`/`_SCOPES` | no | — | Generic OIDC via discovery — `{issuer}/.well-known/openid-configuration` |
 | `SLACK_*` | no | — | Slack intake/mirroring — see [slack.md](./slack.md); empty tokens = off |
 | `TALLYLINE_LLM_*` | no | — | LLM assist (OpenRouter or any OpenAI-compatible endpoint) — see [llm-assist.md](./llm-assist.md); empty key = off |

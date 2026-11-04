@@ -53,6 +53,33 @@ public struct APIClient: Sendable {
         )
     }
 
+    /// Sign in with Apple: trade Apple's identity token for the same device
+    /// PAT shape as pairing. Public endpoint — no bearer required.
+    public func signInWithApple(
+        identityToken: String,
+        rawNonce: String,
+        deviceName: String,
+        platform: String = "ios"
+    ) async throws -> PairingRedeemResponse {
+        struct Body: Encodable {
+            let identityToken: String
+            let rawNonce: String
+            let deviceName: String
+            let platform: String
+        }
+        return try await send(
+            method: "POST",
+            path: "/v1/auth/apple",
+            body: Body(
+                identityToken: identityToken,
+                rawNonce: rawNonce,
+                deviceName: deviceName,
+                platform: platform
+            ),
+            authorized: false
+        )
+    }
+
     /// Rotate the current device credential; the old token dies on a schedule
     /// the server returns. Call near expiry or on a schedule.
     public func rotateDeviceToken(workspaceSlug: String) async throws -> DeviceRotateResponse {

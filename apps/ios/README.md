@@ -20,11 +20,16 @@ Native Tallyline client for iPhone and iPad — SwiftUI, SwiftPM package plus an
 
 ## Auth
 
-Pairing-code first: Settings → Devices in the web app (or `tallyline pair`)
-mints a 5-minute code; the app redeems it at `POST /v1/auth/pair/redeem` for a
-`tly_pat_` device credential kept in the Keychain. Web sign-in plus a pasted
-server URL covers the self-hosted path. OAuth access tokens are audience-bound
-to `/mcp` and cannot call `/v1`, so there is no in-app OAuth flow.
+**Cloud:** Sign in with Apple on the first screen posts Apple's identity token
+to `POST /v1/auth/apple` on `https://api.tallyline.app` and receives the same
+`tly_pat_` device credential pairing uses (Keychain).
+
+**Self-host / pairing:** expand “Self-hosted or pairing code”, set the server
+URL, then paste or scan a `tlpair_…` from Settings → Devices (`POST
+/v1/auth/pair/redeem`).
+
+OAuth access tokens are audience-bound to `/mcp` and cannot call `/v1`, so
+there is no in-app browser OAuth flow.
 
 ## Offline
 

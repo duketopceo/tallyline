@@ -1100,6 +1100,7 @@ export const providerTypeEnum = pgEnum("provider_type", [
   "github",
   "google",
   "oidc",
+  "apple",
 ]);
 
 export const oauthPurposeEnum = pgEnum("oauth_purpose", [
