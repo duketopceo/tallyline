@@ -3,7 +3,7 @@
 import type { IssueState } from "@tallyline/types";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { StateGlyph } from "@/components/app/ui";
 import { useMeta } from "@/components/app/providers";
 import { useToast } from "@/components/app/toast";
