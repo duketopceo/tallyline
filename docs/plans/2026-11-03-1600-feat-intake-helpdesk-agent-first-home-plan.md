@@ -227,9 +227,9 @@ code; `docs/deploy.md` link check.
 
 ## Prerequisites
 
-- `AUTH_SECRET_KEY` on the host. **Done 2026-11-03**: generated, stored in
-  omaseal (`tallyline/prod-auth-secret-key`), appended to `cluster2` `.env`,
-  api recreated, health 200. `devices.push_handle` and `ai_providers` were both
+- `AUTH_SECRET_KEY` on the host. **Done 2026-11-03**: generated, stored in the
+  system keyring, written to the host's `.env`, api recreated, health 200.
+  `devices.push_handle` and `ai_providers` were both
   empty, so nothing depended on the previous fallback.
 - App Group `group.app.tallyline.ios` registration and the widget/share App IDs
   remain outstanding from `ROADMAP.md` (S5-U1) and are not part of this plan.
