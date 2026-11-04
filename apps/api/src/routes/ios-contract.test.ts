@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { app } from "../index.js";
-import { mkCycle, mkDispatch, mkIssue, mkLabel, mkProject, newSession, seedTenant, type Tenant } from "../../test/tenants.js";
+import { mkCycle, mkDispatch, mkIssue, mkLabel, mkMilestone, mkProject, newSession, seedTenant, type Tenant } from "../../test/tenants.js";
 
 // The iOS client's wire contract. Every response the app decodes is captured
 // here from the real routes and checked against the JSON fixtures that
@@ -172,6 +172,23 @@ describe("iOS wire contract", () => {
       expect(r.status, name).toBe(200);
       check(name, r.body);
     }
+  });
+
+  it("roadmap summary and milestones", async () => {
+    const project = await mkProject(A);
+    await mkMilestone(A, project.id);
+    await mkIssue(A, { projectId: project.id, state: "done" });
+    const milestones = await call(`${ws()}/milestones`, { bearer: token });
+    expect(milestones.status).toBe(200);
+    check("milestones", milestones.body);
+    const summary = await call(`${ws()}/roadmap/summary`, { bearer: token });
+    expect(summary.status).toBe(200);
+    // byState (keyed by whatever states exist) and recent are not decoded by the app
+    const body = summary.body as { projects: Record<string, unknown>[] };
+    check("roadmap_summary", {
+      ...body,
+      projects: body.projects.map(({ byState: _b, recent: _r, ...rest }) => rest),
+    });
   });
 
   it("review queue", async () => {

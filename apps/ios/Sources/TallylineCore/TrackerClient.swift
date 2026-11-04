@@ -6,19 +6,26 @@ public struct IssueCreate: Codable, Sendable, Equatable {
     public var title: String
     public var description: String?
     public var teamId: String
+    /// The API picks the team by its key (`ENG`); without one it falls back to
+    /// the workspace's first team. Callers that know the team send both.
+    public var teamKey: String?
     /// Unset means the server default (backlog). The share sheet sends triage.
     public var state: IssueState?
     public var priority: IssuePriority?
     public var projectId: String?
     public var cycleId: String?
     public var parentId: String?
+    public var assigneeType: String?
+    public var assigneeId: String?
     public var delegateId: String?
     public var delegateType: String?
+    public var labelIds: [String]?
 
-    public init(title: String = "", description: String? = nil, teamId: String = "", state: IssueState? = nil, priority: IssuePriority? = nil, projectId: String? = nil, cycleId: String? = nil, parentId: String? = nil, delegateId: String? = nil, delegateType: String? = nil) {
-        self.title = title; self.description = description; self.teamId = teamId; self.state = state; self.priority = priority
+    public init(title: String = "", description: String? = nil, teamId: String = "", teamKey: String? = nil, state: IssueState? = nil, priority: IssuePriority? = nil, projectId: String? = nil, cycleId: String? = nil, parentId: String? = nil, assigneeType: String? = nil, assigneeId: String? = nil, delegateId: String? = nil, delegateType: String? = nil, labelIds: [String]? = nil) {
+        self.title = title; self.description = description; self.teamId = teamId; self.teamKey = teamKey; self.state = state; self.priority = priority
         self.projectId = projectId; self.cycleId = cycleId; self.parentId = parentId
-        self.delegateId = delegateId; self.delegateType = delegateType
+        self.assigneeType = assigneeType; self.assigneeId = assigneeId
+        self.delegateId = delegateId; self.delegateType = delegateType; self.labelIds = labelIds
     }
 }
 
@@ -28,16 +35,18 @@ public struct IssuePatch: Codable, Sendable, Equatable {
     public var state: IssueState?
     public var priority: IssuePriority?
     public var estimate: Int?
+    public var assigneeType: String?
     public var assigneeId: String?
     public var delegateId: String?
     public var delegateType: String?
     public var projectId: String?
     public var cycleId: String?
+    public var labelIds: [String]?
 
-    public init(title: String? = nil, description: String? = nil, state: IssueState? = nil, priority: IssuePriority? = nil, estimate: Int? = nil, assigneeId: String? = nil, delegateId: String? = nil, delegateType: String? = nil, projectId: String? = nil, cycleId: String? = nil) {
+    public init(title: String? = nil, description: String? = nil, state: IssueState? = nil, priority: IssuePriority? = nil, estimate: Int? = nil, assigneeType: String? = nil, assigneeId: String? = nil, delegateId: String? = nil, delegateType: String? = nil, projectId: String? = nil, cycleId: String? = nil, labelIds: [String]? = nil) {
         self.title = title; self.description = description; self.state = state; self.priority = priority; self.estimate = estimate
-        self.assigneeId = assigneeId; self.delegateId = delegateId; self.delegateType = delegateType
-        self.projectId = projectId; self.cycleId = cycleId
+        self.assigneeType = assigneeType; self.assigneeId = assigneeId; self.delegateId = delegateId; self.delegateType = delegateType
+        self.projectId = projectId; self.cycleId = cycleId; self.labelIds = labelIds
     }
 }
 
@@ -110,6 +119,20 @@ extension APIClient {
     public func projects(ws slug: String) async throws -> [Project] {
         let list: ProjectList = try await send(method: "GET", path: "\(ws(slug))/projects")
         return list.projects
+    }
+
+    /// Exact counts per project and milestone, plus what finished since `since`
+    /// (the server defaults to the last 24 hours).
+    public func roadmapSummary(ws slug: String, since: Date? = nil) async throws -> RoadmapSummary {
+        var q: [String: String] = [:]
+        if let since { q["since"] = APIDate.format(since) }
+        return try await send(method: "GET", path: "\(ws(slug))/roadmap/summary", query: q)
+    }
+
+    /// Every milestone in the workspace, with issue progress.
+    public func milestones(ws slug: String) async throws -> [Milestone] {
+        let list: MilestoneList = try await send(method: "GET", path: "\(ws(slug))/milestones")
+        return list.milestones
     }
 
     public func cycles(ws slug: String) async throws -> [Cycle] {

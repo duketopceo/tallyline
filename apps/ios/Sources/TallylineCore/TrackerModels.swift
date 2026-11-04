@@ -48,11 +48,106 @@ public struct IssueComment: Codable, Sendable, Identifiable {
     public let createdAt: Date
 }
 
-public struct Project: Codable, Sendable, Identifiable {
+/// `GET /projects` returns the whole `projects` row. Everything past the
+/// name is optional so an older or slimmer server still decodes.
+public struct Project: Codable, Sendable, Identifiable, Hashable {
     public let id: String
     public let name: String
     public let description: String?
     public let status: String?
+    public let teamId: String?
+    public let iconUrl: String?
+    public let startDate: Date?
+    public let targetDate: Date?
+    public let createdAt: Date?
+
+    public init(id: String, name: String, description: String? = nil, status: String? = nil, teamId: String? = nil, iconUrl: String? = nil, startDate: Date? = nil, targetDate: Date? = nil, createdAt: Date? = nil) {
+        self.id = id; self.name = name; self.description = description; self.status = status
+        self.teamId = teamId; self.iconUrl = iconUrl; self.startDate = startDate
+        self.targetDate = targetDate; self.createdAt = createdAt
+    }
+}
+
+/// A dated step inside a project (`GET /milestones`). `progress` counts the
+/// milestone's issues, canceled and duplicate excluded.
+public struct Milestone: Codable, Sendable, Identifiable, Hashable {
+    public struct Progress: Codable, Sendable, Hashable {
+        public let total: Int
+        public let done: Int
+    }
+
+    public let id: String
+    public let projectId: String
+    public let title: String
+    public let targetDate: Date?
+    public let done: Bool
+    public let progress: Progress?
+}
+
+/// `GET /roadmap/summary`: exact counts per project and milestone, computed by
+/// the server. Clients never derive these from the issues they happen to hold.
+public struct RoadmapSummary: Codable, Sendable, Equatable {
+    public struct Totals: Codable, Sendable, Equatable {
+        public let issues: Int
+        public let done: Int
+        public let closed: Int
+        public let doneSince: Int
+    }
+
+    public struct ProjectCounts: Codable, Sendable, Equatable, Identifiable {
+        public let projectId: String
+        public let total: Int
+        public let done: Int
+        public let closed: Int
+        public let inProgress: Int
+        public let inReview: Int
+        public let doneSince: Int?
+        public var id: String { projectId }
+    }
+
+    public struct MilestoneCounts: Codable, Sendable, Equatable, Identifiable {
+        public let milestoneId: String
+        public let total: Int
+        public let done: Int
+        public var id: String { milestoneId }
+    }
+
+    public struct PullRequest: Codable, Sendable, Equatable {
+        public let number: Int
+        public let url: String
+        public let title: String?
+        public let repo: String?
+    }
+
+    /// One thing that finished in the window: a PR merge or a move to done.
+    public struct Merge: Codable, Sendable, Equatable, Identifiable {
+        public let id: String
+        public let issueKey: String
+        public let issueTitle: String
+        public let projectId: String?
+        public let actorName: String?
+        public let actorType: String
+        public let at: Date
+        public let pr: PullRequest?
+    }
+
+    public let generatedAt: Date
+    public let since: Date
+    public let totals: Totals
+    public let projects: [ProjectCounts]
+    public let milestones: [MilestoneCounts]
+    public let merges: [Merge]
+
+    /// Counts for a project. A project the summary does not mention has no
+    /// issues yet, so it reads as zero rather than missing.
+    public func counts(forProject id: String) -> ProjectCounts {
+        projects.first { $0.projectId == id }
+            ?? ProjectCounts(projectId: id, total: 0, done: 0, closed: 0, inProgress: 0, inReview: 0, doneSince: nil)
+    }
+
+    public func counts(forMilestone id: String) -> MilestoneCounts {
+        milestones.first { $0.milestoneId == id } ?? MilestoneCounts(milestoneId: id, total: 0, done: 0)
+    }
 }
 
 public struct Cycle: Codable, Sendable, Identifiable {
@@ -119,6 +214,7 @@ struct TeamList: Decodable { let teams: [Team] }
 struct MemberList: Decodable { let members: [Member] }
 struct AgentList: Decodable { let agents: [Agent] }
 struct ReviewQueueList: Decodable { let queue: [ReviewQueueEntry] }
+struct MilestoneList: Decodable { let milestones: [Milestone] }
 
 public extension Issue {
     /// The issue as it will look once `patch` lands, for optimistic display.
@@ -132,7 +228,7 @@ public extension Issue {
             priority: patch.priority ?? priority,
             estimate: patch.estimate ?? estimate,
             dueDate: dueDate,
-            assigneeType: patch.assigneeId != nil ? "human" : assigneeType,
+            assigneeType: patch.assigneeId != nil ? (patch.assigneeType ?? "human") : assigneeType,
             assigneeId: patch.assigneeId ?? assigneeId,
             delegateType: patch.delegateType ?? delegateType,
             delegateId: patch.delegateId ?? delegateId,
