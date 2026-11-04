@@ -102,3 +102,17 @@ final class RoadmapLayoutTests: XCTestCase {
         XCTAssertEqual(ProjectOrdering.sorted([c, b, a, d]).map(\.id), ["d", "a", "b", "c"])
     }
 }
+
+final class DiagnosticsTests: XCTestCase {
+    func testReportCarriesCountsAndVersionsOnly() {
+        let text = DiagnosticsReport.text(
+            device: "iPhone", os: "iOS 18.1", appVersion: "1.1.0", build: "142", serverHost: "api.example.com",
+            outbox: .init(pending: 1, retrying: 2, parked: 3), lastSync: Date(timeIntervalSince1970: 100), now: Date(timeIntervalSince1970: 160)
+        )
+        XCTAssertTrue(text.contains("Tallyline 1.1.0 (142)"))
+        XCTAssertTrue(text.contains("1 pending, 2 retrying, 3 parked"))
+        XCTAssertTrue(text.contains("60 s ago"))
+        XCTAssertFalse(text.contains("tly_"))
+        XCTAssertTrue(DiagnosticsReport.text(device: "d", os: "o", appVersion: "1", build: "1", serverHost: "h", outbox: .init(pending: 0, retrying: 0, parked: 0), lastSync: nil).contains("not yet this launch"))
+    }
+}

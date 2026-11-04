@@ -78,6 +78,9 @@ struct CreateIssueView: View {
             .sensoryFeedback(.success, trigger: created)
             .task {
                 titleFocused = true
+                if assignee == nil, let agent = UserDefaults.standard.string(forKey: "defaultAgentId"), !agent.isEmpty {
+                    assignee = "agent:\(agent)"
+                }
                 await catalog.load(client: session.client, workspaceSlug: credential.workspaceSlug)
                 if teamId.isEmpty { teamId = TeamMemory().pick(from: catalog.teams)?.id ?? "" }
             }

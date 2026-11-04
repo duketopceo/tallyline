@@ -25,6 +25,10 @@ final class OfflineModel {
     private(set) var lastSyncedAt: Date?
     /// True while the outbox is sending.
     private(set) var isDraining = false
+    /// True on a metered link (cellular or Personal Hotspot).
+    private(set) var isExpensive = false
+    /// Settings > Sync: whether issue syncs may use a metered link.
+    var allowsCellularSync: Bool { UserDefaults.standard.object(forKey: "syncOnCellular") as? Bool ?? true }
 
     var failedCount: Int { entries.filter { if case .failed = $0.status { true } else { false } }.count }
 
@@ -41,7 +45,11 @@ final class OfflineModel {
         self.cache = try? cacheStore.read()
         monitor.pathUpdateHandler = { [weak self] path in
             let online = path.status == .satisfied
-            Task { @MainActor in self?.setOnline(online) }
+            let expensive = path.isExpensive
+            Task { @MainActor in
+                self?.isExpensive = expensive
+                self?.setOnline(online)
+            }
         }
         monitor.start(queue: DispatchQueue(label: "app.tallyline.ios.network"))
         Task { await refreshEntries() }
@@ -118,6 +126,7 @@ final class OfflineModel {
     /// The first sync (or a workspace switch) loads everything.
     func syncIssues(workspaceSlug: String) async throws {
         guard let client = client() else { return }
+        if isExpensive && !allowsCellularSync { return }
         var snapshot = (cache?.workspaceSlug == workspaceSlug ? cache : nil) ?? IssueCacheSnapshot(workspaceSlug: workspaceSlug)
         // Back off five minutes from our own clock so skew cannot skip a change.
         // Repeats are harmless: merge keeps the newer row.
@@ -136,6 +145,32 @@ final class OfflineModel {
         snapshot.issues.insert(issue, at: 0)
         cache = snapshot
         try? cacheStore.write(snapshot)
+    }
+
+    /// Settings > Sync > Clear cached issues: the next sync loads everything.
+    func clearCache() {
+        try? cacheStore.delete()
+        cache = nil
+        lastSyncedAt = nil
+    }
+
+    /// Bytes the issue cache and outbox use on this phone.
+    func storageBytes() -> Int {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Tallyline", isDirectory: true)
+        guard let base, let files = try? FileManager.default.contentsOfDirectory(at: base, includingPropertiesForKeys: [.fileSizeKey]) else { return 0 }
+        return files.reduce(0) { $0 + ((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) }
+    }
+
+    /// Retry every parked write, or throw the parked ones away.
+    func retryParked() async {
+        for entry in entries where entry.displayState == .parked { try? await outbox.retry(entry.id) }
+        await drain()
+    }
+
+    func discardParked() async {
+        for entry in entries where entry.displayState == .parked { try? await outbox.discard(entry.id) }
+        await refreshEntries()
     }
 
     /// Sign-out: nothing from this workspace stays on the phone.

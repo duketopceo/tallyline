@@ -148,6 +148,23 @@ final class SessionModel {
         }
     }
 
+    /// Rotate the credential now, whatever its age. Returns false on failure.
+    @discardableResult
+    func rotateNow() async -> Bool {
+        guard case let .signedIn(credential) = state, let client else { return false }
+        do {
+            let rotated = try await client.rotateDeviceToken(workspaceSlug: credential.workspaceSlug)
+            var updated = credential
+            updated.token = rotated.token
+            updated.expiresAt = rotated.expiresAt
+            try store.save(updated)
+            state = .signedIn(updated)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     func signOut() {
         me = nil
         workspace.reset()

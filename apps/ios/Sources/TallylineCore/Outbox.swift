@@ -50,7 +50,7 @@ public struct OutboxEntry: Codable, Sendable, Equatable, Identifiable {
 
 /// What the shell shows for a queued write. Derived from the persisted entry,
 /// never stored: a new case here must not change the file format.
-public enum OutboxDisplayState: String, Sendable, Equatable {
+public enum OutboxDisplayState: String, Sendable, Equatable, CaseIterable {
     /// Saved on the phone, not yet attempted.
     case pending
     /// Attempted and failed; another try is scheduled.
