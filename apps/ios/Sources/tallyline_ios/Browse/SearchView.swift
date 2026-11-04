@@ -28,7 +28,7 @@ struct SearchView: View {
                     ContentUnavailableView.search(text: query)
                 } else {
                     List(results) { issue in
-                        NavigationLink(value: issue) { IssueRow(issue: issue) }
+                        NavigationLink(value: issue) { IssueRowView(issue: issue) }
                     }
                 }
             }
