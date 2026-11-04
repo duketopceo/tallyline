@@ -95,6 +95,7 @@ async function signInState(): Promise<SystemStatus["signIn"]> {
   const fromEnv: SystemStatus["signIn"]["providers"] = [];
   if (config_.githubClientId) fromEnv.push({ key: "github", type: "github", label: "GitHub", source: "env" });
   if (config_.googleClientId) fromEnv.push({ key: "google", type: "google", label: "Google", source: "env" });
+  // Web Apple stays off until form_post callback (appleWebReady); iOS SIWA is separate.
   if (config_.oidcIssuer && config_.oidcClientId) {
     fromEnv.push({ key: "oidc", type: "oidc", label: config_.oidcDisplayName || "SSO", source: "env" });
   }

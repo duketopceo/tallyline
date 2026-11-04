@@ -28,7 +28,7 @@ export interface ExchangeParams {
 
 export interface OAuthProvider {
   key: string;
-  type: "github" | "google" | "oidc";
+  type: "github" | "google" | "oidc" | "apple";
   label: string;
   /** non-secret config surfaced to /v1/auth/methods + admin views */
   public: { clientId: string; scopes: string[]; issuer: string | null; source: "env" | "db" };

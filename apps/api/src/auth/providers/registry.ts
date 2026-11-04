@@ -3,6 +3,7 @@ import { db } from "../../db/client.js";
 import { authProviders } from "../../db/schema.js";
 import { config_ } from "../../env.js";
 import { decryptSecret } from "../secrets.js";
+import { appleProvider, appleWebReady } from "./apple.js";
 import { githubProvider } from "./github.js";
 import { googleProvider, oidcProvider } from "./oidc.js";
 import type { OAuthProvider } from "./types.js";
@@ -42,6 +43,19 @@ export async function resolveProviders(): Promise<OAuthProvider[]> {
       }),
     );
   }
+  if (appleWebReady(config_)) {
+    out.push(
+      appleProvider({
+        key: "apple",
+        label: "Apple",
+        clientId: config_.appleClientId,
+        teamId: config_.appleTeamId,
+        keyId: config_.appleKeyId,
+        privateKeyPem: config_.applePrivateKey,
+        source: "env",
+      }),
+    );
+  }
   if (config_.oidcIssuer && config_.oidcClientId) {
     out.push(
       oidcProvider({
@@ -72,6 +86,9 @@ export async function resolveProviders(): Promise<OAuthProvider[]> {
         key: row.key, label: row.label, clientId: row.clientId,
         clientSecret: secret, source: "db",
       }));
+    } else if (row.type === "apple") {
+      // DB-configured Apple needs team/key/pem in claim_map or endpoints — skip until env path
+      continue;
     } else {
       out.push(oidcProvider({
         key: row.key,

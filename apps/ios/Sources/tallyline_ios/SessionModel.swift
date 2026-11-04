@@ -20,6 +20,9 @@ final class SessionModel {
     private(set) var state: SignInState = .signedOut
     private(set) var lastError: String?
 
+    func clearError() { lastError = nil }
+    func setError(_ message: String) { lastError = message }
+
     private let store: any CredentialStore
     /// Issue cache and outbox. Set once in init.
     @ObservationIgnored private(set) var offline: OfflineModel!
@@ -53,8 +56,28 @@ final class SessionModel {
             lastError = Self.describe(error, step: "code not accepted")
             throw error
         }
-        // The redeem response has no user id; whoami supplies it and proves
-        // the new credential works before it is saved.
+        try await finishSignIn(redeemed: redeemed, serverURL: serverURL)
+    }
+
+    /// Cloud Sign in with Apple → same device PAT as pairing.
+    func signInWithApple(identityToken: String, rawNonce: String, deviceName: String, serverURL: URL = TallylineConfig.defaultServerURL) async throws {
+        lastError = nil
+        let client = APIClient(baseURL: serverURL)
+        let redeemed: PairingRedeemResponse
+        do {
+            redeemed = try await client.signInWithApple(
+                identityToken: identityToken,
+                rawNonce: rawNonce,
+                deviceName: deviceName
+            )
+        } catch {
+            lastError = Self.describe(error, step: "Apple sign-in not accepted")
+            throw error
+        }
+        try await finishSignIn(redeemed: redeemed, serverURL: serverURL)
+    }
+
+    private func finishSignIn(redeemed: PairingRedeemResponse, serverURL: URL) async throws {
         let me: Whoami
         do {
             me = try await APIClient(baseURL: serverURL, bearerToken: redeemed.token).whoami()

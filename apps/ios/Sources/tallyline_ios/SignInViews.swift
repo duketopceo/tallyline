@@ -1,48 +1,90 @@
 #if os(iOS)
 @preconcurrency import AVFoundation
+import AuthenticationServices
+import CryptoKit
 import SwiftUI
 import TallylineCore
 import TallylineDesign
+import UIKit
 
-/// First screen: pick the instance, then pair. Self-hosters type their URL;
-/// the field defaults to Tallyline Cloud.
+/// Cloud: Sign in with Apple → api.tallyline.app. Self-host: pair with a code.
 struct InstancePickerView: View {
     var session: SessionModel
     @State private var serverText = TallylineConfig.defaultServerURL.absoluteString
+    @State private var showSelfHost = false
+    @State private var appleBusy = false
+    @State private var rawNonce = ""
 
     var body: some View {
         NavigationStack {
-            // Scrolls so the largest text sizes never clip (S6-U6 audit).
             ScrollView {
-            VStack(spacing: 24) {
-                VStack(spacing: 8) {
-                    Text("tallyline")
-                        .font(.title.bold())
-                    Text("Sign in to a workspace")
-                        .foregroundStyle(Theme.inkMuted)
+                VStack(spacing: 24) {
+                    VStack(spacing: 8) {
+                        Text("tallyline")
+                            .font(.title.bold())
+                        Text("Sign in to a workspace")
+                            .foregroundStyle(Theme.inkMuted)
+                    }
+
+                    SignInWithAppleButton(.signIn) { request in
+                        let nonce = Self.randomNonce()
+                        rawNonce = nonce
+                        request.requestedScopes = [.fullName, .email]
+                        request.nonce = Self.sha256(nonce)
+                    } onCompletion: { result in
+                        Task { await handleApple(result) }
+                    }
+                    .signInWithAppleButtonStyle(.black)
+                    // Accessibility audit: hit area ≥ 44×44; prefer a tall control
+                    // so default Dynamic Type still clears the gate.
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .padding(.horizontal, 24)
+                    .disabled(appleBusy)
+
+                    if let error = session.lastError {
+                        Text(error)
+                            .font(.callout)
+                            .foregroundStyle(Theme.urgent)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+
+                    Button {
+                        showSelfHost.toggle()
+                    } label: {
+                        Text(showSelfHost ? "Hide self-hosted options" : "Self-hosted or pairing code")
+                            .font(.callout)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.inkMuted)
+                    .padding(.horizontal, 24)
+
+                    if showSelfHost {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Server")
+                                .font(.caption)
+                                .foregroundStyle(Theme.inkSubtle)
+                            TextField("https://api.tallyline.app", text: $serverText, axis: .vertical)
+                                .textFieldStyle(.roundedBorder)
+                                .keyboardType(.URL)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                        }
+                        .padding(.horizontal)
+                        NavigationLink(value: "pair") {
+                            Text("Continue with pairing")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Theme.accent)
+                        .padding(.horizontal)
+                        .disabled(URL(string: normalizedServer) == nil)
+                    }
                 }
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Server")
-                    .font(.caption)
-                    .foregroundStyle(Theme.inkSubtle)
-                TextField("https://api.tallyline.app", text: $serverText, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .keyboardType(.URL)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-            }
-            .padding(.horizontal)
-            NavigationLink(value: "pair") {
-                Text("Continue")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Theme.accent)
-            .padding(.horizontal)
-            .disabled(URL(string: normalizedServer) == nil)
-            }
-            .padding(.vertical, 48)
-            .frame(maxWidth: .infinity)
+                .padding(.vertical, 48)
+                .frame(maxWidth: .infinity)
             }
             .navigationDestination(for: String.self) { _ in
                 PairView(session: session, serverURL: URL(string: normalizedServer)!)
@@ -54,6 +96,54 @@ struct InstancePickerView: View {
         var s = serverText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !s.isEmpty && !s.contains("://") { s = "https://" + s }
         return s
+    }
+
+    private func handleApple(_ result: Result<ASAuthorization, Error>) async {
+        appleBusy = true
+        defer { appleBusy = false }
+        switch result {
+        case .failure(let error):
+            if let asErr = error as? ASAuthorizationError, asErr.code == .canceled {
+                session.clearError()
+                return
+            }
+            session.setError(error.localizedDescription)
+        case .success(let auth):
+            guard let cred = auth.credential as? ASAuthorizationAppleIDCredential,
+                  let tokenData = cred.identityToken,
+                  let identityToken = String(data: tokenData, encoding: .utf8) else {
+                session.setError("Apple did not return an identity token")
+                return
+            }
+            do {
+                try await session.signInWithApple(
+                    identityToken: identityToken,
+                    rawNonce: rawNonce,
+                    deviceName: UIDevice.current.name,
+                    serverURL: TallylineConfig.defaultServerURL
+                )
+            } catch {
+                // SessionModel already sets lastError; keep a fallback message.
+                if session.lastError == nil {
+                    session.setError(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private static func randomNonce(length: Int = 32) -> String {
+        var bytes = [UInt8](repeating: 0, count: length)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        precondition(status == errSecSuccess, "SecRandomCopyBytes failed")
+        return Data(bytes).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+
+    private static func sha256(_ input: String) -> String {
+        let digest = SHA256.hash(data: Data(input.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }
 

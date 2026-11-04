@@ -128,6 +128,17 @@ export const config_ = {
   githubClientSecret: env("GITHUB_CLIENT_SECRET", ""),
   googleClientId: env("GOOGLE_CLIENT_ID", ""),
   googleClientSecret: env("GOOGLE_CLIENT_SECRET", ""),
+  // Sign in with Apple — Services ID (web) and/or iOS bundle audiences.
+  // iOS SIWA (POST /v1/auth/apple) needs at least one of CLIENT_ID / BUNDLE_IDS.
+  // Web OAuth also needs TEAM_ID + KEY_ID + PRIVATE_KEY (ES256 client_secret JWT).
+  appleClientId: env("APPLE_CLIENT_ID", ""),
+  appleBundleIds: env("APPLE_BUNDLE_IDS", "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+  appleTeamId: env("APPLE_TEAM_ID", ""),
+  appleKeyId: env("APPLE_KEY_ID", ""),
+  applePrivateKey: env("APPLE_PRIVATE_KEY", "").replace(/\\n/g, "\n"),
   oidcIssuer: env("OIDC_ISSUER", ""),
   oidcClientId: env("OIDC_CLIENT_ID", ""),
   oidcClientSecret: env("OIDC_CLIENT_SECRET", ""),

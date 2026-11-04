@@ -2,6 +2,8 @@
 
 Goal: Tallyline is the tracker Luke runs his projects on (Kate first, then Cairn and the rest), and a serious self-hosted Linear replacement with a non-technical setup path, bring-your-own AI, and an iPhone app.
 
+**Living cloud Linear-parity ledger (API · web · iOS + pricing/COGS):** [docs/plans/CE-PLAN.md](./docs/plans/CE-PLAN.md) (updated 2026-11-04). Use that for SIWA identity, undercut-Linear pricing, and next execution slices. This file keeps the shipped U/S status and Luke-gated ops list.
+
 Status is read from `main` (`730037d`) and merged PRs as of 2026-10-31. Unit specs live in two plans:
 
 - PM-ready program (U1 to U25): [docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md](./docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md)

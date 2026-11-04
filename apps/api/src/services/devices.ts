@@ -73,6 +73,67 @@ const BAD_CODE = new DeviceError(
 );
 
 /**
+ * Mint a device PAT for a workspace member (pairing redeem + SIWA share this).
+ */
+export async function mintDeviceCredential(input: {
+  userId: string;
+  workspaceId: string;
+  deviceName: string;
+  platform: Platform;
+  /** event action; pairing uses device_paired, SIWA uses device_signed_in */
+  eventAction?: string;
+}) {
+  const [member] = await db
+    .select({ wsName: workspaces.name, wsSlug: workspaces.slug, deletedAt: workspaces.deletedAt })
+    .from(workspaceMembers)
+    .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
+    .where(and(eq(workspaceMembers.userId, input.userId), eq(workspaceMembers.workspaceId, input.workspaceId)));
+  if (!member || member.deletedAt) {
+    throw new DeviceError(403, "NOT_A_MEMBER", "you are not a member of that workspace");
+  }
+
+  const name = input.deviceName.trim();
+  const token = `tly_pat_${randomBytes(24).toString("base64url")}`;
+  const expiresAt = expiryFromNow();
+  const device = await db.transaction(async (tx) => {
+    const [t] = await tx
+      .insert(userTokens)
+      .values({
+        userId: input.userId,
+        workspaceId: input.workspaceId,
+        name: tokenName(name),
+        tokenHash: hashToken(token),
+        scopes: DEVICE_SCOPES,
+        expiresAt,
+      })
+      .returning({ id: userTokens.id });
+    const [d] = await tx
+      .insert(devices)
+      .values({
+        workspaceId: input.workspaceId,
+        userId: input.userId,
+        name,
+        platform: input.platform,
+        tokenId: t!.id,
+      })
+      .returning({ id: devices.id });
+    return d!;
+  });
+  await emit(input.workspaceId, input.userId, input.eventAction ?? "device_paired", device.id, {
+    name,
+    platform: input.platform,
+  });
+  return {
+    token,
+    expiresAt,
+    scopes: DEVICE_SCOPES,
+    deviceId: device.id,
+    userId: input.userId,
+    workspace: { slug: member.wsSlug, name: member.wsName },
+  };
+}
+
+/**
  * Turn a pairing code into a device and its credential. Wrong, expired,
  * replayed and revoked-member codes all answer identically.
  */
@@ -91,49 +152,18 @@ export async function redeemPairingCode(input: { code: string; deviceName: strin
     .returning();
   if (!claimed) throw BAD_CODE;
 
-  const [member] = await db
-    .select({ wsName: workspaces.name, wsSlug: workspaces.slug, deletedAt: workspaces.deletedAt })
-    .from(workspaceMembers)
-    .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
-    .where(and(eq(workspaceMembers.userId, claimed.userId), eq(workspaceMembers.workspaceId, claimed.workspaceId)));
-  if (!member || member.deletedAt) throw BAD_CODE;
-
-  const name = input.deviceName.trim();
-  const token = `tly_pat_${randomBytes(24).toString("base64url")}`;
-  const expiresAt = expiryFromNow();
-  const device = await db.transaction(async (tx) => {
-    const [t] = await tx
-      .insert(userTokens)
-      .values({
-        userId: claimed.userId,
-        workspaceId: claimed.workspaceId,
-        name: tokenName(name),
-        tokenHash: hashToken(token),
-        scopes: DEVICE_SCOPES,
-        expiresAt,
-      })
-      .returning({ id: userTokens.id });
-    const [d] = await tx
-      .insert(devices)
-      .values({
-        workspaceId: claimed.workspaceId,
-        userId: claimed.userId,
-        name,
-        platform: input.platform,
-        tokenId: t!.id,
-      })
-      .returning({ id: devices.id });
-    return d!;
-  });
-  await emit(claimed.workspaceId, claimed.userId, "device_paired", device.id, { name, platform: input.platform });
-  return {
-    token,
-    expiresAt,
-    scopes: DEVICE_SCOPES,
-    deviceId: device.id,
-    userId: claimed.userId,
-    workspace: { slug: member.wsSlug, name: member.wsName },
-  };
+  try {
+    return await mintDeviceCredential({
+      userId: claimed.userId,
+      workspaceId: claimed.workspaceId,
+      deviceName: input.deviceName,
+      platform: input.platform,
+      eventAction: "device_paired",
+    });
+  } catch (e) {
+    if (e instanceof DeviceError && e.code === "NOT_A_MEMBER") throw BAD_CODE;
+    throw e;
+  }
 }
 
 export async function listDevices(workspaceId: string, userId: string, currentTokenId: string | null) {

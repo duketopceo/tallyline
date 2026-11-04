@@ -31,6 +31,7 @@ import { importRoutes } from "./routes/import.js";
 import { glitchtipRoutes } from "./routes/glitchtip.js";
 import { glitchtipWebhookRoutes } from "./routes/glitchtip-webhook.js";
 import { intakeRoutes } from "./routes/intake.js";
+import { appleAuthRoutes } from "./routes/apple-auth.js";
 import { deviceAuthPublicRoutes, deviceAuthWorkspaceRoutes } from "./routes/device-auth.js";
 import { aiProviderRoutes } from "./routes/ai-providers.js";
 import { inviteAcceptRoutes, inviteRoutes } from "./routes/invites.js";
@@ -111,6 +112,7 @@ export const app = new Hono()
   .route("/v1/auth", providerRoutes)
   .route("/v1/auth", accountPublicRoutes)
   .route("/v1/auth", devicePublicRoutes)
+  .route("/v1/auth", appleAuthRoutes)
   .use("/v1/*", requireSession)
   .use("/v1/*", async (c, next) => {
     await next();

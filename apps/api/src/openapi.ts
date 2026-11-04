@@ -844,6 +844,30 @@ const basePaths = {
         },
       },
     },
+    "/v1/auth/apple": {
+      post: {
+        summary:
+          "Sign in with Apple (native): verify Apple's identity token (JWKS), resolve the user, mint a 90-day `tly_pat_*` device credential. Unauthenticated, rate limited. Requires APPLE_BUNDLE_IDS and/or APPLE_CLIENT_ID on the server.",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["identityToken", "rawNonce", "deviceName"],
+          properties: {
+            identityToken: { type: "string" },
+            rawNonce: { type: "string" },
+            deviceName: { type: "string" },
+            platform: { type: "string", enum: ["ios", "android", "other"] },
+            invite: { type: "string", description: "optional raw invite token" },
+          },
+        }),
+        responses: {
+          "200": { description: "{token, tokenType, expiresAt, scopes, deviceId, server, workspace}" },
+          "401": { description: "INVALID_APPLE_TOKEN" },
+          "403": { description: "identity resolve denied (e.g. INVITE_REQUIRED)" },
+          "409": { description: "BOOTSTRAP_REQUIRED or LINK_REQUIRED" },
+          "503": { description: "APPLE_NOT_CONFIGURED" },
+        },
+      },
+    },
     "/v1/workspaces/{ws}/devices": {
       get: {
         summary: "List your paired devices (human session only)",
