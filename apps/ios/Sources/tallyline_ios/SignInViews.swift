@@ -54,8 +54,12 @@ struct InstancePickerView: View {
                     } label: {
                         Text(showSelfHost ? "Hide self-hosted options" : "Self-hosted or pairing code")
                             .font(.callout)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .foregroundStyle(Theme.inkMuted)
+                    .padding(.horizontal, 24)
 
                     if showSelfHost {
                         VStack(alignment: .leading, spacing: 8) {

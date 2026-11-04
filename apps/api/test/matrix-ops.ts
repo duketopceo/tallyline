@@ -433,7 +433,8 @@ export const OPERATIONS: Record<string, Builder> = {
     deviceName: "matrix",
   }),
   "POST /v1/auth/apple": simple("POST", () => "/v1/auth/apple", {
-    identityToken: "eyJhbGciOiJSUzI1NiJ9.e30.matrix",
+    // Intentionally not JWT-shaped (GitGuardian); server still 401s the probe.
+    identityToken: "matrix-not-a-real-apple-identity-token",
     rawNonce: "matrix-nonce-00000000",
     deviceName: "matrix",
   }),
