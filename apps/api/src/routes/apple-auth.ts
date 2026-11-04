@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
+import { hashInviteToken } from "../auth/invite-token.js";
 import { AppleAuthError, verifyAppleIdentityToken } from "../auth/apple-identity.js";
 import { config_ } from "../env.js";
 import { apiError } from "../lib/errors.js";
@@ -32,7 +33,7 @@ export const appleAuthRoutes = new Hono().post(
       rawNonce: z.string().min(8).max(256),
       deviceName: z.string().trim().min(1).max(80),
       platform: z.enum(["ios", "android", "other"]).default("ios"),
-      /** optional invite token hash path — unused for Luke bootstrap */
+      /** optional raw invite token (hashed server-side before resolveIdentity) */
       invite: z.string().optional(),
     }),
   ),
@@ -54,6 +55,8 @@ export const appleAuthRoutes = new Hono().post(
       throw e;
     }
 
+    const inviteHash = body.invite ? hashInviteToken(body.invite) : null;
+
     const resolved = await resolveIdentity(
       {
         subject: claims.subject,
@@ -63,7 +66,7 @@ export const appleAuthRoutes = new Hono().post(
         avatarUrl: null,
         hd: null,
       },
-      { providerKey: "apple", inviteHash: body.invite ?? null },
+      { providerKey: "apple", inviteHash },
     );
 
     if (resolved.kind === "error") {

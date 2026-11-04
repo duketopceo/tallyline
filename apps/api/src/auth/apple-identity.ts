@@ -94,11 +94,8 @@ export async function verifyAppleIdentityToken(
   if (typeof payload.sub !== "string" || !payload.sub) throw new AppleAuthError("no_sub");
 
   const email = typeof payload.email === "string" ? payload.email : null;
-  // Apple may omit email_verified; treat presence of email as verified for SIWA
-  const emailVerified =
-    payload.email_verified === true ||
-    payload.email_verified === "true" ||
-    (email !== null && payload.email_verified !== false && payload.email_verified !== "false");
+  // Only an explicit true claim counts — never infer from email presence (account-linking risk).
+  const emailVerified = payload.email_verified === true || payload.email_verified === "true";
 
-  return { subject: payload.sub, email, emailVerified: !!email && emailVerified };
+  return { subject: payload.sub, email, emailVerified };
 }

@@ -7,16 +7,10 @@ import * as client from "openid-client";
 import type { IdentityResult, OAuthProvider } from "./types.js";
 
 const APPLE_ISSUER = "https://appleid.apple.com";
-const discoveryCache = new Map<string, Promise<client.Configuration>>();
 
+/** Fresh discovery each exchange — Apple client_secret JWTs expire (~24h). */
 function discover(clientId: string, clientSecret: string) {
-  let p = discoveryCache.get(clientId);
-  if (!p) {
-    p = client.discovery(new URL(APPLE_ISSUER), clientId, clientSecret);
-    discoveryCache.set(clientId, p);
-    p.catch(() => discoveryCache.delete(clientId));
-  }
-  return p;
+  return client.discovery(new URL(APPLE_ISSUER), clientId, clientSecret);
 }
 
 /** Apple client_secret: ES256 JWT, max ~6 months; we mint ~1 day. */
@@ -43,13 +37,18 @@ export function mintAppleClientSecret(opts: {
   return `${header}.${payload}.${Buffer.from(sig).toString("base64url")}`;
 }
 
-export function appleWebReady(env: {
+/**
+ * Web Apple OAuth is not registered yet: Apple requires response_mode=form_post
+ * when requesting name/email, which breaks our GET cookie callback. iOS SIWA
+ * (POST /v1/auth/apple) does not need this. Flip when C1c/W1 adds a POST callback.
+ */
+export function appleWebReady(_env: {
   appleClientId: string;
   appleTeamId: string;
   appleKeyId: string;
   applePrivateKey: string;
 }): boolean {
-  return !!(env.appleClientId && env.appleTeamId && env.appleKeyId && env.applePrivateKey);
+  return false;
 }
 
 export function appleProvider(opts: {
@@ -106,10 +105,7 @@ export function appleProvider(opts: {
       return {
         subject: String(claims.sub),
         email: typeof claims.email === "string" ? claims.email : null,
-        emailVerified:
-          claims.email_verified === true ||
-          claims.email_verified === "true" ||
-          typeof claims.email === "string",
+        emailVerified: claims.email_verified === true || claims.email_verified === "true",
         name: typeof claims.name === "string" ? claims.name : null,
         avatarUrl: null,
         hd: null,

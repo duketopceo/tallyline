@@ -97,6 +97,10 @@ struct InstancePickerView: View {
         defer { appleBusy = false }
         switch result {
         case .failure(let error):
+            if let asErr = error as? ASAuthorizationError, asErr.code == .canceled {
+                session.clearError()
+                return
+            }
             session.setError(error.localizedDescription)
         case .success(let auth):
             guard let cred = auth.credential as? ASAuthorizationAppleIDCredential,
@@ -116,7 +120,8 @@ struct InstancePickerView: View {
 
     private static func randomNonce(length: Int = 32) -> String {
         var bytes = [UInt8](repeating: 0, count: length)
-        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        precondition(status == errSecSuccess, "SecRandomCopyBytes failed")
         return Data(bytes).base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
