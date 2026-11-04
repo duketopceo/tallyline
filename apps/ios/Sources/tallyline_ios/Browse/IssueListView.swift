@@ -160,6 +160,7 @@ struct IssueListView: View {
     private func reload() async {
         do {
             try await session.offline.syncIssues(workspaceSlug: credential.workspaceSlug)
+            await session.workspace.refresh(client: session.client, workspaceSlug: credential.workspaceSlug)
             error = nil
         } catch let APIClientError.http(_, _, message) {
             self.error = message ?? "The server could not load this list."

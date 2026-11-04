@@ -7,8 +7,7 @@ import TallylineDesign
 struct ReviewQueueView: View {
     var session: SessionModel
     let credential: DeviceCredential
-    @Binding var count: Int
-    @State private var entries: [ReviewQueueEntry] = []
+    private var entries: [ReviewQueueEntry] { session.workspace.review }
 
     var body: some View {
         NavigationStack {
@@ -26,15 +25,8 @@ struct ReviewQueueView: View {
                 IssueLoaderView(session: session, credential: credential, key: entry.key)
             }
             .toolbar { ProfileToolbarItem(session: session) }
-            .refreshable { await load() }
-            .task { await load() }
+            .refreshable { await session.refresh() }
         }
-    }
-
-    private func load() async {
-        guard let client = session.client else { return }
-        entries = (try? await client.reviewQueue(ws: credential.workspaceSlug)) ?? []
-        count = entries.count
     }
 }
 

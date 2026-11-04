@@ -33,6 +33,15 @@ final class SessionModel {
     private let store: any CredentialStore
     /// Issue cache and outbox. Set once in init.
     @ObservationIgnored private(set) var offline: OfflineModel!
+    /// Roadmap summary, review queue and pick-lists, shared by every tab.
+    let workspace = WorkspaceModel()
+
+    /// One sync cycle: issue delta, then the shared workspace data.
+    func refresh() async {
+        guard case let .signedIn(credential) = state else { return }
+        try? await offline.syncIssues(workspaceSlug: credential.workspaceSlug)
+        await workspace.refresh(client: client, workspaceSlug: credential.workspaceSlug)
+    }
 
     init(store: any CredentialStore) {
         self.store = store
@@ -141,6 +150,7 @@ final class SessionModel {
 
     func signOut() {
         me = nil
+        workspace.reset()
         try? store.clear()
         state = .signedOut
         WidgetBridge.clear()

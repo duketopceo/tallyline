@@ -184,6 +184,12 @@ extension APIClient {
         return try await send(method: "GET", path: "\(ws(slug))/roadmap/summary", query: q)
     }
 
+    /// Starts a project. Everything but the name takes the server's default.
+    public func createProject(ws slug: String, name: String) async throws -> Project {
+        struct Body: Encodable { let name: String }
+        return try await send(method: "POST", path: "\(ws(slug))/projects", query: [:], body: Body(name: name))
+    }
+
     /// Every milestone in the workspace, with issue progress.
     public func milestones(ws slug: String) async throws -> [Milestone] {
         let list: MilestoneList = try await send(method: "GET", path: "\(ws(slug))/milestones")
