@@ -17,46 +17,64 @@ struct ProjectsTab: View {
     @State private var path: [Project] = []
     @State private var query = ""
     @State private var showCreate = false
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @SceneStorage("selectedProjectId") private var selectedProjectId: String?
 
     private var workspace: WorkspaceModel { session.workspace }
 
     var body: some View {
-        NavigationStack(path: $path) {
-            Group {
-                switch mode {
-                case .projects:
-                    ProjectListView(session: session, projects: filtered, summary: workspace.summary, onCreate: { showCreate = true })
-                        .searchable(text: $query, prompt: "Search projects")
-                case .roadmap:
-                    RoadmapView(workspace: workspace) { project in path.append(project) }
-                }
-            }
-            .navigationTitle(mode.rawValue)
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(for: Project.self) { project in
-                ProjectDetailView(session: session, credential: credential, project: project)
-            }
-            .navigationDestination(for: Issue.self) { issue in
-                IssueDetailView(session: session, credential: credential, issue: issue)
-            }
-            .toolbar {
-                ProfileToolbarItem(session: session)
-                ToolbarItem(placement: .principal) {
-                    Picker("View", selection: $mode.animation(Motion.standard)) {
-                        ForEach(ProjectsMode.allCases) { Text($0.rawValue).tag($0) }
+        if sizeClass == .regular {
+            NavigationSplitView {
+                root.modifier(ProjectsToolbar(session: session, mode: $mode, showCreate: $showCreate))
+            } detail: {
+                if mode == .projects, let id = selectedProjectId, let project = workspace.projects.first(where: { $0.id == id }) {
+                    NavigationStack {
+                        ProjectDetailView(session: session, credential: credential, project: project)
+                            .navigationDestination(for: Issue.self) { issue in
+                                IssueDetailView(session: session, credential: credential, issue: issue)
+                            }
                     }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 260)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showCreate = true } label: { Image(systemName: "plus") }
-                        .accessibilityLabel("New project")
+                    .id(id)
+                } else {
+                    ContentUnavailableView("Select a project", systemImage: "square.stack.3d.up", description: Text("Pick one to see its issues."))
                 }
             }
-            .sheet(isPresented: $showCreate) {
-                CreateProjectView(session: session, credential: credential)
+            .sheet(isPresented: $showCreate) { CreateProjectView(session: session, credential: credential) }
+        } else {
+            NavigationStack(path: $path) {
+                root
+                    .modifier(ProjectsToolbar(session: session, mode: $mode, showCreate: $showCreate))
+                    .navigationDestination(for: Project.self) { project in
+                        ProjectDetailView(session: session, credential: credential, project: project)
+                    }
+                    .navigationDestination(for: Issue.self) { issue in
+                        IssueDetailView(session: session, credential: credential, issue: issue)
+                    }
+            }
+            .sheet(isPresented: $showCreate) { CreateProjectView(session: session, credential: credential) }
+        }
+    }
+
+    @ViewBuilder
+    private var root: some View {
+        Group {
+            switch mode {
+            case .projects:
+                ProjectListView(session: session, projects: filtered, summary: workspace.summary, selection: sizeClass == .regular ? $selectedProjectId : nil, onCreate: { showCreate = true })
+                    .searchable(text: $query, prompt: "Search projects")
+            case .roadmap:
+                RoadmapView(workspace: workspace) { project in
+                    if sizeClass == .regular {
+                        selectedProjectId = project.id
+                        mode = .projects
+                    } else {
+                        path.append(project)
+                    }
+                }
             }
         }
+        .navigationTitle(mode.rawValue)
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private var filtered: [Project] {
@@ -64,6 +82,29 @@ struct ProjectsTab: View {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return sorted }
         return sorted.filter { $0.name.localizedCaseInsensitiveContains(q) }
+    }
+}
+
+private struct ProjectsToolbar: ViewModifier {
+    var session: SessionModel
+    @Binding var mode: ProjectsMode
+    @Binding var showCreate: Bool
+
+    func body(content: Content) -> some View {
+        content.toolbar {
+            ProfileToolbarItem(session: session)
+            ToolbarItem(placement: .principal) {
+                Picker("View", selection: $mode.animation(Motion.standard)) {
+                    ForEach(ProjectsMode.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 260)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showCreate = true } label: { Image(systemName: "plus") }
+                    .accessibilityLabel("New project")
+            }
+        }
     }
 }
 

@@ -24,6 +24,9 @@ struct IssueDetailView: View {
     @State private var approvals = 0
     @State private var sendBacks = 0
     @FocusState private var composing: Bool
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var showInspector = true
+    private var isRegular: Bool { sizeClass == .regular }
     @Namespace private var pillSpace
 
     private var actions: IssueActions { IssueActions(session: session, credential: credential) }
@@ -32,7 +35,7 @@ struct IssueDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
-                pills
+                if !isRegular { pills }
                 statusLine
                 commentThread
             }
@@ -45,9 +48,16 @@ struct IssueDetailView: View {
         .navigationTitle(issue.key)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
+        .inspector(isPresented: Binding(get: { isRegular && showInspector }, set: { showInspector = $0 })) {
+            inspector.inspectorColumnWidth(min: 240, ideal: 280, max: 340)
+        }
         .sheet(item: $sheet) { which in
             sheetContent(which)
                 .navigationTransition(.zoom(sourceID: which, in: pillSpace))
+        }
+        .onChange(of: session.offline.cachedIssue(key: issue.key)) { _, fresh in
+            // An edit made elsewhere (a swipe in the list column) shows here too.
+            if let fresh, fresh != issue { issue = fresh }
         }
         .sensoryFeedback(.success, trigger: approvals)
         .sensoryFeedback(.warning, trigger: sendBacks)
@@ -175,10 +185,37 @@ struct IssueDetailView: View {
         }
     }
 
+    /// iPad: the same properties as rows in a side column.
+    private var inspector: some View {
+        List {
+            inspectorRow("State", .state) { HStack(spacing: 6) { StateGlyph(state: issue.state); Text(issue.state.displayName) } }
+            inspectorRow("Priority", .priority) { HStack(spacing: 6) { PriorityGlyph(priority: issue.priority); Text(issue.priority.displayName) } }
+            inspectorRow("Assignee", .assignee) { Text(assigneeTitle) }
+            inspectorRow("Project", .project) { Text(catalog.project(issue.projectId)?.name ?? "None") }
+            inspectorRow("Cycle", .cycle) { Text(catalog.cycle(issue.cycleId)?.title ?? "None") }
+            inspectorRow("Labels", .labels) { Text(labelsTitle) }
+        }
+    }
+
+    private func inspectorRow<Value: View>(_ title: String, _ which: DetailSheet, @ViewBuilder _ value: () -> Value) -> some View {
+        Button { sheet = which } label: {
+            LabeledContent(title) { value().foregroundStyle(Theme.ink) }
+        }
+        .buttonStyle(.plain)
+        .hoverEffect(.highlight)
+        .matchedTransitionSource(id: which, in: pillSpace)
+    }
+
     // ── Toolbar: review decision ────────────────────────────────────────
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
+        if isRegular {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showInspector.toggle() } label: { Image(systemName: "sidebar.trailing") }
+                    .accessibilityLabel(showInspector ? "Hide properties" : "Show properties")
+            }
+        }
         if issue.state == .inReview {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Approve") { Task { await review("approve") } }

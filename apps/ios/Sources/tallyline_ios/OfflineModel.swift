@@ -122,6 +122,12 @@ final class OfflineModel {
         return cache.issues(in: state)
     }
 
+    /// One issue from the cache by key, so a detail column shows edits made
+    /// elsewhere (a swipe in the list) without being handed a stale copy.
+    func cachedIssue(key: String) -> Issue? {
+        cache?.issues.first { $0.key == key }
+    }
+
     /// Fetch what changed since the last sync and merge it into the cache.
     /// The first sync (or a workspace switch) loads everything.
     func syncIssues(workspaceSlug: String) async throws {

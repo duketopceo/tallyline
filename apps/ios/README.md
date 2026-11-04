@@ -3,6 +3,18 @@
 Native Tallyline client for iPhone and iPad — SwiftUI, SwiftPM package plus an
 `xcodegen` shipping target, mirroring the `kate-ios` layout.
 
+## Deployment floor
+
+iOS 18. `Package.swift`, `project.yml` and `scripts/xtool-testflight.sh` must agree, and a source test (`SourceLintTests`) and the xtool script both fail if they do not. iOS 26 features (the tab bar's minimize-on-scroll, the bottom accessory) sit behind `#available(iOS 26, *)` with the iOS 18 behaviour as the fallback.
+
+## Shipped builds and extensions
+
+A build uploaded by `.github/workflows/ios-release.yml` (the supported path) carries the widget and share extensions. A build from `scripts/xtool-testflight.sh` does not: it has no widgets, no share sheet and an empty App Group container.
+
+## UI rules (checked in CI)
+
+`SourceLintTests` fails on custom glass (`glassEffect`, materials) outside `Shell/`, raw animation curves outside `TallylineDesign/Motion.swift`, `.spring(response:dampingFraction:)`, and system or literal colours outside `Theme.swift`. Motion goes through `MotionToken`; colour through `Theme`.
+
 ## Layout
 
 - `Sources/TallylineCore` — pure-Foundation API client, pairing/auth, models.

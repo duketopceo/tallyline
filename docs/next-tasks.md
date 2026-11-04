@@ -2,8 +2,8 @@
 
 Heaviest open work, ordered by impact. Every item comes from the "Open: needs Luke" table in [ROADMAP.md](../ROADMAP.md). An agent can prep and verify each one, but Luke has to supply the input listed for it.
 
-1. **S5 Apple setup and first TestFlight build**
-   - What: S5-U1 sets up the App IDs: the app with Push Notifications and the `group.app.tallyline.ios` App Group, plus the widgets and share extension IDs. S5-U8 is the first TestFlight upload.
+1. **S5 Apple setup and first TestFlight build** (done 2026-11-03: the app is on TestFlight, uploaded by `ios-release.yml`; what is left is confirming pairing and sync on a device with each new build)
+   - What: S5-U1 set up the App IDs: the app with Push Notifications and the `group.app.tallyline.ios` App Group, plus the widgets and share extension IDs. S5-U8 was the first TestFlight upload.
    - Files: `apps/ios` (`project.yml`, `App.entitlements`, `Extensions/`, `ci/`, `scripts/`, `README.md`).
    - Luke provides: Apple Developer account access, the App IDs and App Group, and signing and App Store Connect API credentials.
    - Verify: the iOS CI build passes, the build shows up in TestFlight, and it installs and pairs on a device.

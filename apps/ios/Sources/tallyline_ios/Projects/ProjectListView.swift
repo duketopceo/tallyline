@@ -9,6 +9,8 @@ struct ProjectListView: View {
     var session: SessionModel
     let projects: [Project]
     let summary: RoadmapSummary?
+    /// Set on iPad, where the list drives a detail column.
+    var selection: Binding<String?>?
     let onCreate: () -> Void
 
     var body: some View {
@@ -23,8 +25,16 @@ struct ProjectListView: View {
                         .buttonStyle(.borderedProminent)
                 }
             } else {
-                List(projects) { project in
-                    NavigationLink(value: project) { ProjectRow(project: project, counts: summary?.counts(forProject: project.id)) }
+                if let selection {
+                    List(projects, selection: selection) { project in
+                        ProjectRow(project: project, counts: summary?.counts(forProject: project.id))
+                            .tag(project.id)
+                            .hoverEffect(.highlight)
+                    }
+                } else {
+                    List(projects) { project in
+                        NavigationLink(value: project) { ProjectRow(project: project, counts: summary?.counts(forProject: project.id)) }
+                    }
                 }
             }
         }
