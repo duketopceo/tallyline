@@ -13,7 +13,7 @@ Native Tallyline client for iPhone and iPad — SwiftUI, SwiftPM package plus an
   anchor file and App Intents (Xcode only extracts intent metadata there).
   Everything else ships from the package.
 - `project.yml` — `xcodegen generate` produces `Tallyline.xcodeproj` (not committed).
-- `scripts/testflight.sh` — archive, export, dSYM keep, upload (macOS only,
+- `scripts/ci-testflight.sh` — archive, export, dSYM keep, upload (macOS only,
   run by `.github/workflows/ios-release.yml`, or by hand on any Mac).
 - `scripts/xcode-plist.sh` — writes `build/Info.xcode.plist` with build-setting
   variables before every xcodebuild.
@@ -88,3 +88,19 @@ Every pull request that touches `apps/ios` is compiled and tested by
 `.github/workflows/ios.yml`. `xtool` on a Linux machine stays the inner-loop
 install to a registered phone. See the S5 stage in
 `docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md`.
+
+## RELEASING
+
+Tag `ios-vX.Y.Z` and push it: `git tag ios-v1.2.3 && git push origin ios-v1.2.3`. The
+`ios-release` workflow takes the version from the tag, uses `run_number + 100` as the build
+number, uploads to TestFlight and creates a GitHub release. Details in `docs/releasing.md`.
+
+**Backup runner.** The release job runs on the self-hosted `promax` Mac runner. To use a GitHub-hosted runner instead
+(for example when that Mac is offline), set the repo variable, and delete it to go back:
+
+```sh
+gh variable set IOS_RUNNER -R duketopceo/tallyline --body '"macos-26"'
+gh variable delete IOS_RUNNER -R duketopceo/tallyline
+```
+
+The release job waits for approval of the `testflight` environment, which also holds `KC_PASSWORD` (the login keychain password of the self-hosted runner Mac). It never runs on pull requests.

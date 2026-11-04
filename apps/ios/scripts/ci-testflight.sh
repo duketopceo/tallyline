@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Build a signed Release archive and upload to TestFlight (internal).
-# Runs on macOS with a release Xcode: .github/workflows/ios-release.yml, or any Mac by hand.
+# The one TestFlight path: .github/workflows/ios-release.yml (push an ios-vX.Y.Z tag) runs this
+# script on a hosted macOS runner, and so can you by hand on any Mac with a release Xcode.
+# Env: MARKETING_VERSION (X.Y.Z), BUILD_NUMBER (integer above every uploaded build; CI uses
+# run_number + 100), ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH, APPLE_TEAM_ID.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -23,8 +26,10 @@ xcodebuild -version >/dev/null 2>&1 || die "xcodebuild failed — select a full 
 
 export DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
 
-BUILD_NUMBER="$(date -u +%Y%m%d%H%M%S)"
-MARKETING_VERSION="${MARKETING_VERSION:-1.0}"
+: "${MARKETING_VERSION:?Set MARKETING_VERSION (X.Y.Z; CI takes it from the ios-vX.Y.Z tag)}"
+: "${BUILD_NUMBER:?Set BUILD_NUMBER (integer above every uploaded build; CI uses run_number + 100)}"
+[[ "$MARKETING_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "MARKETING_VERSION must be X.Y.Z, got: $MARKETING_VERSION"
+[[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]] || die "BUILD_NUMBER must be an integer, got: $BUILD_NUMBER"
 ARCHIVE="$ROOT/build/Tallyline.xcarchive"
 EXPORT_DIR="$ROOT/build/export"
 IPA="$EXPORT_DIR/Tallyline.ipa"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Writes build/Info.xcode.plist, the Xcode copy of Info.plist with build-setting variables
 # (Info.plist itself stays xtool-friendly). project.yml points the Tallyline target at it, so every
-# xcodebuild path (testflight.sh, CI) runs this before `xcodegen generate`.
+# xcodebuild path (ci-testflight.sh, CI) runs this before `xcodegen generate`.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p build

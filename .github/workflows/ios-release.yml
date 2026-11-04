@@ -1,19 +1,27 @@
 name: ios-release
 
 # Archives, signs and uploads the iOS app to TestFlight (internal group).
+# Push a tag `ios-vX.Y.Z` (for example ios-v1.2.3):
+#   MARKETING_VERSION       = the tag without `ios-v` (must be X.Y.Z semver, else the run fails)
+#   CURRENT_PROJECT_VERSION = github.run_number + 100 (above every build already uploaded)
+# and a GitHub release is created for the tag. Pull requests are built and tested, unsigned and
+# without secrets, by ios.yml; this workflow never runs on pull_request.
+# Runs on the self-hosted `promax` Mac runner; set the repo variable IOS_RUNNER to "macos-26" for a
+# GitHub-hosted runner instead (see RELEASING in the README). The self-hosted Mac also needs
+# KC_PASSWORD (its login keychain password) in the environment.
 # Runs only by hand or on an ios-v* tag, and only after a required reviewer
 # approves the `testflight` environment (Settings → Environments). Secrets live
 # in that environment, never in the repo:
 #   ASC_KEY_ID, ASC_ISSUER_ID   App Store Connect API key identifiers
 #   ASC_KEY_P8_BASE64           the AuthKey_<id>.p8 file, base64-encoded
 #   APPLE_TEAM_ID               Apple Developer team ID
+#   KC_PASSWORD                 login keychain password of the self-hosted Mac (unused when hosted)
 on:
   workflow_dispatch:
     inputs:
       marketing_version:
-        description: "Marketing version, e.g. 1.0"
+        description: "Marketing version X.Y.Z (the tag supplies it on tag pushes)"
         required: true
-        default: "1.0"
   push:
     tags: ["ios-v*"]
 
@@ -26,9 +34,11 @@ concurrency:
 
 jobs:
   testflight:
-    runs-on: macos-26
+    runs-on: ${{ fromJSON(vars.IOS_RUNNER || '["self-hosted","macOS","promax"]') }}
     timeout-minutes: 60
     environment: testflight
+    permissions:
+      contents: write # create the GitHub release for the tag
     defaults:
       run:
         working-directory: apps/ios
@@ -48,16 +58,47 @@ jobs:
             [ -n "${!v}" ] || missing="$missing $v"
           done
           [ -z "$missing" ] || { echo "::error::Missing secrets in the testflight environment:$missing"; exit 1; }
+      - name: Resolve version and build number
+        env:
+          INPUT_VERSION: ${{ inputs.marketing_version }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#ios-v}"
+          else
+            version="$INPUT_VERSION"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$version' is not X.Y.Z semver. Tag the release as ios-vX.Y.Z, for example ios-v1.2.3."
+            exit 1
+          fi
+          {
+            echo "MARKETING_VERSION=$version"
+            echo "BUILD_NUMBER=$((100 + GITHUB_RUN_NUMBER))"
+          } >> "$GITHUB_ENV"
+          echo "Version $version, build $((100 + GITHUB_RUN_NUMBER))"
       - name: Toolchain
         run: |
           xcodebuild -version
-          brew install xcodegen
+          command -v xcodegen >/dev/null || /opt/homebrew/bin/brew install xcodegen
       - name: Write the API key to a temp file
         env:
           ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
         run: |
           umask 077
           printf '%s' "$ASC_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+      - name: Unlock login keychain
+        if: runner.environment == 'self-hosted'
+        env:
+          KC_PASSWORD: ${{ secrets.KC_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # The runner Mac's own login keychain; no keychains are created and the search list is left alone.
+          KC="$HOME/Library/Keychains/login.keychain-db"
+          security unlock-keychain -p "$KC_PASSWORD" "$KC"
+          # Lets codesign use the private key non-interactively (else errSecInternalComponent).
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PASSWORD" "$KC" >/dev/null
+
       - name: Archive, export, upload
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -65,18 +106,21 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           ASC_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
           DSYM_DIR: ${{ runner.temp }}/dsyms
-          VERSION_INPUT: ${{ inputs.marketing_version }}
-        run: |
-          MARKETING_VERSION="${VERSION_INPUT:-${GITHUB_REF_NAME#ios-v}}"
-          [[ "$MARKETING_VERSION" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || { echo "::error::bad version $MARKETING_VERSION"; exit 1; }
-          export MARKETING_VERSION
-          bash scripts/testflight.sh
+        run: bash scripts/ci-testflight.sh
       - name: Keep dSYMs (crash symbolication)
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dsyms-${{ github.run_number }}
           path: ${{ runner.temp }}/dsyms
           retention-days: 90
+      - name: Create GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --title "Tallyline iOS $MARKETING_VERSION" --generate-notes \
+            --notes "Uploaded to TestFlight as version $MARKETING_VERSION, build $BUILD_NUMBER."
       - name: Remove the key
         if: always()
         run: rm -f "$RUNNER_TEMP/AuthKey.p8" "$HOME/.appstoreconnect/private_keys/"AuthKey_*.p8

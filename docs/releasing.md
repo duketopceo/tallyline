@@ -47,9 +47,15 @@ Check after release: `npm view @tallyline/mcp-server dist.attestations.url` and
   simulator `build-for-testing` (app plus UI tests) and an unsigned Release build
   for the device SDK. No secrets are used.
 - **Uploads** run `.github/workflows/ios-release.yml`, by hand (Actions → ios-release →
-  Run workflow, with a marketing version) or by pushing an `ios-vX.Y` tag. The job
-  waits for approval on the `testflight` environment, then runs
-  `apps/ios/scripts/testflight.sh` and keeps the build's dSYMs as a 90-day artifact.
+  Run workflow, with a marketing version) or by pushing an `ios-vX.Y.Z` tag (the tag is the
+  marketing version; the build number is `run_number + 100`; a non-semver tag fails the run).
+  The job waits for approval on the `testflight` environment, then runs
+  `apps/ios/scripts/ci-testflight.sh`, keeps the build's dSYMs as a 90-day artifact and
+  creates a GitHub release for the tag.
+
+### RELEASING
+
+Tag `ios-vX.Y.Z` and push it: `git tag ios-v1.2.3 && git push origin ios-v1.2.3`.
 
 One-time owner setup:
 
