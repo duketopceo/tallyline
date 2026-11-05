@@ -123,7 +123,7 @@ extension PickerCatalog {
     }
 
     var teamGroups: [PropertyGroup] {
-        [PropertyGroup(options: teams.map { PropertyOption(id: $0.id, title: $0.name, detail: $0.key, systemImage: "person.2") })]
+        [PropertyGroup(options: teams.map { PropertyOption(id: $0.id, title: $0.name, systemImage: "person.2", detail: $0.key) })]
     }
 
     /// People first, then agents. People are chosen by user id, the id the
@@ -135,7 +135,7 @@ extension PickerCatalog {
             return PropertyOption(id: "human:\(userId)", title: member.title, systemImage: "person.crop.circle")
         }
         if !people.isEmpty { groups.append(PropertyGroup(title: "People", options: people)) }
-        let robots = agents.map { PropertyOption(id: "agent:\($0.id)", title: $0.name, detail: $0.harness, systemImage: "sparkles") }
+        let robots = agents.map { PropertyOption(id: "agent:\($0.id)", title: $0.name, systemImage: "sparkles", detail: $0.harness) }
         if !robots.isEmpty { groups.append(PropertyGroup(title: "Agents", options: robots)) }
         return groups
     }
@@ -148,7 +148,7 @@ private let previewGroups = [
         PropertyOption(id: "human:2", title: "Grace Hopper", systemImage: "person.crop.circle"),
     ]),
     PropertyGroup(title: "Agents", options: [
-        PropertyOption(id: "agent:1", title: "Builder", detail: "claude-code", systemImage: "sparkles"),
+        PropertyOption(id: "agent:1", title: "Builder", systemImage: "sparkles", detail: "claude-code"),
     ]),
 ]
 

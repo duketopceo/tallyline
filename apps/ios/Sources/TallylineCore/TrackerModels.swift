@@ -41,6 +41,24 @@ public struct Issue: Codable, Sendable, Identifiable, Hashable {
     public var labels: [IssueLabel]? = nil
     /// True while an unfinished issue blocks this one (list responses).
     public var blocked: Bool? = nil
+
+    public init(
+        id: String, key: String, number: Int, title: String, description: String?, state: IssueState,
+        priority: IssuePriority, estimate: Int?, dueDate: Date?, assigneeType: String?, assigneeId: String?,
+        delegateType: String?, delegateId: String?, creatorType: String, creatorId: String?, projectId: String?,
+        cycleId: String?, parentId: String?, source: String, occurrenceCount: Int, createdAt: Date, updatedAt: Date,
+        labels: [IssueLabel]? = nil, blocked: Bool? = nil
+    ) {
+        self.id = id; self.key = key; self.number = number; self.title = title; self.description = description
+        self.state = state; self.priority = priority; self.estimate = estimate; self.dueDate = dueDate
+        self.assigneeType = assigneeType; self.assigneeId = assigneeId
+        self.delegateType = delegateType; self.delegateId = delegateId
+        self.creatorType = creatorType; self.creatorId = creatorId
+        self.projectId = projectId; self.cycleId = cycleId; self.parentId = parentId
+        self.source = source; self.occurrenceCount = occurrenceCount
+        self.createdAt = createdAt; self.updatedAt = updatedAt
+        self.labels = labels; self.blocked = blocked
+    }
 }
 
 /// The label fields an issue row carries.
