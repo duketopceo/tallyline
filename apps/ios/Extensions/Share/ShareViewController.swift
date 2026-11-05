@@ -120,7 +120,9 @@ final class ShareModel {
                 } else {
                     phase = .failed("Could not save on this phone.")
                 }
-            case .rejected(let reason):
+            case .rejected(let reason), .conflict(let reason, _):
+                // a create carries no version, so STALE_WRITE cannot happen here;
+                // treat it like any other refusal
                 phase = .failed(reason)
             }
         }
