@@ -70,6 +70,7 @@ export interface CliIo {
 // CLI-side failure carrying an exit code. API-side failures stay ApiError.
 export { CliError } from "./cli-error.js";
 import { CliError } from "./cli-error.js";
+import { randomUUID } from "node:crypto";
 
 export const fail = (msg: string) => new CliError(1, msg);
 export const usage = (msg: string) => new CliError(2, msg);
@@ -590,6 +591,87 @@ const showCmd: Command = {
   },
 };
 
+/** Exit code for `409 STALE_WRITE`: the issue changed since it was read. Re-read, then retry. */
+export const EXIT_STALE_WRITE = 6;
+
+function staleWriteError(ctx: CmdCtx, err: ApiError, key: string): CliError {
+  const d = (err.details ?? {}) as { current?: unknown; issue?: unknown };
+  const current = d.current ?? d.issue;
+  if (ctx.json) {
+    emit(ctx, { error: { code: "STALE_WRITE", message: err.message }, key, current: current ?? null });
+    return new CliError(EXIT_STALE_WRITE, ""); // empty message: already reported
+  }
+  const shown = current === undefined ? "(the server did not include it)" : JSON.stringify(current);
+  return new CliError(
+    EXIT_STALE_WRITE,
+    `STALE_WRITE: ${key} changed since you read it. Server's current value: ${shown}. ` +
+      `Re-run the command to apply it on top of the current version.`,
+  );
+}
+
+const moveTeamCmd: Command = {
+  usage: "tallyline move-team <KEY> <TEAM>",
+  summary: "move KEY to another team (TEAM is a team key or name); prints the new key",
+  options: {},
+  needsApi: true,
+  async run(ctx) {
+    const key = requireKey(ctx.args[0]);
+    const want = ctx.args[1]?.trim();
+    if (!want) throw usage("missing team (a team key or name)");
+    const { teams } = await ctx.client.listTeams();
+    const lower = want.toLowerCase();
+    const team =
+      teams.find((t) => t.key.toLowerCase() === lower) ??
+      teams.find((t) => t.name.toLowerCase() === lower);
+    if (!team) {
+      throw new CliError(
+        4,
+        `no team '${want}' — teams: ${teams.map((t) => t.key).join(", ") || "(none)"}`,
+      );
+    }
+    const issue = await ctx.client.getIssue(key);
+    let out: Issue = issue;
+    if (issue.teamId !== team.id) {
+      try {
+        out = await ctx.client.patchIssue(
+          key,
+          { teamId: team.id },
+          {
+            idempotencyKey: `cli-${randomUUID()}`,
+            ifMatch: String(issue.version ?? issue.updatedAt),
+          },
+        );
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409 && err.code === "STALE_WRITE") {
+          throw staleWriteError(ctx, err, key);
+        }
+        throw err;
+      }
+    }
+    if (ctx.json) emit(ctx, out);
+    else ctx.io.out(out.key);
+  },
+};
+
+const linkCmd: Command = {
+  usage: "tallyline link <KEY>",
+  summary: "print the issue's link (the API's url field)",
+  options: {},
+  needsApi: true,
+  async run(ctx) {
+    const key = requireKey(ctx.args[0]);
+    const issue = await ctx.client.getIssue(key);
+    if (typeof issue.url !== "string" || issue.url === "") {
+      throw new CliError(
+        1,
+        `this server did not return a link for ${key} (it predates the issue link API); upgrade the server`,
+      );
+    }
+    if (ctx.json) emit(ctx, { key: issue.key, url: issue.url });
+    else ctx.io.out(issue.url);
+  },
+};
+
 const triageCmd: Command = {
   usage: "tallyline triage <KEY> <accept|decline>",
   summary:
@@ -788,7 +870,8 @@ tly events --after 41     # resume the workspace feed; --follow to stream
 
 - \`--json\` (or \`--format json\`) emits machine-readable JSON on stdout.
 - 0 ok · 1 error · 2 usage/config · 3 unauthorized/forbidden ·
-  4 not found · 5 conflict (invalid transition, triage state, etc.)
+  4 not found · 5 conflict (invalid transition, triage state, etc.) ·
+  6 stale write (the issue changed since it was read; STALE_WRITE)
 - API failures print \`CODE: message\` on stderr.
 `;
 
@@ -1059,6 +1142,8 @@ export const commands: Record<string, Command> = {
   search: searchCmd,
   show: showCmd,
   triage: triageCmd,
+  "move-team": moveTeamCmd,
+  link: linkCmd,
   teams: teamsCmd,
   events: eventsCmd,
   session: sessionCmd,

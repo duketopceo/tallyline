@@ -11,13 +11,14 @@ import Security
 /// saved by an older build outside the group moves into it on first read.
 public final class KeychainCredentialStore: CredentialStore, @unchecked Sendable {
     private let service = "app.tallyline.ios.device-credential"
-    /// One credential per install today. Multi-instance support keys this by
-    /// server URL when that lands.
-    private let account = "default"
+    /// The active credential is "default". Credentials for other workspaces
+    /// the phone is paired with sit beside it, one account each (CredentialShelf).
+    private let account: String
     private let accessGroup: String?
 
-    public init(accessGroup: String? = WidgetSnapshot.appGroup) {
+    public init(accessGroup: String? = WidgetSnapshot.appGroup, account: String = "default") {
         self.accessGroup = accessGroup
+        self.account = account
     }
 
     private func query(group: String?) -> [String: Any] {

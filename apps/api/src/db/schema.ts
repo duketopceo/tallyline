@@ -353,6 +353,10 @@ export const issues = pgTable(
     }>(),
     occurrenceCount: integer("occurrence_count").notNull().default(1),
     sortOrder: real("sort_order").notNull().default(0),
+    // write contract C6: bumped by a BEFORE UPDATE trigger (migration 0045) on
+    // every update, so no writer can forget it; separate from updatedAt so the
+    // delta cursor is untouched
+    version: integer("version").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

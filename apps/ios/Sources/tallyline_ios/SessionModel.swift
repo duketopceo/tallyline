@@ -31,6 +31,9 @@ final class SessionModel {
     func setError(_ message: String) { lastError = message }
 
     private let store: any CredentialStore
+    /// Credentials for other workspaces this phone is paired with. A device
+    /// credential is bound to one workspace, so switching swaps credentials.
+    private let shelf: CredentialShelf
     /// Issue cache and outbox. Set once in init.
     @ObservationIgnored private(set) var offline: OfflineModel!
     /// Roadmap summary, review queue and pick-lists, shared by every tab.
@@ -43,12 +46,63 @@ final class SessionModel {
         await workspace.refresh(client: client, workspaceSlug: credential.workspaceSlug)
     }
 
-    init(store: any CredentialStore) {
+    init(
+        store: any CredentialStore,
+        shelf: CredentialShelf = CredentialShelf(index: JSONFileStore<[String]>.standard(named: "workspace-shelf")) { slug in
+            KeychainCredentialStore(account: "workspace-\(slug)")
+        }
+    ) {
         self.store = store
+        self.shelf = shelf
         if let credential = try? store.load() {
             state = .signedIn(credential)
         }
         offline = OfflineModel(client: { [weak self] in self?.client })
+        if case let .signedIn(credential) = state { offline.activate(workspaceSlug: credential.workspaceSlug) }
+    }
+
+    /// The workspaces to offer in Settings. Empty (so no row at all) unless
+    /// the person belongs to more than one.
+    var workspaceChoices: [WorkspaceChoice] {
+        guard case let .signedIn(credential) = state, let me else { return [] }
+        return WorkspaceSwitcher.choices(memberships: me.memberships, current: credential.workspaceSlug, pairedSlugs: shelf.shelvedSlugs)
+    }
+
+    /// Make a paired workspace the active one: its credential, its cache, its
+    /// queued writes. Returns false (and says why in `lastError`) when this
+    /// phone is not paired with it or its credential has lapsed.
+    @discardableResult
+    func switchWorkspace(to slug: String) -> Bool {
+        lastError = nil
+        guard case let .signedIn(current) = state, current.workspaceSlug != slug else { return false }
+        guard let next = try? shelf.take(slug) else {
+            lastError = "This phone is not paired with that workspace yet."
+            return false
+        }
+        guard next.expiresAt > Date() else {
+            lastError = "Access to that workspace has expired. Pair this phone with it again."
+            return false
+        }
+        do {
+            try shelf.shelve(current)
+            try store.save(next)
+        } catch {
+            // Put things back the way they were.
+            _ = try? shelf.take(current.workspaceSlug)
+            try? shelf.shelve(next)
+            lastError = "Could not switch workspaces: \(error.localizedDescription)"
+            return false
+        }
+        enter(next)
+        return true
+    }
+
+    /// Show a different workspace: reset what is scoped to the old one.
+    private func enter(_ credential: DeviceCredential) {
+        me = nil
+        workspace.reset()
+        offline.activate(workspaceSlug: credential.workspaceSlug)
+        state = .signedIn(credential)
     }
 
     var client: APIClient? {
@@ -110,13 +164,19 @@ final class SessionModel {
             workspaceName: redeemed.workspace.name,
             serverURL: serverURL
         )
+        // Pairing a second workspace keeps the first one's credential on the
+        // shelf instead of dropping it, so Settings can switch back.
+        var previous: DeviceCredential?
+        if case let .signedIn(old) = state, old.workspaceSlug != credential.workspaceSlug { previous = old }
         do {
+            if let previous { try shelf.shelve(previous) }
+            _ = try shelf.take(credential.workspaceSlug)
             try store.save(credential)
         } catch {
             lastError = "could not save the credential: \(error.localizedDescription)"
             throw error
         }
-        state = .signedIn(credential)
+        enter(credential)
     }
 
     /// A refusal the server described, or the transport failure it could not.
@@ -169,6 +229,7 @@ final class SessionModel {
         me = nil
         workspace.reset()
         try? store.clear()
+        shelf.clear()
         state = .signedOut
         WidgetBridge.clear()
         Task { await offline.wipe() }

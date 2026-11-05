@@ -102,9 +102,10 @@ public struct APIClient: Sendable {
         path: String,
         query: [String: String] = [:],
         authorized: Bool = true,
-        idempotencyKey: String? = nil
+        idempotencyKey: String? = nil,
+        ifMatchVersion: Int? = nil
     ) async throws -> Out {
-        try await sendRaw(method: method, path: path, query: query, body: nil as Data?, authorized: authorized, idempotencyKey: idempotencyKey)
+        try await sendRaw(method: method, path: path, query: query, body: nil as Data?, authorized: authorized, idempotencyKey: idempotencyKey, ifMatchVersion: ifMatchVersion)
     }
 
     public func send<In: Encodable, Out: Decodable>(
@@ -113,10 +114,11 @@ public struct APIClient: Sendable {
         query: [String: String] = [:],
         body: In,
         authorized: Bool = true,
-        idempotencyKey: String? = nil
+        idempotencyKey: String? = nil,
+        ifMatchVersion: Int? = nil
     ) async throws -> Out {
         let data = try JSONEncoder().encode(body)
-        return try await sendRaw(method: method, path: path, query: query, body: data, authorized: authorized, idempotencyKey: idempotencyKey)
+        return try await sendRaw(method: method, path: path, query: query, body: data, authorized: authorized, idempotencyKey: idempotencyKey, ifMatchVersion: ifMatchVersion)
     }
 
     private func sendRaw<Out: Decodable>(
@@ -125,13 +127,17 @@ public struct APIClient: Sendable {
         query: [String: String],
         body: Data?,
         authorized: Bool,
-        idempotencyKey: String?
+        idempotencyKey: String?,
+        ifMatchVersion: Int?
     ) async throws -> Out {
         var request = URLRequest(url: url(for: path, query: query))
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let idempotencyKey {
             request.setValue(idempotencyKey, forHTTPHeaderField: "Idempotency-Key")
+        }
+        if let ifMatchVersion {
+            request.setValue("\"\(ifMatchVersion)\"", forHTTPHeaderField: "If-Match")
         }
         if body != nil {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -149,6 +155,10 @@ public struct APIClient: Sendable {
         let status = (response as? HTTPURLResponse)?.statusCode ?? -1
         guard (200..<300).contains(status) else {
             let envelope = try? Self.decoder.decode(APIErrorEnvelope.self, from: data)
+            if status == 409, envelope?.error.code == "STALE_WRITE" {
+                let stale = try? Self.decoder.decode(StaleWriteEnvelope.self, from: data)
+                throw APIClientError.staleWrite(message: envelope?.error.message, currentVersion: stale?.issue.version)
+            }
             throw APIClientError.http(status, code: envelope?.error.code, message: envelope?.error.message)
         }
         do {

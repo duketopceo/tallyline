@@ -1,4 +1,4 @@
-import { SettingsTabs } from "@/components/settings-tabs";
+import { SettingsHeader } from "@/components/settings/settings-header";
 import { api } from "@/lib/api";
 
 interface Message {
@@ -17,11 +17,10 @@ export default async function DevInboxPage() {
   const res = await api<{ messages: Message[] }>("/v1/dev/mail");
   const messages = res.data?.messages ?? [];
   return (
-    <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-lining-faint px-4">
-        <h1 className="text-sm font-semibold">Dev inbox</h1>
-        <SettingsTabs />
-      </header>
+    // focusable so keyboard users can scroll long mail now that the header
+    // holds no links at desktop width (axe scrollable-region-focusable)
+    <main tabIndex={0} aria-label="Dev inbox" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <SettingsHeader title="Dev inbox" />
       <div className="mx-auto w-full max-w-3xl space-y-3 p-4">
         {!res.ok ? (
           <p className="text-[13px] text-ink-subtle">

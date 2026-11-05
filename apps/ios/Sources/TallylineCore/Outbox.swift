@@ -34,6 +34,10 @@ public enum OutboxStatus: Codable, Sendable, Equatable {
     case pending
     /// Out of attempts or refused by the server. Needs Retry or Discard.
     case failed(reason: String)
+    /// `409 STALE_WRITE`: the issue changed elsewhere. Parked until the person
+    /// picks Keep mine or Use theirs; never retried silently. `serverVersion`
+    /// is the issue version the server reported, used to rebase on Keep mine.
+    case needsDecision(reason: String, serverVersion: Int?)
 }
 
 public struct OutboxEntry: Codable, Sendable, Equatable, Identifiable {
@@ -47,6 +51,9 @@ public struct OutboxEntry: Codable, Sendable, Equatable, Identifiable {
     public var nextAttemptAt: Date
     public var status: OutboxStatus
     public var lastError: String?
+    /// The issue `version` an `updateIssue` was made against, sent as
+    /// `If-Match`. Nil means no precondition (older entries, older servers).
+    public var baseVersion: Int? = nil
 }
 
 /// What the shell shows for a queued write. Derived from the persisted entry,
@@ -62,8 +69,17 @@ public enum OutboxDisplayState: String, Sendable, Equatable, CaseIterable {
 
 public extension OutboxEntry {
     var displayState: OutboxDisplayState {
-        if case .failed = status { return .parked }
-        return attempts > 0 ? .retrying : .pending
+        switch status {
+        case .failed, .needsDecision: return .parked
+        case .pending: return attempts > 0 ? .retrying : .pending
+        }
+    }
+
+    /// Parked by a stale write: the shell offers Keep mine / Use theirs
+    /// instead of Retry.
+    var needsDecision: Bool {
+        if case .needsDecision = status { return true }
+        return false
     }
 }
 
@@ -84,11 +100,13 @@ public struct OutboxPolicy: Sendable {
 
 /// How a failed send should be handled.
 public enum OutboxFailure: Error, Sendable, Equatable {
-    /// Network down, timeout, 409 in flight, 429, 5xx: try again later.
+    /// Network down, timeout, 409 in flight (`IDEMPOTENCY_IN_PROGRESS`), 429, 5xx: try again later.
     case retryable(String)
     /// The server said no (validation, state machine, revoked access). Retrying
     /// unchanged will not help; park it with the server's reason.
     case rejected(String)
+    /// `STALE_WRITE`: needs a person's decision, not a retry.
+    case conflict(String, serverVersion: Int?)
 
     /// Classifies an API client error.
     public static func classify(_ error: Error) -> OutboxFailure {
@@ -96,8 +114,12 @@ public enum OutboxFailure: Error, Sendable, Equatable {
         switch api {
         case .transport(let message):
             return .retryable(message)
-        case .http(let status, _, let message):
+        case .staleWrite(let message, let version):
+            return .conflict(message ?? "Changed elsewhere", serverVersion: version)
+        case .http(let status, let code, let message):
             let reason = message ?? "HTTP \(status)"
+            // the only 409 that is not "first request still running"
+            if status == 409, code == "STALE_WRITE" { return .conflict(reason, serverVersion: nil) }
             if status == 408 || status == 409 || status == 429 || status >= 500 { return .retryable(reason) }
             return .rejected(reason)
         case .decoding(let message):
@@ -112,6 +134,12 @@ public enum OutboxFailure: Error, Sendable, Equatable {
 /// `idempotencyKey: entry.id`.
 public protocol OutboxSender: Sendable {
     func send(_ entry: OutboxEntry) async throws
+}
+
+/// A sender that learns the issue's new `version` from the response, so later
+/// queued writes to the same issue do not conflict with this one.
+public protocol VersionReportingSender: OutboxSender {
+    func sendReportingVersion(_ entry: OutboxEntry) async throws -> Int?
 }
 
 /// Persistence for the queue. `JSONFileStore` on device, in-memory in tests.
@@ -142,10 +170,12 @@ public actor Outbox {
 
     public var all: [OutboxEntry] { entries }
     public var pendingCount: Int { entries.count }
-    public var failedCount: Int { entries.filter { if case .failed = $0.status { true } else { false } }.count }
+    public var failedCount: Int { entries.filter { if case .failed = $0.status { true } else if case .needsDecision = $0.status { true } else { false } }.count }
 
     @discardableResult
-    public func enqueue(_ operation: OutboxOperation, workspaceSlug: String, id: String = UUID().uuidString) throws -> OutboxEntry {
+    public func enqueue(_ operation: OutboxOperation, workspaceSlug: String, id: String = UUID().uuidString, baseVersion: Int? = nil) throws -> OutboxEntry {
+        var base: Int?
+        if case .updateIssue = operation { base = baseVersion }
         let entry = OutboxEntry(
             id: id,
             workspaceSlug: workspaceSlug,
@@ -155,7 +185,8 @@ public actor Outbox {
             attempts: 0,
             nextAttemptAt: now(),
             status: .pending,
-            lastError: nil
+            lastError: nil,
+            baseVersion: base
         )
         entries.append(entry)
         try store.save(entries)
@@ -164,11 +195,16 @@ public actor Outbox {
 
     /// Entries allowed to send now: the oldest entry of each ordering key, if
     /// it is pending and due. Anything behind a waiting or failed entry waits.
-    public func ready() -> [OutboxEntry] {
+    ///
+    /// With `workspaceSlug`, only that workspace's entries are considered: the
+    /// device credential is bound to one workspace, so an entry from another
+    /// one must wait for its own workspace instead of replaying here.
+    public func ready(workspaceSlug: String? = nil) -> [OutboxEntry] {
         var seen = Set<String>()
         var out: [OutboxEntry] = []
         let t = now()
         for entry in entries {
+            if let workspaceSlug, entry.workspaceSlug != workspaceSlug { continue }
             guard seen.insert(entry.orderingKey).inserted else { continue }
             if entry.status == .pending, entry.nextAttemptAt <= t { out.append(entry) }
         }
@@ -176,18 +212,26 @@ public actor Outbox {
     }
 
     /// Sends everything ready, repeating until nothing more is ready now.
-    public func drain(using sender: any OutboxSender) async -> DrainResult {
+    public func drain(using sender: any OutboxSender, workspaceSlug: String? = nil) async -> DrainResult {
         var result = DrainResult()
         var attempted = Set<String>()
         while true {
-            let batch = ready().filter { !attempted.contains($0.id) }
+            let batch = ready(workspaceSlug: workspaceSlug).filter { !attempted.contains($0.id) }
             if batch.isEmpty { break }
             for entry in batch {
                 attempted.insert(entry.id)
                 do {
-                    try await sender.send(entry)
+                    var newVersion: Int?
+                    if let reporter = sender as? any VersionReportingSender {
+                        newVersion = try await reporter.sendReportingVersion(entry)
+                    } else {
+                        try await sender.send(entry)
+                    }
                     entries.removeAll { $0.id == entry.id }
                     result.sent.append(entry.id)
+                    if let base = entry.baseVersion, let newVersion, case .updateIssue = entry.operation {
+                        rebase(orderingKey: entry.orderingKey, from: base, to: newVersion)
+                    }
                 } catch {
                     if record(failure: OutboxFailure.classify(error), for: entry.id) {
                         result.failed.append(entry.id)
@@ -202,8 +246,8 @@ public actor Outbox {
     }
 
     /// When the next entry becomes due, for scheduling a timer.
-    public func nextWake() -> Date? {
-        entries.filter { $0.status == .pending }.map(\.nextAttemptAt).min()
+    public func nextWake(workspaceSlug: String? = nil) -> Date? {
+        entries.filter { $0.status == .pending && (workspaceSlug == nil || $0.workspaceSlug == workspaceSlug) }.map(\.nextAttemptAt).min()
     }
 
     public func retry(_ id: String) throws {
@@ -212,6 +256,27 @@ public actor Outbox {
         entries[i].status = .pending
         entries[i].nextAttemptAt = now()
         try store.save(entries)
+    }
+
+    /// Keep mine: send the edit again against the server's current version, so
+    /// it overwrites the other change knowingly. Writes queued behind it on the
+    /// same issue made against the same old version move along with it.
+    public func keepMine(_ id: String) throws {
+        guard let i = entries.firstIndex(where: { $0.id == id }), case .needsDecision(_, let serverVersion) = entries[i].status else { return }
+        let old = entries[i].baseVersion
+        let key = entries[i].orderingKey
+        entries[i].baseVersion = serverVersion
+        entries[i].attempts = 0
+        entries[i].status = .pending
+        entries[i].nextAttemptAt = now()
+        if let old, let serverVersion { rebase(orderingKey: key, from: old, to: serverVersion) }
+        try store.save(entries)
+    }
+
+    /// Use theirs: drop the local edit and keep the server's version.
+    public func useTheirs(_ id: String) throws {
+        guard let i = entries.firstIndex(where: { $0.id == id }), entries[i].needsDecision else { return }
+        try discard(id)
     }
 
     public func discard(_ id: String) throws {
@@ -225,11 +290,23 @@ public actor Outbox {
         try store.save(entries)
     }
 
+    /// Moves queued entries of one issue from the version they were written
+    /// against to the version the server now reports.
+    private func rebase(orderingKey: String, from old: Int, to new: Int) {
+        for i in entries.indices where entries[i].orderingKey == orderingKey && entries[i].baseVersion == old {
+            entries[i].baseVersion = new
+        }
+    }
+
     /// Returns true when the entry is now parked as failed.
     private func record(failure: OutboxFailure, for id: String) -> Bool {
         guard let i = entries.firstIndex(where: { $0.id == id }) else { return false }
         entries[i].attempts += 1
         switch failure {
+        case .conflict(let reason, let serverVersion):
+            entries[i].lastError = reason
+            entries[i].status = .needsDecision(reason: reason, serverVersion: serverVersion)
+            return true
         case .rejected(let reason):
             entries[i].lastError = reason
             entries[i].status = .failed(reason: reason)
@@ -248,7 +325,7 @@ public actor Outbox {
 
 /// Replays outbox entries through the tracker API, using the entry id as the
 /// `Idempotency-Key` so a replay after a lost response applies once.
-public struct TrackerOutboxSender: OutboxSender {
+public struct TrackerOutboxSender: VersionReportingSender {
     public let client: APIClient
 
     public init(client: APIClient) {
@@ -256,14 +333,23 @@ public struct TrackerOutboxSender: OutboxSender {
     }
 
     public func send(_ entry: OutboxEntry) async throws {
+        _ = try await sendReportingVersion(entry)
+    }
+
+    /// Returns the issue's new version after an edit (nil from a server that
+    /// predates the write contract, or for creates and comments).
+    public func sendReportingVersion(_ entry: OutboxEntry) async throws -> Int? {
         let ws = entry.workspaceSlug
         switch entry.operation {
         case .createIssue(let draft):
             _ = try await client.createIssue(ws: ws, draft, idempotencyKey: entry.id)
+            return nil
         case .updateIssue(let key, let patch):
-            _ = try await client.updateIssue(ws: ws, key: key, patch, idempotencyKey: entry.id)
+            let issue = try await client.updateIssue(ws: ws, key: key, patch, idempotencyKey: entry.id, ifMatchVersion: entry.baseVersion)
+            return issue.version
         case .addComment(let key, let body):
             _ = try await client.addComment(ws: ws, key: key, body: body, idempotencyKey: entry.id)
+            return nil
         }
     }
 }

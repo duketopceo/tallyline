@@ -59,6 +59,19 @@ Both are JSON files written atomically under Application Support. The plan named
 
 `TallylineCore/Push.swift` holds the registration flow and preferences (tested on Linux). `tallyline_ios/PushViews.swift` holds the app delegate, permission prompt and Settings > Notifications. The flow and privacy model are in [docs/push.md](../../docs/push.md). `App.entitlements` carries `aps-environment`, so the App ID needs the Push Notifications capability.
 
+## Settings capabilities
+
+A row exists only when its backing does; otherwise it is absent, not disabled.
+
+| Row | Shown when | Core logic |
+|---|---|---|
+| Workspace | the person belongs to more than one live workspace | `Workspaces.swift` (`WorkspaceSwitcher`, `CredentialShelf`) |
+| Send a test notification | server reports push on and `canTest` | `PushConfig.offersTest` |
+| Send TestFlight feedback | the build carries a `sandboxReceipt` | `BuildChannel` |
+| App icon | `CFBundleAlternateIcons` declares icons (none ship yet; hidden) | `AlternateIcons` |
+
+A device credential is bound to one workspace on the server, so the phone keeps one credential per paired workspace (Keychain, one account each) and a switch swaps them. Each workspace has its own issue cache file, and the outbox only replays entries whose workspace is the active one; entries for another workspace wait for it. Pair another workspace from Settings > Workspace.
+
 ## Widgets
 
 `Extensions/Widgets` is a WidgetKit extension with three widgets: My issues, Needs your review, and Cycle progress, in Home Screen and Lock Screen sizes. The app writes `WidgetSnapshot` (built in `TallylineCore/WidgetSnapshot.swift`, tested on Linux) to the App Group `group.app.tallyline.ios` on launch and when it goes to the background. The widget only reads that file; it never calls the network. Lock Screen sizes show counts only, never titles. Taps open `tallyline://open/issues` or `tallyline://open/review`.

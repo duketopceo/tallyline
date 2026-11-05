@@ -33,7 +33,9 @@ final class OfflineModel {
     var failedCount: Int { entries.filter { if case .failed = $0.status { true } else { false } }.count }
 
     private let outbox: Outbox
-    private let cacheStore: JSONFileStore<IssueCacheSnapshot>
+    /// One issue cache per workspace; `activeWorkspace` picks the one in use.
+    private let caches = IssueCacheDirectory()
+    @ObservationIgnored private(set) var activeWorkspace: String?
     private let client: @MainActor () -> APIClient?
     private let monitor = NWPathMonitor()
     private var wakeTask: Task<Void, Never>?
@@ -41,8 +43,6 @@ final class OfflineModel {
     init(client: @escaping @MainActor () -> APIClient?) {
         self.client = client
         self.outbox = Outbox(store: JSONFileStore<[OutboxEntry]>.standard(named: "outbox"))
-        self.cacheStore = JSONFileStore<IssueCacheSnapshot>.standard(named: "issue-cache")
-        self.cache = try? cacheStore.read()
         monitor.pathUpdateHandler = { [weak self] path in
             let online = path.status == .satisfied
             let expensive = path.isExpensive
@@ -55,16 +55,41 @@ final class OfflineModel {
         Task { await refreshEntries() }
     }
 
+    /// Point the cache and the outbox at one workspace. Called at launch and on
+    /// every switch: the other workspace's cache stays on disk, untouched, and
+    /// its queued writes wait for it (the credential is bound to one workspace).
+    func activate(workspaceSlug: String) {
+        guard activeWorkspace != workspaceSlug else { return }
+        activeWorkspace = workspaceSlug
+        lastSyncedAt = nil
+        var snapshot = try? caches.store(for: workspaceSlug).read()
+        if snapshot == nil, let legacy = try? caches.legacyStore().read(), legacy.workspaceSlug == workspaceSlug {
+            // A cache from before per-workspace files: adopt it once.
+            snapshot = legacy
+            try? caches.store(for: workspaceSlug).write(legacy)
+        }
+        try? caches.legacyStore().delete()
+        cache = snapshot
+        Task { await drain() }
+    }
+
     // ── Writes ──────────────────────────────────────────────────────────
 
-    /// Queue a write and try to send it now.
-    func submit(_ operation: OutboxOperation, workspaceSlug: String) async -> SubmitOutcome {
-        guard let entry = try? await outbox.enqueue(operation, workspaceSlug: workspaceSlug) else {
+    /// Queue a write and try to send it now. `baseVersion` is the issue
+    /// `version` an edit was made against, sent as `If-Match` (U3 write
+    /// contract); nil sends no precondition.
+    func submit(_ operation: OutboxOperation, workspaceSlug: String, baseVersion: Int? = nil) async -> SubmitOutcome {
+        guard let entry = try? await outbox.enqueue(operation, workspaceSlug: workspaceSlug, baseVersion: baseVersion) else {
             return .rejected("Could not save the change on this phone")
         }
         await drain()
         if let current = entries.first(where: { $0.id == entry.id }) {
-            if case .failed(let reason) = current.status {
+            var refused: String?
+            if case .failed(let reason) = current.status { refused = reason }
+            // STALE_WRITE while the person is looking: the issue changed
+            // elsewhere, so keep theirs and say so instead of parking it.
+            if case .needsDecision(let reason, _) = current.status { refused = reason }
+            if let reason = refused {
                 // The person is looking at the result; tell them and do not keep it.
                 try? await outbox.discard(entry.id)
                 await refreshEntries()
@@ -84,7 +109,7 @@ final class OfflineModel {
         guard let client = client() else { return }
         isDraining = true
         defer { isDraining = false }
-        _ = await outbox.drain(using: TrackerOutboxSender(client: client))
+        _ = await outbox.drain(using: TrackerOutboxSender(client: client), workspaceSlug: activeWorkspace)
         await refreshEntries()
         await scheduleWake()
     }
@@ -106,7 +131,13 @@ final class OfflineModel {
     }
 
     func retry(_ id: String) async {
-        try? await outbox.retry(id)
+        // A stale-write entry retried as is would conflict again: Retry means
+        // Keep mine, sent against the server's current version.
+        if entries.first(where: { $0.id == id })?.needsDecision == true {
+            try? await outbox.keepMine(id)
+        } else {
+            try? await outbox.retry(id)
+        }
         await drain()
     }
 
@@ -125,7 +156,8 @@ final class OfflineModel {
     /// One issue from the cache by key, so a detail column shows edits made
     /// elsewhere (a swipe in the list) without being handed a stale copy.
     func cachedIssue(key: String) -> Issue? {
-        cache?.issues.first { $0.key == key }
+        guard cache?.workspaceSlug == activeWorkspace else { return nil }
+        return cache?.issues.first { $0.key == key }
     }
 
     /// Fetch what changed since the last sync and merge it into the cache.
@@ -139,9 +171,12 @@ final class OfflineModel {
         let startedAt = Date().addingTimeInterval(-300)
         let delta = try await client.issues(ws: workspaceSlug, updatedSince: snapshot.syncedAt)
         snapshot.merge(delta, syncedAt: startedAt)
+        try? caches.store(for: workspaceSlug).write(snapshot)
+        // The person may have switched workspaces while this was in flight:
+        // keep what was fetched on disk, but do not show it in the other one.
+        guard activeWorkspace == nil || activeWorkspace == workspaceSlug else { return }
         cache = snapshot
         lastSyncedAt = Date()
-        try? cacheStore.write(snapshot)
     }
 
     /// Reflect a local change before the server confirms it.
@@ -150,12 +185,12 @@ final class OfflineModel {
         snapshot.issues.removeAll { $0.id == issue.id }
         snapshot.issues.insert(issue, at: 0)
         cache = snapshot
-        try? cacheStore.write(snapshot)
+        try? caches.store(for: snapshot.workspaceSlug).write(snapshot)
     }
 
     /// Settings > Sync > Clear cached issues: the next sync loads everything.
     func clearCache() {
-        try? cacheStore.delete()
+        if let activeWorkspace { try? caches.store(for: activeWorkspace).delete() }
         cache = nil
         lastSyncedAt = nil
     }
@@ -183,7 +218,8 @@ final class OfflineModel {
     func wipe() async {
         wakeTask?.cancel()
         try? await outbox.wipe()
-        try? cacheStore.delete()
+        caches.deleteAll()
+        activeWorkspace = nil
         if let inbox = ShareInbox.shared() {
             for item in inbox.pending() { inbox.remove(item.id) }
         }
@@ -205,7 +241,7 @@ final class OfflineModel {
 
     private func scheduleWake() async {
         wakeTask?.cancel()
-        guard let wake = await outbox.nextWake() else { return }
+        guard let wake = await outbox.nextWake(workspaceSlug: activeWorkspace) else { return }
         let delay = max(0.5, wake.timeIntervalSinceNow)
         wakeTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(delay))

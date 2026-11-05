@@ -1,5 +1,5 @@
 import { chmod, stat } from "node:fs/promises";
-import { ApiError, whoami } from "./client.js";
+import { ApiError, probe, whoami } from "./client.js";
 import { CliError } from "./cli-error.js";
 import type { CmdCtx, Command } from "./commands.js";
 import { globalConfigPath, resolveConfig } from "./config.js";
@@ -44,6 +44,74 @@ async function loosePath(path: string): Promise<boolean | undefined> {
     return ((await stat(path)).mode & 0o077) !== 0;
   } catch {
     return undefined; // file doesn't exist
+  }
+}
+
+const SKEW_WARN_MS = 60_000;
+
+async function serverCapabilityChecks(
+  apiUrl: string,
+  fetchImpl: CmdCtx["io"]["fetch"],
+  checks: Check[],
+  host: string,
+): Promise<void> {
+  const methods = await probe(apiUrl, "/v1/auth/methods", fetchImpl).catch(() => undefined);
+  const providers = (methods?.body as { providers?: { key?: string; type?: string }[] } | undefined)?.providers;
+  if (methods && methods.status === 200 && Array.isArray(providers)) {
+    const apple = providers.some((p) => p.type === "apple" || p.key === "apple");
+    checks.push(
+      apple
+        ? { id: "apple-sign-in", group: "server", status: "ok", message: `${host} offers Sign in with Apple` }
+        : {
+            id: "apple-sign-in",
+            group: "server",
+            status: "warn",
+            message: `${host} doesn't offer Sign in with Apple`,
+            fix: "Ask whoever runs the server to configure Apple sign-in (iOS Apple accounts can't sign in here until then).",
+          },
+    );
+  } else {
+    checks.push({
+      id: "apple-sign-in",
+      group: "server",
+      status: "warn",
+      message: `couldn't read ${host}'s sign-in methods`,
+      fix: "Upgrade the server; this one doesn't publish /v1/auth/methods.",
+    });
+  }
+
+  // The write contract (idempotency + STALE_WRITE) has no capability flag yet, so
+  // look for its schema in the OpenAPI document. Older servers warn, never fail.
+  const doc = await probe(apiUrl, "/openapi.json", fetchImpl).catch(() => undefined);
+  const hasContract =
+    doc !== undefined && doc.status === 200 && JSON.stringify(doc.body ?? "").includes("STALE_WRITE");
+  checks.push(
+    hasContract
+      ? { id: "write-contract", group: "server", status: "ok", message: `${host} supports safe retries and conflict detection` }
+      : {
+          id: "write-contract",
+          group: "server",
+          status: "warn",
+          message: `write contract not advertised by ${host}`,
+          fix: "Upgrade the server; until then edits can silently overwrite newer changes.",
+        },
+  );
+
+  const date = (await probe(apiUrl, "/health", fetchImpl).catch(() => undefined))?.date;
+  if (date) {
+    const skew = Date.now() - date.getTime();
+    const secs = Math.round(Math.abs(skew) / 1000);
+    checks.push(
+      Math.abs(skew) > SKEW_WARN_MS
+        ? {
+            id: "clock-skew",
+            group: "computer",
+            status: "warn",
+            message: `this computer's clock is ${secs}s ${skew > 0 ? "ahead of" : "behind"} the server's`,
+            fix: "Turn on automatic date and time (or run timedatectl set-ntp true); sign-ins can fail when clocks drift.",
+          }
+        : { id: "clock-skew", group: "computer", status: "ok", message: "this computer's clock matches the server's" },
+    );
   }
 }
 
@@ -101,6 +169,11 @@ export async function runChecks(ctx: CmdCtx, tokens: TokenStore | undefined): Pr
         ? "The server's HTTPS certificate isn't valid. Check its address, or ask whoever runs it."
         : "Check your internet connection and the address (tallyline config get server).",
     });
+  }
+
+  // server capabilities and clock; only meaningful once the server answered
+  if (checks.some((c) => c.id === "server-reachable" && c.status === "ok")) {
+    await serverCapabilityChecks(config.apiUrl, io.fetch, checks, host);
   }
 
   // ── your sign-in

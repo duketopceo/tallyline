@@ -81,15 +81,20 @@ final class IssueLinkTests: XCTestCase {
         XCTAssertEqual(RoadmapSnap.settle(900, among: offsets, maxOffset: 250), 0)
     }
 
-    func testTeamPatchEncodesAndCarriesVersionWhenSet() throws {
-        func object(_ patch: IssuePatch) throws -> [String: Any] {
-            try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(patch)) as? [String: Any])
-        }
-        let plain = try object(IssuePatch(teamId: "t2"))
-        XCTAssertEqual(plain["teamId"] as? String, "t2")
-        XCTAssertNil(plain["expectedVersion"])
-        XCTAssertEqual(try object(IssuePatch(teamId: "t2", expectedVersion: "7"))["expectedVersion"] as? String, "7")
+    func testTeamPatchEncodesTeamOnlyAndVersionTravelsAsIfMatch() async throws {
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(IssuePatch(teamId: "t2"))) as? [String: Any])
+        XCTAssertEqual(body as NSDictionary, ["teamId": "t2"] as NSDictionary)
         XCTAssertEqual(OutboxOperation.updateIssue(key: "ENG-1", patch: IssuePatch(teamId: "t2")).summary, "ENG-1: change team")
+        // the version rides on the queued entry (sent as If-Match), not in the body
+        let outbox = Outbox(store: MemoryOutboxStore())
+        let entry = try await outbox.enqueue(.updateIssue(key: "ENG-1", patch: IssuePatch(teamId: "t2")), workspaceSlug: "w", baseVersion: 7)
+        XCTAssertEqual(entry.baseVersion, 7)
+    }
+
+    func testTeamChangeKeepsTheVersionItWasMadeAgainst() throws {
+        var base = issue(url: "https://tallyline.app/issues/ENG-1")
+        base.version = 4
+        XCTAssertEqual(base.applying(IssuePatch(teamId: "t2")).version, 4)
     }
 
     func testTeamChangeQueuesOnePatchAndAppliesOptimistically() async throws {

@@ -10,6 +10,15 @@ const idempotencyHeader = {
   schema: { type: "string" },
 };
 
+const ifMatchHeader = {
+  name: "If-Match",
+  in: "header",
+  required: false,
+  description:
+    "Optimistic concurrency: the issue `version` you last read, as an integer (a quoted ETag form is accepted). If the issue has changed since, nothing is written and the response is 409 STALE_WRITE with the current issue. Omit it for no precondition (clients that predate this contract). Malformed is 400 BAD_IF_MATCH.",
+  schema: { type: "string" },
+};
+
 const wsParam = {
   name: "ws",
   in: "path",
@@ -238,14 +247,14 @@ const basePaths = {
         summary: "Issue detail with children + labels",
         parameters: [wsParam, keyParam],
         responses: {
-          "200": { description: "Issue" },
+          "200": { description: "Issue; `version` is the integer to send back as `If-Match` on a write" },
           "404": { description: "Not found" },
         },
       },
       patch: {
         summary:
-          "Update issue fields; `state` changes route through the lifecycle state machine (409 on illegal transition). Honors `Idempotency-Key`",
-        parameters: [wsParam, keyParam, idempotencyHeader],
+          "Update issue fields; `state` changes route through the lifecycle state machine (409 on illegal transition). Honors `Idempotency-Key` and `If-Match` (issue `version`)",
+        parameters: [wsParam, keyParam, idempotencyHeader, ifMatchHeader],
         requestBody: jsonBody({
           type: "object",
           properties: {
@@ -286,7 +295,32 @@ const basePaths = {
         }),
         responses: {
           "200": { description: "Updated issue" },
-          "409": { description: "Invalid state transition" },
+          "400": { description: "BAD_IF_MATCH: If-Match is not an integer version" },
+          "409": {
+            description:
+              "Invalid state transition, or STALE_WRITE: the issue changed since `If-Match`. STALE_WRITE body: {error:{code,message}, issue} where `issue` is the current server issue (same {error, payload} shape as STALE_DIFF). Replaying the same Idempotency-Key never produces STALE_WRITE; it returns the first stored response.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["error", "issue"],
+                  properties: {
+                    error: {
+                      type: "object",
+                      required: ["code", "message"],
+                      properties: { code: { type: "string", enum: ["STALE_WRITE"] }, message: { type: "string" } },
+                    },
+                    issue: {
+                      type: "object",
+                      required: ["version"],
+                      properties: { version: { type: "integer", minimum: 1 } },
+                      additionalProperties: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -1070,7 +1104,20 @@ const basePaths = {
         summary:
           "Whether push is on, the relay address and this server's public Ed25519 key (the app binds its relay handle to it); people only",
         parameters: [wsParam],
-        responses: { "200": { description: "{enabled, relayUrl|null, serverKey|null, kinds}" } },
+        responses: { "200": { description: "{enabled, relayUrl|null, serverKey|null, kinds, canTest}" } },
+      },
+    },
+    "/v1/workspaces/{ws}/push/test": {
+      post: {
+        summary:
+          "A paired device asks the server to send it one test ping through the push relay; the app shows its test row only when push/config says canTest",
+        parameters: [wsParam],
+        responses: {
+          "200": { description: "{ok}" },
+          "404": { description: "Not a paired device" },
+          "409": { description: "PUSH_OFF (no relay) or NO_HANDLE (this phone has not registered for push)" },
+          "502": { description: "RELAY_FAILED: the relay did not accept the ping; retry" },
+        },
       },
     },
     "/v1/workspaces/{ws}/push/preferences": {

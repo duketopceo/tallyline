@@ -16,7 +16,7 @@ const NAV: [string, string, string, string][] = [
   ["nav-roadmap", "Roadmap", "/roadmap", "g p"],
   ["nav-projects", "Projects", "/projects", "g o"],
   ["nav-activity", "Activity", "/activity", "g e"],
-  ["nav-settings", "Settings", "/settings/members", "g ,"],
+  ["nav-settings", "Settings", "/settings", "g ,"],
 ];
 
 export function GlobalActions() {

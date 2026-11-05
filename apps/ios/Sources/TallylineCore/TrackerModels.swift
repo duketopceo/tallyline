@@ -46,13 +46,17 @@ public struct Issue: Codable, Sendable, Identifiable, Hashable {
     /// The web permalink the server builds (`https://<web origin>/issues/<KEY>`).
     /// Optional on purpose: clients copy it as given and never assemble links.
     public var url: String? = nil
+    /// Write-contract version, sent back as `If-Match`. Nil from an API that
+    /// predates the contract (no precondition is sent then).
+    public var version: Int? = nil
 
     public init(
         id: String, key: String, number: Int, title: String, description: String?, state: IssueState,
         priority: IssuePriority, estimate: Int?, dueDate: Date?, assigneeType: String?, assigneeId: String?,
         delegateType: String?, delegateId: String?, creatorType: String, creatorId: String?, projectId: String?,
         cycleId: String?, parentId: String?, source: String, occurrenceCount: Int, createdAt: Date, updatedAt: Date,
-        labels: [IssueLabel]? = nil, blocked: Bool? = nil, teamId: String? = nil, url: String? = nil
+        labels: [IssueLabel]? = nil, blocked: Bool? = nil, teamId: String? = nil, url: String? = nil,
+        version: Int? = nil
     ) {
         self.id = id; self.key = key; self.number = number; self.title = title; self.description = description
         self.state = state; self.priority = priority; self.estimate = estimate; self.dueDate = dueDate
@@ -63,6 +67,7 @@ public struct Issue: Codable, Sendable, Identifiable, Hashable {
         self.source = source; self.occurrenceCount = occurrenceCount
         self.createdAt = createdAt; self.updatedAt = updatedAt
         self.labels = labels; self.blocked = blocked; self.teamId = teamId; self.url = url
+        self.version = version
     }
 }
 
@@ -282,7 +287,9 @@ public extension Issue {
             cycleId: patch.cleared.contains(.cycle) ? nil : (patch.cycleId ?? cycleId),
             parentId: parentId, source: source, occurrenceCount: occurrenceCount,
             createdAt: createdAt, updatedAt: now,
-            labels: labels, blocked: blocked, teamId: patch.teamId ?? teamId, url: url
+            labels: labels, blocked: blocked, teamId: patch.teamId ?? teamId, url: url,
+            // the version the edit was made against; the server's answer replaces it
+            version: version
         )
         if let ids = patch.labelIds {
             next.labels = (labels ?? []).filter { ids.contains($0.id) }
