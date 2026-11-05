@@ -13,7 +13,7 @@ struct AboutView: View {
     private var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?" }
 
     private var report: String {
-        let offline = session.offline
+        let offline: OfflineModel = session.offline
         return DiagnosticsReport.text(
             device: UIDevice.current.model,
             os: "\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)",
