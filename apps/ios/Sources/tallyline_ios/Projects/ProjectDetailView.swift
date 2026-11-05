@@ -10,8 +10,7 @@ struct ProjectDetailView: View {
     let project: Project
 
     private var counts: RoadmapSummary.ProjectCounts {
-        session.workspace.summary?.counts(forProject: project.id)
-            ?? RoadmapSummary.ProjectCounts(projectId: project.id, total: 0, done: 0, closed: 0, inProgress: 0, inReview: 0, doneSince: nil)
+        session.workspace.summary?.counts(forProject: project.id) ?? .zero(project.id)
     }
 
     private var issues: [Issue] {
