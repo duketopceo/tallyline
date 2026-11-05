@@ -7,34 +7,49 @@ import TallylineDesign
 struct ReviewQueueView: View {
     var session: SessionModel
     let credential: DeviceCredential
-    @Binding var count: Int
-    @State private var entries: [ReviewQueueEntry] = []
+    private var entries: [ReviewQueueEntry] { session.workspace.review }
+
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @SceneStorage("selectedReviewKey") private var selectedKey: String?
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if entries.isEmpty {
-                    ContentUnavailableView("Queue clear", systemImage: "checkmark.circle", description: Text("Work agents finish lands here for your call."))
+        if sizeClass == .regular {
+            NavigationSplitView {
+                content(selection: $selectedKey)
+            } detail: {
+                if let key = selectedKey {
+                    NavigationStack { IssueLoaderView(session: session, credential: credential, key: key) }.id(key)
                 } else {
-                    List(entries) { entry in
-                        NavigationLink(value: entry) { ReviewRow(entry: entry) }
-                    }
+                    ContentUnavailableView("Select an item", systemImage: "checkmark.circle", description: Text("Pick one to review it."))
                 }
             }
-            .navigationTitle("Review")
-            .navigationDestination(for: ReviewQueueEntry.self) { entry in
-                IssueLoaderView(session: session, credential: credential, key: entry.key)
+        } else {
+            NavigationStack {
+                content(selection: .constant(nil))
+                    .navigationDestination(for: ReviewQueueEntry.self) { entry in
+                        IssueLoaderView(session: session, credential: credential, key: entry.key)
+                    }
             }
-            .toolbar { ProfileToolbarItem(session: session) }
-            .refreshable { await load() }
-            .task { await load() }
         }
     }
 
-    private func load() async {
-        guard let client = session.client else { return }
-        entries = (try? await client.reviewQueue(ws: credential.workspaceSlug)) ?? []
-        count = entries.count
+    private func content(selection: Binding<String?>) -> some View {
+        Group {
+            if entries.isEmpty {
+                ContentUnavailableView("Queue clear", systemImage: "checkmark.circle", description: Text("Work agents finish lands here for your call."))
+            } else if sizeClass == .regular {
+                List(entries, selection: selection) { entry in
+                    ReviewRow(entry: entry).tag(entry.key).hoverEffect(.highlight)
+                }
+            } else {
+                List(entries) { entry in
+                    NavigationLink(value: entry) { ReviewRow(entry: entry) }
+                }
+            }
+        }
+        .navigationTitle("Review")
+        .toolbar { ProfileToolbarItem(session: session) }
+        .refreshable { await session.refresh() }
     }
 }
 

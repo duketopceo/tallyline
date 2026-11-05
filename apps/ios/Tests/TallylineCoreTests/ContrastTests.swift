@@ -35,6 +35,18 @@ final class ContrastTests: XCTestCase {
         }
     }
 
+    func testTextOnTheRaisedSurfacesComponentsUse() throws {
+        // Pills, chips and roadmap bars sit on surface-2 and surface-3.
+        for (name, p) in palettes {
+            for (token, fg) in [("ink", p.ink), ("ink-muted", p.inkMuted)] {
+                for (surface, bg) in [("surface-2", p.surface2), ("surface-3", p.surface3)] {
+                    let r = try ratio(fg, bg)
+                    XCTAssertGreaterThanOrEqual(r, 4.5, "\(name) \(token) on \(surface) is \(r)")
+                }
+            }
+        }
+    }
+
     func testAccentAndStatusGlyphsMeetThree() throws {
         for (name, p) in palettes {
             for (token, fg) in [("accent", p.accent), ("status-attention", p.statusAttention), ("status-healthy", p.statusHealthy), ("glint", p.glint)] {

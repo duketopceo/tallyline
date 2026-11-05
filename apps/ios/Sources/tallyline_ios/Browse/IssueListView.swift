@@ -14,6 +14,11 @@ struct IssueListView: View {
     @State private var actionError: String?
     @State private var showCreate = false
     @State private var committedSwipes = 0
+    @Namespace private var zoom
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    /// The open issue on iPad. Survives rotation and Stage Manager resizes.
+    @SceneStorage("selectedIssueKey") private var selectedKey: String?
+    private var isRegular: Bool { sizeClass == .regular }
 
     private var issues: [Issue] {
         session.offline.cachedIssues(workspaceSlug: credential.workspaceSlug, state: state)
@@ -22,44 +27,61 @@ struct IssueListView: View {
     private var actions: IssueActions { IssueActions(session: session, credential: credential) }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if issues.isEmpty, let error {
-                    ContentUnavailableView("Couldn't load", systemImage: "exclamationmark.triangle", description: Text(error))
-                } else if issues.isEmpty {
-                    ContentUnavailableView("Nothing here", systemImage: "checkmark", description: Text("No issues in this list."))
+        if isRegular {
+            NavigationSplitView {
+                content
+            } detail: {
+                if let key = selectedKey, let issue = session.offline.cachedIssue(key: key) {
+                    NavigationStack {
+                        IssueDetailView(session: session, credential: credential, issue: issue)
+                    }
+                    .id(key)
                 } else {
-                    list
+                    ContentUnavailableView("Select an issue", systemImage: "list.bullet", description: Text("Pick one from the list to see its details."))
                 }
             }
-            .navigationTitle(state?.displayName ?? "Issues")
-            .navigationDestination(for: Issue.self) { issue in
+        } else {
+            NavigationStack { content.navigationDestination(for: Issue.self) { issue in
                 IssueDetailView(session: session, credential: credential, issue: issue)
-            }
-            .toolbar {
-                ProfileToolbarItem(session: session)
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showCreate = true } label: { Image(systemName: "plus") }
-                        .keyboardShortcut("n", modifiers: .command)
-                        .accessibilityLabel("New issue")
-                }
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { Task { await reload() } } label: { Image(systemName: "arrow.clockwise") }
-                        .keyboardShortcut("r", modifiers: .command)
-                        .accessibilityLabel("Refresh")
-                }
-            }
-            .refreshable { await reload() }
-            .task { await reload() }
-            .sheet(isPresented: $showCreate) {
-                CreateIssueView(session: session, credential: credential) { await reload() }
-            }
-            .sensoryFeedback(.impact(weight: .light), trigger: committedSwipes)
+                    .navigationTransition(.zoom(sourceID: issue.id, in: zoom))
+            } }
         }
     }
 
+    private var content: some View {
+        Group {
+            if issues.isEmpty, let error {
+                ContentUnavailableView("Couldn't load", systemImage: "exclamationmark.triangle", description: Text(error))
+            } else if issues.isEmpty {
+                ContentUnavailableView("Nothing here", systemImage: "checkmark", description: Text("No issues in this list."))
+            } else {
+                list
+            }
+        }
+        .navigationTitle(state?.displayName ?? "Issues")
+        .toolbar {
+            ProfileToolbarItem(session: session)
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showCreate = true } label: { Image(systemName: "plus") }
+                    .keyboardShortcut("n", modifiers: .command)
+                    .accessibilityLabel("New issue")
+            }
+            ToolbarItem(placement: .topBarLeading) {
+                Button { Task { await reload() } } label: { Image(systemName: "arrow.clockwise") }
+                    .keyboardShortcut("r", modifiers: .command)
+                    .accessibilityLabel("Refresh")
+            }
+        }
+        .refreshable { await reload() }
+        .task { await reload() }
+        .sheet(isPresented: $showCreate) {
+            CreateIssueView(session: session, credential: credential) { await reload() }
+        }
+        .sensoryFeedback(.impact(weight: .light), trigger: committedSwipes)
+    }
+
     private var list: some View {
-        List {
+        List(selection: isRegular ? $selectedKey : .constant(nil)) {
             if error != nil || !session.offline.isOnline {
                 Label("Offline. Showing issues saved on this phone.", systemImage: "wifi.slash")
                     .font(.footnote)
@@ -85,6 +107,12 @@ struct IssueListView: View {
             }
         }
         .motion(.standard, value: issues.map(\.state))
+        .onKeyPress(.space) {
+            // Space moves the selected issue to its next state, where one is legal.
+            guard isRegular, let key = selectedKey, let issue = session.offline.cachedIssue(key: key), let next = issue.state.forward else { return .ignored }
+            run { await actions.move(issue, to: next) }
+            return .handled
+        }
         // VoiceOver rotors: jump straight to what needs attention.
         .accessibilityRotor("Urgent and high") {
             ForEach(issues.filter { $0.priority == .urgent || $0.priority == .high }) { issue in
@@ -104,7 +132,7 @@ struct IssueListView: View {
     }
 
     private func row(_ issue: Issue) -> some View {
-        NavigationLink(value: issue) { IssueRowView(issue: issue) }
+        rowLabel(issue)
             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                 if let next = issue.state.forward {
                     Button { run { await actions.move(issue, to: next) } } label: {
@@ -142,6 +170,16 @@ struct IssueListView: View {
             }
     }
 
+    @ViewBuilder
+    private func rowLabel(_ issue: Issue) -> some View {
+        if isRegular {
+            IssueRowView(issue: issue).tag(issue.key).hoverEffect(.highlight)
+        } else {
+            NavigationLink(value: issue) { IssueRowView(issue: issue) }
+                .matchedTransitionSource(id: issue.id, in: zoom)
+        }
+    }
+
     /// Runs a write, counts the swipe for haptics, and shows a refusal inline.
     private func run(_ write: @escaping () async -> SubmitOutcome) {
         committedSwipes += 1
@@ -157,6 +195,7 @@ struct IssueListView: View {
     private func reload() async {
         do {
             try await session.offline.syncIssues(workspaceSlug: credential.workspaceSlug)
+            await session.workspace.refresh(client: session.client, workspaceSlug: credential.workspaceSlug)
             error = nil
         } catch let APIClientError.http(_, _, message) {
             self.error = message ?? "The server could not load this list."

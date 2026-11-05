@@ -11,8 +11,8 @@ struct IssueActions {
 
     /// Shows the change at once, sends it, and undoes it if the server refuses.
     @discardableResult
-    func apply(_ patch: IssuePatch, to issue: Issue) async -> SubmitOutcome {
-        session.offline.applyLocally(issue.applying(patch))
+    func apply(_ patch: IssuePatch, to issue: Issue, optimistic: Issue? = nil) async -> SubmitOutcome {
+        session.offline.applyLocally(optimistic ?? issue.applying(patch))
         let outcome = await session.offline.submit(
             .updateIssue(key: issue.key, patch: patch),
             workspaceSlug: credential.workspaceSlug

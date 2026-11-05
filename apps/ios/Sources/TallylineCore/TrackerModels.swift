@@ -37,12 +37,17 @@ public struct Issue: Codable, Sendable, Identifiable, Hashable {
     public let occurrenceCount: Int
     public let createdAt: Date
     public let updatedAt: Date
+    /// Present on list and detail responses; absent on a bare create or patch.
+    public var labels: [IssueLabel]? = nil
+    /// True while an unfinished issue blocks this one (list responses).
+    public var blocked: Bool? = nil
 
     public init(
         id: String, key: String, number: Int, title: String, description: String?, state: IssueState,
         priority: IssuePriority, estimate: Int?, dueDate: Date?, assigneeType: String?, assigneeId: String?,
         delegateType: String?, delegateId: String?, creatorType: String, creatorId: String?, projectId: String?,
-        cycleId: String?, parentId: String?, source: String, occurrenceCount: Int, createdAt: Date, updatedAt: Date
+        cycleId: String?, parentId: String?, source: String, occurrenceCount: Int, createdAt: Date, updatedAt: Date,
+        labels: [IssueLabel]? = nil, blocked: Bool? = nil
     ) {
         self.id = id; self.key = key; self.number = number; self.title = title; self.description = description
         self.state = state; self.priority = priority; self.estimate = estimate; self.dueDate = dueDate
@@ -52,6 +57,18 @@ public struct Issue: Codable, Sendable, Identifiable, Hashable {
         self.projectId = projectId; self.cycleId = cycleId; self.parentId = parentId
         self.source = source; self.occurrenceCount = occurrenceCount
         self.createdAt = createdAt; self.updatedAt = updatedAt
+        self.labels = labels; self.blocked = blocked
+    }
+}
+
+/// The label fields an issue row carries.
+public struct IssueLabel: Codable, Sendable, Hashable, Identifiable {
+    public let id: String
+    public let name: String
+    public let color: String?
+
+    public init(id: String, name: String, color: String? = nil) {
+        self.id = id; self.name = name; self.color = color
     }
 }
 
@@ -119,6 +136,11 @@ public struct RoadmapSummary: Codable, Sendable, Equatable {
         public let inReview: Int
         public let doneSince: Int?
         public var id: String { projectId }
+
+        /// What a project the summary does not mention reads as.
+        public static func zero(_ projectId: String) -> ProjectCounts {
+            ProjectCounts(projectId: projectId, total: 0, done: 0, closed: 0, inProgress: 0, inReview: 0, doneSince: nil)
+        }
     }
 
     public struct MilestoneCounts: Codable, Sendable, Equatable, Identifiable {
@@ -158,7 +180,7 @@ public struct RoadmapSummary: Codable, Sendable, Equatable {
     /// issues yet, so it reads as zero rather than missing.
     public func counts(forProject id: String) -> ProjectCounts {
         projects.first { $0.projectId == id }
-            ?? ProjectCounts(projectId: id, total: 0, done: 0, closed: 0, inProgress: 0, inReview: 0, doneSince: nil)
+            ?? .zero(id)
     }
 
     public func counts(forMilestone id: String) -> MilestoneCounts {
@@ -188,7 +210,9 @@ public struct Team: Codable, Sendable, Identifiable {
 }
 
 public struct Member: Codable, Sendable, Identifiable {
+    /// The membership id. Assign with `userId`.
     public let id: String
+    public let userId: String?
     public let name: String?
     public let email: String?
     public let role: String
@@ -236,7 +260,7 @@ public extension Issue {
     /// The issue as it will look once `patch` lands, for optimistic display.
     /// The server's answer replaces it on the next sync.
     func applying(_ patch: IssuePatch, at now: Date = Date()) -> Issue {
-        Issue(
+        var next = Issue(
             id: id, key: key, number: number,
             title: patch.title ?? title,
             description: patch.description ?? description,
@@ -244,15 +268,20 @@ public extension Issue {
             priority: patch.priority ?? priority,
             estimate: patch.estimate ?? estimate,
             dueDate: dueDate,
-            assigneeType: patch.assigneeId != nil ? (patch.assigneeType ?? "human") : assigneeType,
-            assigneeId: patch.assigneeId ?? assigneeId,
+            assigneeType: patch.cleared.contains(.assignee) ? nil : (patch.assigneeId != nil ? (patch.assigneeType ?? "human") : assigneeType),
+            assigneeId: patch.cleared.contains(.assignee) ? nil : (patch.assigneeId ?? assigneeId),
             delegateType: patch.delegateType ?? delegateType,
             delegateId: patch.delegateId ?? delegateId,
             creatorType: creatorType, creatorId: creatorId,
-            projectId: patch.projectId ?? projectId,
-            cycleId: patch.cycleId ?? cycleId,
+            projectId: patch.cleared.contains(.project) ? nil : (patch.projectId ?? projectId),
+            cycleId: patch.cleared.contains(.cycle) ? nil : (patch.cycleId ?? cycleId),
             parentId: parentId, source: source, occurrenceCount: occurrenceCount,
-            createdAt: createdAt, updatedAt: now
+            createdAt: createdAt, updatedAt: now,
+            labels: labels, blocked: blocked
         )
+        if let ids = patch.labelIds {
+            next.labels = (labels ?? []).filter { ids.contains($0.id) }
+        }
+        return next
     }
 }
