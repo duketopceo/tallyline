@@ -4,6 +4,7 @@ import { findPath, type IssueState, type Priority } from "@tallyline/types";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { pathAfterMove } from "@/lib/issue-link";
+import { latestVersion, sendIssuePatch } from "@/lib/write-contract";
 import { useToast } from "./toast";
 
 // Optimistic issue edits shared by lists, board, peek and detail. The UI shows
@@ -29,6 +30,9 @@ export interface Edit {
   key: string;
   patch: IssuePatch;
   prior: IssuePatch;
+  // the issue version the edit was made against (write contract C6); omitted
+  // = no precondition
+  version?: number | undefined;
 }
 
 interface Store {
@@ -58,32 +62,15 @@ export function useMerged<T extends { key: string }>(issue: T): T & IssuePatch {
   return useMemo(() => (o ? { ...issue, ...o } : issue), [issue, o]);
 }
 
-// `error` is null on success; `key` is the issue's key after the write, which
-// differs from the one sent when the patch moved it to another team
-async function send(key: string, body: Record<string, unknown>): Promise<{ error: string | null; key?: string }> {
-  try {
-    const res = await fetch(`/api/issues/${key}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (res.ok) {
-      const done = (await res.json().catch(() => null)) as { key?: string } | null;
-      return { error: null, ...(done?.key ? { key: done.key } : {}) };
-    }
-    const err = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-    return { error: err?.error?.message ?? `server returned ${res.status}` };
-  } catch {
-    return { error: "network unreachable" };
-  }
-}
-
 export function IssueStoreProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const toast = useToast();
   const [overrides, setOverrides] = useState<Record<string, IssuePatch>>({});
   const [pending, startTransition] = useTransition();
   const toClear = useRef<Set<string>>(new Set());
+  // newest version each of our own writes returned, so a quick second edit does
+  // not send the version from props that have not refreshed yet
+  const known = useRef<Record<string, number>>({});
   const started = useRef(false);
 
   useEffect(() => {
@@ -109,34 +96,44 @@ export function IssueStoreProvider({ children }: { children: ReactNode }) {
         for (const e of edits) n[e.key] = { ...n[e.key], ...e.patch };
         return n;
       });
-      const failures: { key: string; msg: string }[] = [];
+      const failures: { edit: Edit; msg: string; stale: boolean; serverVersion: number | null }[] = [];
       await Promise.all(
         edits.map(async (e) => {
+          let version = latestVersion(e.version, known.current[e.key]);
+          // the issue's current key: a teamId step re-keys it, and every later
+          // step of this edit addresses the new key
+          let key = e.key;
+          // one PATCH; false stops this edit (rolled back below)
+          const step = async (body: Record<string, unknown>) => {
+            const r = await sendIssuePatch(key, body, version);
+            if (r.kind === "ok") {
+              if (r.key && r.key !== key) {
+                // the open page for the old key follows the issue to its new one
+                const to = pathAfterMove(window.location.pathname, key, r.key);
+                if (to) router.replace(to);
+                key = r.key;
+              }
+              if (r.version !== null) {
+                version = r.version;
+                known.current[e.key] = r.version;
+                known.current[key] = r.version;
+              }
+              return true;
+            }
+            failures.push({ edit: e, msg: r.message, stale: r.kind === "stale", serverVersion: r.kind === "stale" ? r.version : null });
+            return false;
+          };
           const { state, labels, ...rest } = e.patch;
           if (state !== undefined) {
             const from = e.prior.state;
             const steps = from && from !== state ? findPath(from, state) : [state];
-            for (const s of steps ?? []) {
-              const { error: msg } = await send(e.key, { state: s });
-              if (msg) return void failures.push({ key: e.key, msg });
-            }
+            for (const s of steps ?? []) if (!(await step({ state: s }))) return;
           }
-          if (labels !== undefined) {
-            const { error: msg } = await send(e.key, { labelIds: labels.map((l) => l.id) });
-            if (msg) failures.push({ key: e.key, msg });
-          }
-          if (Object.keys(rest).length) {
-            const { error: msg, key: newKey } = await send(e.key, rest);
-            if (msg) failures.push({ key: e.key, msg });
-            else if (rest.teamId !== undefined) {
-              // the open page for the old key follows the issue to its new one
-              const to = pathAfterMove(window.location.pathname, e.key, newKey);
-              if (to) router.replace(to);
-            }
-          }
+          if (labels !== undefined && !(await step({ labelIds: labels.map((l) => l.id) }))) return;
+          if (Object.keys(rest).length) await step(rest);
         }),
       );
-      const failed = new Set(failures.map((f) => f.key));
+      const failed = new Set(failures.map((f) => f.edit.key));
       for (const e of edits) toClear.current.add(e.key);
       if (failed.size) {
         setOverrides((o) => {
@@ -144,10 +141,26 @@ export function IssueStoreProvider({ children }: { children: ReactNode }) {
           for (const e of edits) if (failed.has(e.key)) n[e.key] = { ...n[e.key], ...e.prior };
           return n;
         });
-        toast.push({
-          error: true,
-          message: `${failed.size === 1 ? failures[0]!.key : `${failed.size} issues`} not changed: ${failures[0]!.msg}`,
-        });
+        const plain = failures.filter((f) => !f.stale);
+        if (plain.length) {
+          const keys = new Set(plain.map((f) => f.edit.key));
+          toast.push({
+            error: true,
+            message: `${keys.size === 1 ? plain[0]!.edit.key : `${keys.size} issues`} not changed: ${plain[0]!.msg}`,
+          });
+        }
+        // C6: the issue changed elsewhere. The edit is already rolled back; the
+        // person chooses to resend it over the server's version or drop it.
+        for (const f of failures.filter((x) => x.stale)) {
+          toast.push({
+            error: true,
+            message: `${f.edit.key} changed elsewhere.`,
+            actions: [
+              { label: "Keep mine", run: () => void apply([{ ...f.edit, version: f.serverVersion ?? undefined }], `${f.edit.key} updated`) },
+              { label: "Use theirs", run: () => undefined },
+            ],
+          });
+        }
       }
       refresh();
       const ok = edits.filter((e) => !failed.has(e.key));

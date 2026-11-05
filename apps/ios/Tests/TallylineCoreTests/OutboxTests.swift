@@ -171,6 +171,135 @@ final class OutboxTests: XCTestCase {
     }
 }
 
+/// Fake server for the write contract: one current version per issue key; an
+/// edit whose `baseVersion` is behind it is a STALE_WRITE.
+final class VersionedSender: VersionReportingSender, @unchecked Sendable {
+    private let lock = NSLock()
+    private(set) var sent: [String] = []
+    var versions: [String: Int]
+
+    init(versions: [String: Int]) { self.versions = versions }
+
+    func send(_ entry: OutboxEntry) async throws { _ = try await sendReportingVersion(entry) }
+
+    func sendReportingVersion(_ entry: OutboxEntry) async throws -> Int? {
+        try lock.withLock {
+            sent.append(entry.id)
+            guard case .updateIssue(let key, _) = entry.operation else { return nil }
+            let current = versions[key] ?? 1
+            if let base = entry.baseVersion, base != current {
+                throw APIClientError.staleWrite(message: "\(key) changed elsewhere", currentVersion: current)
+            }
+            versions[key] = current + 1
+            return current + 1
+        }
+    }
+}
+
+final class WriteContractOutboxTests: XCTestCase {
+    private func makeOutbox(clock: ManualClock) -> Outbox { Outbox(store: MemoryOutboxStore(), now: { clock.now }) }
+    private func edit(_ key: String = "ENG-1") -> OutboxOperation { .updateIssue(key: key, patch: IssuePatch(priority: .high)) }
+
+    func testClassifierParksStaleWriteButKeepsInFlightRetryable() {
+        XCTAssertEqual(
+            OutboxFailure.classify(APIClientError.staleWrite(message: "changed", currentVersion: 7)),
+            .conflict("changed", serverVersion: 7)
+        )
+        XCTAssertEqual(
+            OutboxFailure.classify(APIClientError.http(409, code: "STALE_WRITE", message: "changed")),
+            .conflict("changed", serverVersion: nil)
+        )
+        XCTAssertEqual(
+            OutboxFailure.classify(APIClientError.http(409, code: "IDEMPOTENCY_IN_PROGRESS", message: "still running")),
+            .retryable("still running")
+        )
+    }
+
+    func testInFlightIdempotency409IsRetriedNotParked() async throws {
+        let clock = ManualClock()
+        let outbox = makeOutbox(clock: clock)
+        let entry = try await outbox.enqueue(edit(), workspaceSlug: "acme", baseVersion: 3)
+        let sender = ScriptedSender()
+        sender.failures[entry.id] = [APIClientError.http(409, code: "IDEMPOTENCY_IN_PROGRESS", message: "retry shortly")]
+        let r = await outbox.drain(using: sender)
+        XCTAssertEqual(r.retrying, [entry.id])
+        XCTAssertEqual(r.failed, [])
+        clock.advance(1)
+        let r2 = await outbox.drain(using: sender)
+        XCTAssertEqual(r2.sent, [entry.id])
+    }
+
+    func testStaleWriteParksAsNeedsDecisionAndIsNeverRetried() async throws {
+        let clock = ManualClock()
+        let outbox = makeOutbox(clock: clock)
+        let entry = try await outbox.enqueue(edit(), workspaceSlug: "acme", baseVersion: 3)
+        let sender = VersionedSender(versions: ["ENG-1": 5])
+        let r = await outbox.drain(using: sender)
+        XCTAssertEqual(r.failed, [entry.id])
+        let parked = await outbox.all.first
+        XCTAssertEqual(parked?.status, .needsDecision(reason: "ENG-1 changed elsewhere", serverVersion: 5))
+        XCTAssertEqual(parked?.displayState, .parked)
+        XCTAssertEqual(parked?.needsDecision, true)
+        clock.advance(3_600)
+        let again = await outbox.drain(using: sender)
+        XCTAssertEqual(again, DrainResult(), "parked, not retried silently")
+        XCTAssertEqual(sender.sent.count, 1)
+    }
+
+    func testUseTheirsDropsTheLocalPatch() async throws {
+        let outbox = makeOutbox(clock: ManualClock())
+        let entry = try await outbox.enqueue(edit(), workspaceSlug: "acme", baseVersion: 3)
+        let sender = VersionedSender(versions: ["ENG-1": 5])
+        _ = await outbox.drain(using: sender)
+        try await outbox.useTheirs(entry.id)
+        let left = await outbox.all
+        XCTAssertTrue(left.isEmpty)
+        XCTAssertEqual(sender.versions["ENG-1"], 5, "server state untouched")
+    }
+
+    func testKeepMineResendsAgainstTheServerVersion() async throws {
+        let clock = ManualClock()
+        let outbox = makeOutbox(clock: clock)
+        let entry = try await outbox.enqueue(edit(), workspaceSlug: "acme", baseVersion: 3)
+        let sender = VersionedSender(versions: ["ENG-1": 5])
+        _ = await outbox.drain(using: sender)
+        try await outbox.keepMine(entry.id)
+        let r = await outbox.drain(using: sender)
+        XCTAssertEqual(r.sent, [entry.id])
+        XCTAssertEqual(sender.versions["ENG-1"], 6)
+    }
+
+    func testTwoQueuedEditsResolveInOrderWithoutAFalseConflict() async throws {
+        let outbox = makeOutbox(clock: ManualClock())
+        let first = try await outbox.enqueue(edit(), workspaceSlug: "acme", baseVersion: 3)
+        let second = try await outbox.enqueue(.updateIssue(key: "ENG-1", patch: IssuePatch(title: "t")), workspaceSlug: "acme", baseVersion: 3)
+        let sender = VersionedSender(versions: ["ENG-1": 3])
+        let r = await outbox.drain(using: sender)
+        XCTAssertEqual(r.sent, [first.id, second.id])
+        XCTAssertEqual(r.failed, [])
+        XCTAssertEqual(sender.versions["ENG-1"], 5)
+    }
+
+    func testEntryWithoutBaseVersionSendsNoPrecondition() async throws {
+        let outbox = makeOutbox(clock: ManualClock())
+        let entry = try await outbox.enqueue(edit(), workspaceSlug: "acme")
+        XCTAssertNil(entry.baseVersion)
+        let sender = VersionedSender(versions: ["ENG-1": 9])
+        let r = await outbox.drain(using: sender)
+        XCTAssertEqual(r.sent, [entry.id])
+    }
+
+    func testEntryPersistedBeforeTheContractStillDecodes() throws {
+        let json = """
+        {"id":"a","workspaceSlug":"w","operation":{"addComment":{"key":"ENG-1","body":"x"}},"orderingKey":"issue:ENG-1",\
+        "createdAt":0,"attempts":0,"nextAttemptAt":0,"status":{"pending":{}}}
+        """
+        let entry = try JSONDecoder().decode(OutboxEntry.self, from: Data(json.utf8))
+        XCTAssertNil(entry.baseVersion)
+        XCTAssertEqual(entry.displayState, .pending)
+    }
+}
+
 final class IssueCacheTests: XCTestCase {
     private func issue(_ id: String, title: String, state: IssueState = .todo, updated: TimeInterval) -> Issue {
         Issue(

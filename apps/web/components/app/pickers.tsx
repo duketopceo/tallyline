@@ -20,6 +20,8 @@ export interface IssueLike {
   teamId?: string | undefined;
   title?: string;
   labels?: { id: string; name: string; color: string }[] | undefined;
+  // write contract C6: sent back as If-Match so a stale edit is not a silent overwrite
+  version?: number | undefined;
 }
 
 const who = (issues: IssueLike[]) => (issues.length === 1 ? issues[0]!.key : `${issues.length} issues`);
@@ -38,6 +40,7 @@ export function useIssueEditors() {
         .map((i) => ({
           key: i.key,
           patch,
+          version: i.version,
           prior: Object.fromEntries(
             (Object.keys(patch) as (keyof IssuePatch)[]).map((k) => [k, (i as unknown as IssuePatch)[k] ?? null]),
           ) as IssuePatch,
@@ -195,7 +198,7 @@ export function useIssueEditors() {
             const next = have.some((x) => x.id === id)
               ? have.filter((x) => x.id !== id)
               : [...have, meta.labels.find((x) => x.id === id)!];
-            return { key: i.key, patch: { labels: next }, prior: { labels: have } };
+            return { key: i.key, patch: { labels: next }, prior: { labels: have }, version: i.version };
           });
           if (edits.length) void apply(edits, `${who(issues)} labels updated`);
         },

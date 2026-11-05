@@ -120,7 +120,7 @@ export function IssueDetailView({
     draftSet(`tl:draft:desc:${issue.key}`, "");
     setEditingDesc(false);
     const v = descDraft.trim() ? descDraft : null;
-    if (v !== (issue.description ?? null)) void apply([{ key: issue.key, patch: { description: v }, prior: { description: issue.description ?? null } }], `${issue.key} description saved`);
+    if (v !== (issue.description ?? null)) void apply([{ key: issue.key, version: issue.version, patch: { description: v }, prior: { description: issue.description ?? null } }], `${issue.key} description saved`);
   }
 
   // ----- activity: comments + events merged, bursts grouped -----
@@ -228,7 +228,7 @@ export function IssueDetailView({
   const revert = useCallback(
     (e: DetailEvent) => {
       const before = (e.before as { state?: IssueState } | null)?.state;
-      if (before) void apply([{ key: issue.key, patch: { state: before }, prior: { state: issue.state } }], `Reverted ${names.actor(e.actorType, e.actorId)}'s change: back to ${STATE_LABEL[before]}`);
+      if (before) void apply([{ key: issue.key, version: issue.version, patch: { state: before }, prior: { state: issue.state } }], `Reverted ${names.actor(e.actorType, e.actorId)}'s change: back to ${STATE_LABEL[before]}`);
     },
     [apply, issue.key, issue.state, names],
   );
@@ -521,11 +521,11 @@ export function IssueDetailView({
               )}
               <div>
                   <dt><label htmlFor="estimate" className="text-[12px] text-ink-subtle">Estimate</label></dt>
-                  <dd><input id="estimate" type="number" min={0} inputMode="numeric" defaultValue={issue.estimate ?? ""} key={`est-${issue.estimate}`} placeholder="none" onBlur={(e) => { const v = e.currentTarget.value === "" ? null : Math.max(0, Math.round(Number(e.currentTarget.value))); if (v !== (issue.estimate ?? null)) void apply([{ key: issue.key, patch: { estimate: v }, prior: { estimate: issue.estimate ?? null } }], `${issue.key} estimate updated`); }} className="mt-0.5 h-8 w-full rounded-sm border border-control bg-transparent px-2 text-[13px] tabular-nums" /></dd>
+                  <dd><input id="estimate" type="number" min={0} inputMode="numeric" defaultValue={issue.estimate ?? ""} key={`est-${issue.estimate}`} placeholder="none" onBlur={(e) => { const v = e.currentTarget.value === "" ? null : Math.max(0, Math.round(Number(e.currentTarget.value))); if (v !== (issue.estimate ?? null)) void apply([{ key: issue.key, version: issue.version, patch: { estimate: v }, prior: { estimate: issue.estimate ?? null } }], `${issue.key} estimate updated`); }} className="mt-0.5 h-8 w-full rounded-sm border border-control bg-transparent px-2 text-[13px] tabular-nums" /></dd>
                 </div>
                 <div>
                   <dt><label htmlFor="due" className="text-[12px] text-ink-subtle">Due</label></dt>
-                  <dd><input id="due" type="date" defaultValue={issue.dueDate ? issue.dueDate.slice(0, 10) : ""} key={`due-${issue.dueDate}`} onChange={(e) => { const raw = e.currentTarget.value; const v = raw ? new Date(`${raw}T12:00:00Z`).toISOString() : null; if (v === (issue.dueDate ?? null)) return; void apply([{ key: issue.key, patch: { dueDate: v }, prior: { dueDate: issue.dueDate ?? null } }], `${issue.key} due date updated`); }} className="mt-0.5 h-8 w-full rounded-sm border border-control bg-transparent px-1.5 text-[12px]" /></dd>
+                  <dd><input id="due" type="date" defaultValue={issue.dueDate ? issue.dueDate.slice(0, 10) : ""} key={`due-${issue.dueDate}`} onChange={(e) => { const raw = e.currentTarget.value; const v = raw ? new Date(`${raw}T12:00:00Z`).toISOString() : null; if (v === (issue.dueDate ?? null)) return; void apply([{ key: issue.key, version: issue.version, patch: { dueDate: v }, prior: { dueDate: issue.dueDate ?? null } }], `${issue.key} due date updated`); }} className="mt-0.5 h-8 w-full rounded-sm border border-control bg-transparent px-1.5 text-[12px]" /></dd>
                 </div>
               <div>
                 <dt className="text-[12px] text-ink-subtle">Created</dt>

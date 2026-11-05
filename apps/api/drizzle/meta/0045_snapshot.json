@@ -1,5 +1,5 @@
 {
-  "id": "e20cf941-bca3-4366-a04f-522abda38228",
+  "id": "8b1e26c9-809a-49b2-b7ce-3c0401e0c4c4",
   "prevId": "ba055920-7faa-4a31-a4ef-1b5c6a61c2d7",
   "version": "7",
   "dialect": "postgresql",
@@ -3651,103 +3651,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.issue_key_aliases": {
-      "name": "issue_key_aliases",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "workspace_id": {
-          "name": "workspace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "issue_id": {
-          "name": "issue_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "key": {
-          "name": "key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "issue_key_aliases_issue_id_index": {
-          "name": "issue_key_aliases_issue_id_index",
-          "columns": [
-            {
-              "expression": "issue_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "issue_key_aliases_workspace_id_workspaces_id_fk": {
-          "name": "issue_key_aliases_workspace_id_workspaces_id_fk",
-          "tableFrom": "issue_key_aliases",
-          "tableTo": "workspaces",
-          "columnsFrom": [
-            "workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "issue_key_aliases_issue_id_issues_id_fk": {
-          "name": "issue_key_aliases_issue_id_issues_id_fk",
-          "tableFrom": "issue_key_aliases",
-          "tableTo": "issues",
-          "columnsFrom": [
-            "issue_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "issue_key_aliases_workspace_id_key_unique": {
-          "name": "issue_key_aliases_workspace_id_key_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "workspace_id",
-            "key"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.issue_labels": {
       "name": "issue_labels",
       "schema": "",
@@ -4260,6 +4163,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         },
         "created_at": {
           "name": "created_at",

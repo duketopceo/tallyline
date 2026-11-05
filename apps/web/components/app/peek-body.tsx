@@ -31,6 +31,7 @@ export interface IssueDetail {
   dueDate: string | null;
   createdAt: string;
   updatedAt: string;
+  version?: number;
   labels: { id: string; name: string; color: string }[];
 }
 interface SessionLite { id: string; status: string; agentName: string; createdAt: string; events: { id: number; kind: string; message: string }[] }

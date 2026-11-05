@@ -38,6 +38,10 @@ export interface Issue {
   creatorType: string;
   creatorId: string | null;
   teamId: string | null;
+  /** canonical link to the issue; absent on servers older than the link API */
+  url?: string;
+  /** per-issue write version, when the server's write contract provides one */
+  version?: number | string;
   cycleId: string | null;
   projectId: string | null;
   parentId: string | null;
@@ -160,6 +164,14 @@ export interface PatchIssueInput {
   priority?: Priority;
   assigneeType?: "human" | "agent" | null;
   assigneeId?: string | null;
+  teamId?: string;
+}
+
+/** Write-contract headers: replays are no-ops, a stale version gets 409 STALE_WRITE. */
+export interface WriteOpts {
+  idempotencyKey?: string;
+  /** the version (or updatedAt) the caller last read */
+  ifMatch?: string;
 }
 
 interface ErrorPayload {
@@ -233,12 +245,14 @@ export class ApiClient {
     opts: {
       query?: Record<string, string | number | undefined>;
       body?: unknown;
+      headers?: Record<string, string>;
     } = {},
   ): Promise<T> {
     const headers: Record<string, string> = {
       authorization: `Bearer ${this.token}`,
       accept: "application/json",
     };
+    if (opts.headers) Object.assign(headers, opts.headers);
     if (opts.body !== undefined) headers["content-type"] = "application/json";
     let res: Response;
     try {
@@ -371,8 +385,11 @@ export class ApiClient {
     return this.req("POST", "/issues", { body });
   }
 
-  patchIssue(key: string, body: PatchIssueInput): Promise<Issue> {
-    return this.req("PATCH", `/issues/${encodeURIComponent(key)}`, { body });
+  patchIssue(key: string, body: PatchIssueInput, write: WriteOpts = {}): Promise<Issue> {
+    const headers: Record<string, string> = {};
+    if (write.idempotencyKey) headers["idempotency-key"] = write.idempotencyKey;
+    if (write.ifMatch) headers["if-match"] = write.ifMatch;
+    return this.req("PATCH", `/issues/${encodeURIComponent(key)}`, { body, headers });
   }
 
   addComment(key: string, body: string): Promise<Comment> {
@@ -474,6 +491,39 @@ export class ApiClient {
     }
     return res;
   }
+}
+
+export interface ServerProbe {
+  status: number;
+  body: unknown;
+  /** parsed HTTP Date header, if the server sent one */
+  date: Date | undefined;
+}
+
+/** Workspace-free, unauthenticated GET used by doctor. Throws ApiError(0) on network failure. */
+export async function probe(apiUrl: string, path: string, fetchImpl: FetchLike): Promise<ServerProbe> {
+  const base = apiUrl.replace(/\/+$/, "");
+  let res: Response;
+  try {
+    res = await fetchImpl(
+      new Request(`${base}${path}`, {
+        headers: { accept: "application/json" },
+        signal: AbortSignal.timeout(8000),
+      }),
+    );
+  } catch (err) {
+    throw new ApiError(0, "NETWORK", `request to ${base} failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  const raw = res.headers.get("date");
+  const t = raw ? new Date(raw) : undefined;
+  const text = await res.text().catch(() => "");
+  let body: unknown;
+  try {
+    body = text ? JSON.parse(text) : undefined;
+  } catch {
+    body = undefined;
+  }
+  return { status: res.status, body, date: t && !Number.isNaN(t.getTime()) ? t : undefined };
 }
 
 export interface Whoami {

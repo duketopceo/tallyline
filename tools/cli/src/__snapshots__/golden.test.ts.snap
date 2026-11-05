@@ -130,7 +130,7 @@ environment:
 
 exit codes:
   0 ok · 1 error · 2 usage/config · 3 unauthorized/forbidden ·
-  4 not found · 5 conflict — API errors print "CODE: message" on stderr",
+  4 not found · 5 conflict · 6 stale write — API errors print "CODE: message" on stderr",
   ],
 }
 `;
@@ -234,7 +234,7 @@ environment:
 
 exit codes:
   0 ok · 1 error · 2 usage/config · 3 unauthorized/forbidden ·
-  4 not found · 5 conflict — API errors print "CODE: message" on stderr",
+  4 not found · 5 conflict · 6 stale write — API errors print "CODE: message" on stderr",
   ],
   "out": [],
 }
