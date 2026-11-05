@@ -10,6 +10,15 @@ const idempotencyHeader = {
   schema: { type: "string" },
 };
 
+const ifMatchHeader = {
+  name: "If-Match",
+  in: "header",
+  required: false,
+  description:
+    "Optimistic concurrency: the issue `version` you last read, as an integer (a quoted ETag form is accepted). If the issue has changed since, nothing is written and the response is 409 STALE_WRITE with the current issue. Omit it for no precondition (clients that predate this contract). Malformed is 400 BAD_IF_MATCH.",
+  schema: { type: "string" },
+};
+
 const wsParam = {
   name: "ws",
   in: "path",
@@ -238,14 +247,14 @@ const basePaths = {
         summary: "Issue detail with children + labels",
         parameters: [wsParam, keyParam],
         responses: {
-          "200": { description: "Issue" },
+          "200": { description: "Issue; `version` is the integer to send back as `If-Match` on a write" },
           "404": { description: "Not found" },
         },
       },
       patch: {
         summary:
-          "Update issue fields; `state` changes route through the lifecycle state machine (409 on illegal transition). Honors `Idempotency-Key`",
-        parameters: [wsParam, keyParam, idempotencyHeader],
+          "Update issue fields; `state` changes route through the lifecycle state machine (409 on illegal transition). Honors `Idempotency-Key` and `If-Match` (issue `version`)",
+        parameters: [wsParam, keyParam, idempotencyHeader, ifMatchHeader],
         requestBody: jsonBody({
           type: "object",
           properties: {
@@ -286,7 +295,32 @@ const basePaths = {
         }),
         responses: {
           "200": { description: "Updated issue" },
-          "409": { description: "Invalid state transition" },
+          "400": { description: "BAD_IF_MATCH: If-Match is not an integer version" },
+          "409": {
+            description:
+              "Invalid state transition, or STALE_WRITE: the issue changed since `If-Match`. STALE_WRITE body: {error:{code,message}, issue} where `issue` is the current server issue (same {error, payload} shape as STALE_DIFF). Replaying the same Idempotency-Key never produces STALE_WRITE; it returns the first stored response.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["error", "issue"],
+                  properties: {
+                    error: {
+                      type: "object",
+                      required: ["code", "message"],
+                      properties: { code: { type: "string", enum: ["STALE_WRITE"] }, message: { type: "string" } },
+                    },
+                    issue: {
+                      type: "object",
+                      required: ["version"],
+                      properties: { version: { type: "integer", minimum: 1 } },
+                      additionalProperties: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },

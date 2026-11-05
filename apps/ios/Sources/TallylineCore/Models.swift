@@ -48,8 +48,21 @@ public struct APIErrorEnvelope: Codable, Sendable {
     }
 }
 
+/// The `409 STALE_WRITE` body: the STALE_DIFF shape, an `error` plus the
+/// current server issue. Only the version is needed to resolve a conflict.
+struct StaleWriteEnvelope: Decodable, Sendable {
+    let issue: Current
+
+    struct Current: Decodable, Sendable {
+        let version: Int?
+    }
+}
+
 public enum APIClientError: Error, Equatable, Sendable {
     case http(Int, code: String?, message: String?)
+    /// `409 STALE_WRITE`: the issue changed since the version sent in
+    /// `If-Match`. Never retry unchanged; carries the server's current version.
+    case staleWrite(message: String?, currentVersion: Int?)
     case transport(String)
     case decoding(String)
 }

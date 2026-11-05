@@ -10,6 +10,7 @@ import { actorFromHeaders } from "../../lib/actor.js";
 import { apiError, HttpError } from "../../lib/errors.js";
 import { aiEnabledFor } from "../../services/ai-seam.js";
 import { idempotent } from "../../lib/idempotency.js";
+import { expectedVersion, staleWriteResponse } from "../../lib/write-contract.js";
 import { decodeCursor, encodeCursor } from "../../lib/pagination.js";
 import { createDispatch } from "../../services/dispatch.js";
 import { assertWithinLimit } from "../../services/entitlements.js";
@@ -453,6 +454,13 @@ export const coreIssueRoutes = new Hono()
       const key = c.req.param("key");
       const body = c.req.valid("json");
       const actor = actorFromHeaders(c);
+
+      // C6: refuse a stale write before anything is validated or written
+      const expected = expectedVersion(c);
+      if (expected !== undefined) {
+        const current = await findIssue(ws.id, key);
+        if (current.version !== expected) return staleWriteResponse(c, current);
+      }
 
       // Validate mutations before committing any of them — a 422 must not
       // leave a half-applied patch (e.g. state moved, cycle rejected).
