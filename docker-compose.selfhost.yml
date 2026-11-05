@@ -76,7 +76,8 @@ services:
       SLACK_INTAKE_EMOJI: ${SLACK_INTAKE_EMOJI:-ticket}
       TALLYLINE_LLM_API_KEY: ${TALLYLINE_LLM_API_KEY:-}
       TALLYLINE_LLM_BASE_URL: ${TALLYLINE_LLM_BASE_URL:-https://openrouter.ai/api/v1}
-      TALLYLINE_LLM_MODEL: ${TALLYLINE_LLM_MODEL:-google/gemini-2.5-flash-lite}
+      TALLYLINE_LLM_MODEL: ${TALLYLINE_LLM_MODEL:-nvidia/nemotron-3.5-lightning}
+      TALLYLINE_LLM_FALLBACKS: ${TALLYLINE_LLM_FALLBACKS:-}
       # shown on the first-run checklist (GET /v1/workspaces/:ws/system/status); all optional
       TALLYLINE_VERSION: ${TALLYLINE_VERSION:-}
       TALLYLINE_REVISION: ${GIT_SHA:-}

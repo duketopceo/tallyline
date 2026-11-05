@@ -14,12 +14,24 @@ AI_CAP_REACHED`) and a ledger row records the action, model and cost.
 ```bash
 TALLYLINE_LLM_API_KEY=sk-or-…            # OpenRouter (or compatible) key
 TALLYLINE_LLM_BASE_URL=https://openrouter.ai/api/v1
-TALLYLINE_LLM_MODEL=google/gemini-2.5-flash-lite
+TALLYLINE_LLM_MODEL=nvidia/nemotron-3.5-lightning
+TALLYLINE_LLM_FALLBACKS=google/gemma-4-26b-a4b-it,deepseek/deepseek-v4-flash  # "none" = off
 ```
 
 The provider speaks OpenAI-style `POST /chat/completions`, so any compatible
 endpoint works (OpenRouter, a local llama.cpp server, a proxy). Default model
-is deliberately cheap; set `TALLYLINE_LLM_MODEL` to whatever fits your budget.
+is deliberately cheap (`nvidia/nemotron-3.5-lightning`: open-weight, text-only,
+structured outputs, $0.07/$0.20 per Mtok); set `TALLYLINE_LLM_MODEL` to whatever
+fits your budget.
+
+**Fallbacks.** For OpenRouter providers every call sends OpenRouter's native
+`models` array: the provider's model first, then `TALLYLINE_LLM_FALLBACKS`
+(default `google/gemma-4-26b-a4b-it`, then `deepseek/deepseek-v4-flash`).
+OpenRouter moves down the list when a model is down or rate limited. A
+workspace that picked its own model keeps it as the primary and inherits the
+server's fallbacks. OpenAI-compatible providers get only their configured
+model, since they don't understand `models`. The usage ledger records the model
+that actually answered (the response's `model`), so spend is attributed to it.
 
 ## Surfaces
 
@@ -78,7 +90,9 @@ key and seals it. You never see or paste the key.
   approve in any browser, then paste the code shown. No callback server needed.
 - A used or wrong code answers `400 CONNECT_CODE_REJECTED`; an old state
   answers `410 CONNECT_EXPIRED`. Nothing is saved on failure.
-- New connections start on `google/gemini-2.5-flash-lite` with a $10 monthly limit.
+- New connections start on `nvidia/nemotron-3.5-lightning` (with the fallbacks
+  above) and a $10 monthly limit. Connections made before the switch keep the
+  model they were saved with.
 
 How it behaves:
 

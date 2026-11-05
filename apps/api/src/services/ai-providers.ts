@@ -38,8 +38,25 @@ export interface ResolvedProvider {
   label: string;
   baseUrl: string;
   model: string;
+  /**
+   * OpenRouter models tried after `model`, in order. A workspace's own model
+   * stays primary; with no explicit fallbacks of its own it inherits the server
+   * chain (TALLYLINE_LLM_FALLBACKS). Unused for openai_compatible providers.
+   */
+  fallbacks: string[];
   apiKey: string | null;
   capCents: number | null;
+}
+
+/**
+ * The `models` array OpenRouter routes through (primary first, deduped), or
+ * null when the provider shouldn't get one: openai_compatible servers don't
+ * know the field, and a chain of one is just `model`.
+ */
+export function modelChain(p: Pick<ResolvedProvider, "kind" | "model" | "fallbacks">): string[] | null {
+  if (p.kind !== "openrouter") return null;
+  const chain = [...new Set([p.model, ...p.fallbacks].map((m) => m.trim()).filter(Boolean))];
+  return chain.length > 1 ? chain : null;
 }
 
 export interface ProviderInput {
@@ -112,6 +129,7 @@ export async function resolveProvider(workspaceId: string): Promise<ResolvedProv
       label: row.label,
       baseUrl: row.baseUrl,
       model: row.model,
+      fallbacks: [...config_.llmFallbacks],
       apiKey,
       capCents: row.monthlyCapCents,
     };
@@ -123,6 +141,7 @@ export async function resolveProvider(workspaceId: string): Promise<ResolvedProv
       label: "Set by the server",
       baseUrl: config_.llmBaseUrl.replace(/\/+$/, ""),
       model: config_.llmModel,
+      fallbacks: [...config_.llmFallbacks],
       apiKey: config_.llmApiKey,
       capCents: null,
     };
@@ -332,6 +351,8 @@ export interface CompleteResult {
 }
 
 interface ChatBody {
+  /** the model that actually served (may be a fallback) */
+  model?: unknown;
   choices?: { message?: { content?: unknown } }[];
   usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
   error?: { message?: unknown };
@@ -368,8 +389,11 @@ export async function complete(workspaceId: string, action: string, input: Compl
     headers["http-referer"] = config_.apiBaseUrl;
     headers["x-title"] = "tallyline";
   }
+  const chain = modelChain(p);
   const body = JSON.stringify({
     model: p.model,
+    // OpenRouter's native fallback routing: tried in order on outage/rate limit
+    ...(chain ? { models: chain } : {}),
     max_tokens: maxTokens,
     temperature: input.temperature ?? 0.2,
     messages: [
@@ -398,9 +422,13 @@ export async function complete(workspaceId: string, action: string, input: Compl
   const tokensIn = Math.max(0, Math.floor(parsed?.usage?.prompt_tokens ?? 0));
   const tokensOut = Math.max(0, Math.floor(parsed?.usage?.completion_tokens ?? 0));
   const costMicros = Math.max(0, Math.round((parsed?.usage?.cost ?? 0) * 1_000_000));
+  // bill the model that answered, not the one asked for: with a fallback chain
+  // they differ, and per-model cost accounting reads this ledger column
+  const served =
+    typeof parsed?.model === "string" && parsed.model.trim() ? parsed.model.trim().slice(0, 200) : p.model;
 
   if (res.status < 200 || res.status >= 300) {
-    await ledger(workspaceId, action, p.model, { tokensIn, tokensOut, costMicros }, "error");
+    await ledger(workspaceId, action, served, { tokensIn, tokensOut, costMicros }, "error");
     const reason =
       res.status === 401 || res.status === 403
         ? "it didn't accept the API key"
@@ -415,9 +443,9 @@ export async function complete(workspaceId: string, action: string, input: Compl
   }
   const text = typeof parsed?.choices?.[0]?.message?.content === "string" ? parsed.choices[0]!.message!.content.trim() : "";
   if (!text) {
-    await ledger(workspaceId, action, p.model, { tokensIn, tokensOut, costMicros }, "error");
+    await ledger(workspaceId, action, served, { tokensIn, tokensOut, costMicros }, "error");
     throw new AiError(502, "AI_UPSTREAM", `${p.label} answered with nothing.`);
   }
-  await ledger(workspaceId, action, p.model, { tokensIn, tokensOut, costMicros }, "ok");
-  return { text, model: p.model, tokensIn, tokensOut, costMicros };
+  await ledger(workspaceId, action, served, { tokensIn, tokensOut, costMicros }, "ok");
+  return { text, model: served, tokensIn, tokensOut, costMicros };
 }
