@@ -25,6 +25,8 @@ export const GROUPS: { title: string; items: [name: string, what: string][] }[] 
       ["create", "file a new issue"],
       ["triage", "accept or decline new issues"],
       ["teams", "list or create teams"],
+      ["move-team", "move an issue to another team"],
+      ["link", "print an issue's link"],
     ],
   },
   {

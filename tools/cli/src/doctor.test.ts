@@ -25,13 +25,25 @@ const store = (kind: TokenStore["kind"] = "macos-keychain", tok?: string): Token
 });
 
 const GOOD = "tly_pat_good";
-function api(opts: { health?: number; db?: boolean; down?: boolean } = {}): CliIo["fetch"] {
+function api(
+  opts: { health?: number; db?: boolean; down?: boolean; old?: boolean; apple?: boolean; date?: string } = {},
+): CliIo["fetch"] {
   return async (req) => {
     if (opts.down) throw new Error("connect ECONNREFUSED");
     const u = new URL(req.url);
     if (u.pathname === "/health") {
       const bad = opts.health === 503 || opts.db === false;
-      return new Response(JSON.stringify({ status: bad ? "degraded" : "ok", postgres: !bad }), { status: bad ? 503 : 200 });
+      return new Response(JSON.stringify({ status: bad ? "degraded" : "ok", postgres: !bad }), {
+        status: bad ? 503 : 200,
+        headers: { date: opts.date ?? new Date().toUTCString() },
+      });
+    }
+    if (u.pathname === "/v1/auth/methods" && !opts.old) {
+      const providers = opts.apple === false ? [{ key: "github", type: "github", label: "GitHub" }] : [{ key: "apple", type: "apple", label: "Apple" }];
+      return new Response(JSON.stringify({ password: true, providers }));
+    }
+    if (u.pathname === "/openapi.json" && !opts.old) {
+      return new Response(JSON.stringify({ components: { schemas: { StaleWrite: { description: "409 STALE_WRITE" } } } }));
     }
     if (u.pathname === "/v1/whoami") {
       return req.headers.get("authorization") === `Bearer ${GOOD}`
@@ -64,6 +76,9 @@ describe("doctor", () => {
     expect(await run(["doctor"], io)).toBe(0);
     expect(out).toEqual([
       "ok server/server-reachable: api.example.test is up",
+      "ok server/apple-sign-in: api.example.test offers Sign in with Apple",
+      "ok server/write-contract: api.example.test supports safe retries and conflict detection",
+      "ok computer/clock-skew: this computer's clock matches the server's",
       "ok connection/signed-in: signed in as Ada",
       "ok connection/workspace: workspace is acme",
       expect.stringMatching(/^ok computer\/node: Node /),
@@ -78,6 +93,33 @@ describe("doctor", () => {
     expect(j.ok).toBe(true);
     expect(j.checks[0]).toEqual({ id: "server-reachable", group: "server", status: "ok", message: "api.example.test is up" });
     expect(Object.keys(j)).toEqual(["ok", "fixed", "checks"]);
+  });
+
+  it("an older server gets warnings for the new checks, not failures", async () => {
+    const { io, out } = setup({ fetch: api({ old: true }) });
+    expect(await run(["doctor", "--json"], io)).toBe(0);
+    const checks = JSON.parse(out.join("")).checks as { id: string; status: string; message: string; fix?: string }[];
+    const wc = checks.find((c) => c.id === "write-contract");
+    expect(wc).toMatchObject({ status: "warn", message: "write contract not advertised by api.example.test" });
+    expect(wc?.fix).toBeTruthy();
+    expect(checks.find((c) => c.id === "apple-sign-in")?.status).toBe("warn");
+  });
+
+  it("warns when Apple is not among the advertised methods", async () => {
+    const { io, out } = setup({ fetch: api({ apple: false }) });
+    expect(await run(["doctor", "--json"], io)).toBe(0);
+    const c = JSON.parse(out.join("")).checks.find((x: { id: string }) => x.id === "apple-sign-in");
+    expect(c).toMatchObject({ status: "warn", message: "api.example.test doesn't offer Sign in with Apple" });
+    expect(c.fix).toBeTruthy();
+  });
+
+  it("warns on clock skew with a fix, from the HTTP Date header", async () => {
+    const { io, out } = setup({ fetch: api({ date: new Date(Date.now() - 10 * 60_000).toUTCString() }) });
+    expect(await run(["doctor", "--json"], io)).toBe(0);
+    const c = JSON.parse(out.join("")).checks.find((x: { id: string }) => x.id === "clock-skew");
+    expect(c.status).toBe("warn");
+    expect(c.message).toMatch(/ahead of the server/);
+    expect(c.fix).toContain("automatic date and time");
   });
 
   it("server down fails with an address hint, exit 1", async () => {
