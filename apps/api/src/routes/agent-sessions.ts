@@ -1,10 +1,11 @@
+import { resolveIssueByKey } from "../services/issues.js";
 import { zValidator } from "@hono/zod-validator";
 import { and, desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { agentActivityInputSchema } from "@tallyline/types";
 import { db } from "../db/client.js";
-import { agentSessions, issues } from "../db/schema.js";
+import { agentSessions } from "../db/schema.js";
 import { HttpError } from "../lib/errors.js";
 import {
   getSession,
@@ -52,11 +53,7 @@ export const agentSessionRoutes = new Hono()
   .get("/workspaces/:ws/issues/:key/agent-sessions", async (c) => {
     const ws = await requireWorkspace(c);
     const agent = c.get("agentAuth");
-    const [issue] = await db
-      .select({ id: issues.id })
-      .from(issues)
-      .where(and(eq(issues.workspaceId, ws.id), eq(issues.key, c.req.param("key"))))
-      .limit(1);
+    const issue = await resolveIssueByKey(ws.id, c.req.param("key"));
     if (!issue) throw new HttpError(404, "NOT_FOUND", "issue not found");
     const where = agent
       ? and(eq(agentSessions.issueId, issue.id), eq(agentSessions.agentId, agent.agentId))

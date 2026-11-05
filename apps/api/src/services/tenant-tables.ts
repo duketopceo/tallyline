@@ -46,6 +46,7 @@ export const TENANT_TABLES: Record<string, TenantTablePolicy> = {
   reporter_reply_deliveries: { export: true, redact: ["to_email"] },
   invites: { export: true, redact: ["token_hash"] },
   issue_external_refs: { export: true },
+  issue_key_aliases: { export: true },
   issue_relations: { export: true },
   issue_suggestions: { export: true },
   issues: { export: true },

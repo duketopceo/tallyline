@@ -374,6 +374,26 @@ export const issues = pgTable(
   ],
 );
 
+// A moved issue (team change) takes a new key; the keys it used to have stay
+// here so copied links, deep links and CLI references keep resolving.
+export const issueKeyAliases = pgTable(
+  "issue_key_aliases",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [unique().on(t.workspaceId, t.key), index().on(t.issueId)],
+);
+
 // One row per automated-intake delivery (GlitchTip, GitHub, help/bug reports).
 // externalId gives provider delivery idempotency; fingerprint groups repeated
 // errors onto the same issue. status records what the pipe did with it.

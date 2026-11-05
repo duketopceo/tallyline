@@ -23,6 +23,8 @@ export interface IssueDetail {
   creatorId: string | null;
   source: string;
   teamId: string;
+  /** web permalink computed by the API from its configured web origin */
+  url?: string;
   cycleId: string | null;
   projectId: string | null;
   estimate: number | null;

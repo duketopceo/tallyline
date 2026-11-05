@@ -22,6 +22,7 @@ import {
   githubRepos,
   invites,
   issueExternalRefs,
+  issueKeyAliases,
   issueLabels,
   intakeCredentials,
   intakeEvents,
@@ -625,6 +626,14 @@ export async function mkExternalRef(t: Tenant, issueId: string) {
   return row!;
 }
 
+export async function mkKeyAlias(t: Tenant, issueId: string) {
+  const [row] = await db
+    .insert(issueKeyAliases)
+    .values({ workspaceId: t.ws.id, issueId, key: `OLD-${uniq()}` })
+    .returning();
+  return row!;
+}
+
 export async function mkSlackLink(t: Tenant, issueId: string) {
   const [row] = await db
     .insert(slackLinks)
@@ -711,6 +720,7 @@ export interface Entities {
   intakeCredential: Awaited<ReturnType<typeof mkIntakeCredential>>;
   github: Awaited<ReturnType<typeof mkGithub>>;
   externalRef: Awaited<ReturnType<typeof mkExternalRef>>;
+  keyAlias: Awaited<ReturnType<typeof mkKeyAlias>>;
   slackLink: Awaited<ReturnType<typeof mkSlackLink>>;
   velocity: Awaited<ReturnType<typeof mkVelocity>>;
   oauthCode: Awaited<ReturnType<typeof mkOauthCode>>;
@@ -773,6 +783,7 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
     intakeCredential: await mkIntakeCredential(t, project.id),
     github: await mkGithub(t, issue.id),
     externalRef: await mkExternalRef(t, issue.id),
+    keyAlias: await mkKeyAlias(t, issue.id),
     slackLink: await mkSlackLink(t, issue.id),
     velocity: await mkVelocity(t, cycle.id),
     oauthCode: await mkOauthCode(t, t.people.owner.id),

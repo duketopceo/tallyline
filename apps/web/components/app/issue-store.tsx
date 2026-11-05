@@ -3,6 +3,7 @@
 import { findPath, type IssueState, type Priority } from "@tallyline/types";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { pathAfterMove } from "@/lib/issue-link";
 import { useToast } from "./toast";
 
 // Optimistic issue edits shared by lists, board, peek and detail. The UI shows
@@ -17,6 +18,7 @@ export type IssuePatch = Partial<{
   cycleId: string | null;
   projectId: string | null;
   milestoneId: string | null;
+  teamId: string;
   estimate: number | null;
   labels: { id: string; name: string; color: string }[];
   dueDate: string | null;
@@ -56,18 +58,23 @@ export function useMerged<T extends { key: string }>(issue: T): T & IssuePatch {
   return useMemo(() => (o ? { ...issue, ...o } : issue), [issue, o]);
 }
 
-async function send(key: string, body: Record<string, unknown>): Promise<string | null> {
+// `error` is null on success; `key` is the issue's key after the write, which
+// differs from the one sent when the patch moved it to another team
+async function send(key: string, body: Record<string, unknown>): Promise<{ error: string | null; key?: string }> {
   try {
     const res = await fetch(`/api/issues/${key}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (res.ok) return null;
+    if (res.ok) {
+      const done = (await res.json().catch(() => null)) as { key?: string } | null;
+      return { error: null, ...(done?.key ? { key: done.key } : {}) };
+    }
     const err = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-    return err?.error?.message ?? `server returned ${res.status}`;
+    return { error: err?.error?.message ?? `server returned ${res.status}` };
   } catch {
-    return "network unreachable";
+    return { error: "network unreachable" };
   }
 }
 
@@ -110,17 +117,22 @@ export function IssueStoreProvider({ children }: { children: ReactNode }) {
             const from = e.prior.state;
             const steps = from && from !== state ? findPath(from, state) : [state];
             for (const s of steps ?? []) {
-              const msg = await send(e.key, { state: s });
+              const { error: msg } = await send(e.key, { state: s });
               if (msg) return void failures.push({ key: e.key, msg });
             }
           }
           if (labels !== undefined) {
-            const msg = await send(e.key, { labelIds: labels.map((l) => l.id) });
+            const { error: msg } = await send(e.key, { labelIds: labels.map((l) => l.id) });
             if (msg) failures.push({ key: e.key, msg });
           }
           if (Object.keys(rest).length) {
-            const msg = await send(e.key, rest);
+            const { error: msg, key: newKey } = await send(e.key, rest);
             if (msg) failures.push({ key: e.key, msg });
+            else if (rest.teamId !== undefined) {
+              // the open page for the old key follows the issue to its new one
+              const to = pathAfterMove(window.location.pathname, e.key, newKey);
+              if (to) router.replace(to);
+            }
           }
         }),
       );
@@ -150,7 +162,7 @@ export function IssueStoreProvider({ children }: { children: ReactNode }) {
       }
       return failed.size === 0;
     },
-    [refresh, toast],
+    [refresh, router, toast],
   );
 
   const value = useMemo(() => ({ overrides, apply }), [overrides, apply]);

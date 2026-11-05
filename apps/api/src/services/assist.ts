@@ -1,3 +1,4 @@
+import { resolveIssueByKey } from "./issues.js";
 import { and, desc, eq, ne } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { agentActivities, agentSessions, comments, issues } from "../db/schema.js";
@@ -54,10 +55,7 @@ function parseJson<T>(text: string): T | null {
 }
 
 async function findIssueRow(workspaceId: string, key: string) {
-  const [issue] = await db
-    .select()
-    .from(issues)
-    .where(and(eq(issues.workspaceId, workspaceId), eq(issues.key, key)));
+  const issue = await resolveIssueByKey(workspaceId, key);
   if (!issue) throw new HttpError(404, "NOT_FOUND", "issue not found");
   return issue;
 }
