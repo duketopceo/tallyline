@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import UIKit
 import TallylineCore
 import TallylineDesign
 
@@ -8,6 +9,8 @@ import TallylineDesign
 struct SettingsView: View {
     var session: SessionModel
     let credential: DeviceCredential
+    /// Injected so each capability combination can be shown and tested.
+    var channel: BuildChannel = .current
     @Environment(\.dismiss) private var dismiss
     @State private var confirmSignOut = false
 
@@ -29,6 +32,11 @@ struct SettingsView: View {
                             }
                         }
                     }
+                    if !session.workspaceChoices.isEmpty {
+                        NavigationLink { WorkspacesView(session: session, credential: credential) } label: {
+                            LabeledContent("Workspace", value: credential.workspaceName)
+                        }
+                    }
                 }
                 Section {
                     NavigationLink("Appearance") { AppearanceView() }
@@ -37,7 +45,16 @@ struct SettingsView: View {
                         LabeledContent("Sync", value: syncSummary)
                     }
                     NavigationLink("Agents") { AgentsView(session: session, credential: credential) }
+                    if !iconNames.isEmpty {
+                        NavigationLink("App icon") { AppIconView(names: iconNames) }
+                    }
                     NavigationLink("About") { AboutView(session: session, credential: credential) }
+                    if channel.offersFeedback {
+                        Button("Send TestFlight feedback") {
+                            // Opens TestFlight, where a screenshot and note go to the team.
+                            if let url = URL(string: "itms-beta://") { UIApplication.shared.open(url) }
+                        }
+                    }
                 }
                 Section {
                     Button("Sign out", role: .destructive) { confirmSignOut = true }
@@ -61,6 +78,12 @@ struct SettingsView: View {
             }
             .task { await session.loadMe() }
         }
+    }
+
+    /// Alternate icons the build declares. Empty, so no row, until they ship.
+    private var iconNames: [String] {
+        guard UIApplication.shared.supportsAlternateIcons else { return [] }
+        return AlternateIcons.declared(in: Bundle.main.infoDictionary)
     }
 
     private var syncSummary: String {

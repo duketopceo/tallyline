@@ -35,6 +35,10 @@ public struct Whoami: Codable, Sendable {
     public struct Membership: Codable, Sendable {
         public let workspaceSlug: String
         public let role: String
+        /// Display name; servers before this field leave it out.
+        public let workspaceName: String?
+        /// Set while the workspace waits out its deletion window.
+        public let deletedAt: String?
     }
 }
 

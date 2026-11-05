@@ -64,12 +64,20 @@ public struct PushConfig: Decodable, Sendable, Equatable {
     public let enabled: Bool
     public let relayUrl: URL?
     public let serverKey: String?
+    /// The server has `POST push/test`. Absent on servers that predate it, so
+    /// the app leaves the test row out rather than showing one that 404s.
+    public let canTest: Bool?
 
-    public init(enabled: Bool, relayUrl: URL?, serverKey: String?) {
+    public init(enabled: Bool, relayUrl: URL?, serverKey: String?, canTest: Bool? = nil) {
         self.enabled = enabled
         self.relayUrl = relayUrl
         self.serverKey = serverKey
+        self.canTest = canTest
     }
+
+    /// Settings shows "Send a test notification" only when push is on and the
+    /// server can send one.
+    public var offersTest: Bool { enabled && canTest == true }
 }
 
 /// `GET`/`PUT /v1/workspaces/:ws/push/preferences`. Quiet hours are minutes
@@ -204,6 +212,12 @@ public struct LivePushAPI: PushAPI {
     public func clearDeviceHandle() async throws {
         struct Out: Decodable {}
         let _: Out = try await client.send(method: "DELETE", path: "\(ws)/devices/current/push")
+    }
+
+    /// `POST push/test`: one ping to this phone through the relay.
+    public func sendTest() async throws {
+        struct Out: Decodable {}
+        let _: Out = try await client.send(method: "POST", path: "\(ws)/push/test", body: [String: String]())
     }
 
     public func preferences() async throws -> PushPreferences {
