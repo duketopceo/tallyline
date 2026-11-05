@@ -165,7 +165,13 @@ export function IssueStoreProvider({ children }: { children: ReactNode }) {
       refresh();
       const ok = edits.filter((e) => !failed.has(e.key));
       if (ok.length && !opts?.silent) {
-        const undoable = ok.every((e) => e.patch.state === undefined || e.prior.state === undefined || findPath(e.patch.state, e.prior.state) !== null);
+        // a team move re-keys the issue and clears team-scoped fields; moving back
+        // would mint a third key, not restore the old one, so it has no Undo
+        const undoable = ok.every(
+          (e) =>
+            e.patch.teamId === undefined &&
+            (e.patch.state === undefined || e.prior.state === undefined || findPath(e.patch.state, e.prior.state) !== null),
+        );
         toast.push({
           message: label,
           ...(undoable
