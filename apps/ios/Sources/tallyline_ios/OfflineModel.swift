@@ -21,6 +21,10 @@ final class OfflineModel {
     private(set) var entries: [OutboxEntry] = []
     private(set) var isOnline = true
     private(set) var cache: IssueCacheSnapshot?
+    /// When the last delta sync finished (this launch). Nil until one has.
+    private(set) var lastSyncedAt: Date?
+    /// True while the outbox is sending.
+    private(set) var isDraining = false
 
     var failedCount: Int { entries.filter { if case .failed = $0.status { true } else { false } }.count }
 
@@ -63,8 +67,15 @@ final class OfflineModel {
         return .sent
     }
 
+    /// Pending, retrying or parked, for the shell and the Outbox screen.
+    func displayState(for entry: OutboxEntry) -> OutboxDisplayState { entry.displayState }
+
+    func count(_ state: OutboxDisplayState) -> Int { entries.filter { $0.displayState == state }.count }
+
     func drain() async {
         guard let client = client() else { return }
+        isDraining = true
+        defer { isDraining = false }
         _ = await outbox.drain(using: TrackerOutboxSender(client: client))
         await refreshEntries()
         await scheduleWake()
@@ -114,6 +125,7 @@ final class OfflineModel {
         let delta = try await client.issues(ws: workspaceSlug, updatedSince: snapshot.syncedAt)
         snapshot.merge(delta, syncedAt: startedAt)
         cache = snapshot
+        lastSyncedAt = Date()
         try? cacheStore.write(snapshot)
     }
 

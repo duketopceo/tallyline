@@ -65,10 +65,11 @@ public enum TallylineActions {
         let memory = TeamMemory()
         var teamId = memory.teamId
         if let client = session.client, let teams = try? await client.teams(ws: credential.workspaceSlug) {
+            memory.teams = teams
             teamId = memory.pick(from: teams)?.id
         }
         guard let teamId else { throw Failure.noTeam }
-        let draft = IssueCreate(title: title, description: description, teamId: teamId)
+        let draft = IssueCreate(title: title, description: description, teamId: teamId, teamKey: memory.teamKey(forId: teamId))
         switch await session.offline.submit(.createIssue(draft), workspaceSlug: credential.workspaceSlug) {
         case .sent: return .sent
         case .queued: return .queued

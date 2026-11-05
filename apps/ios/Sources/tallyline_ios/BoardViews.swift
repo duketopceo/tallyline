@@ -496,7 +496,7 @@ struct CreateIssueView: View {
     private func create() async {
         let draft = IssueCreate(
             title: title, description: description.isEmpty ? nil : description,
-            teamId: teamId, priority: priority
+            teamId: teamId, teamKey: teams.first { $0.id == teamId }?.key, priority: priority
         )
         TeamMemory().teamId = teamId
         switch await session.offline.submit(.createIssue(draft), workspaceSlug: credential.workspaceSlug) {
