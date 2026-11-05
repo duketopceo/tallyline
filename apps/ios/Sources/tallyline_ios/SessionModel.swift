@@ -19,6 +19,13 @@ final class SessionModel {
 
     private(set) var state: SignInState = .signedOut
     private(set) var lastError: String?
+    /// The signed-in person, for the profile button and Settings.
+    private(set) var me: Whoami?
+
+    func loadMe() async {
+        guard me == nil, let client else { return }
+        me = try? await client.whoami()
+    }
 
     func clearError() { lastError = nil }
     func setError(_ message: String) { lastError = message }
@@ -26,6 +33,15 @@ final class SessionModel {
     private let store: any CredentialStore
     /// Issue cache and outbox. Set once in init.
     @ObservationIgnored private(set) var offline: OfflineModel!
+    /// Roadmap summary, review queue and pick-lists, shared by every tab.
+    let workspace = WorkspaceModel()
+
+    /// One sync cycle: issue delta, then the shared workspace data.
+    func refresh() async {
+        guard case let .signedIn(credential) = state else { return }
+        try? await offline.syncIssues(workspaceSlug: credential.workspaceSlug)
+        await workspace.refresh(client: client, workspaceSlug: credential.workspaceSlug)
+    }
 
     init(store: any CredentialStore) {
         self.store = store
@@ -132,7 +148,26 @@ final class SessionModel {
         }
     }
 
+    /// Rotate the credential now, whatever its age. Returns false on failure.
+    @discardableResult
+    func rotateNow() async -> Bool {
+        guard case let .signedIn(credential) = state, let client else { return false }
+        do {
+            let rotated = try await client.rotateDeviceToken(workspaceSlug: credential.workspaceSlug)
+            var updated = credential
+            updated.token = rotated.token
+            updated.expiresAt = rotated.expiresAt
+            try store.save(updated)
+            state = .signedIn(updated)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     func signOut() {
+        me = nil
+        workspace.reset()
         try? store.clear()
         state = .signedOut
         WidgetBridge.clear()

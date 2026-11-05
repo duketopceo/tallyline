@@ -48,6 +48,10 @@ public enum PushKind: String, Codable, Sendable, CaseIterable, Identifiable {
 public enum PushDestination: String, Sendable {
     case myIssues
     case review
+    case now
+    case projects
+    case roadmap
+    case settings
 }
 
 public enum PushEnvironment: String, Codable, Sendable {

@@ -11,6 +11,7 @@ import { glitchtipDeliveryLimiter, glitchtipIssueLimiter } from "./glitchtip-web
 import { hashToken } from "../services/tokens.js";
 import { resetClock, setClock } from "../services/clock.js";
 import { ingestIntake } from "../services/intake.js";
+import { signSentryBody } from "../lib/sentry.js";
 
 // ranking is switched on so the test proves the receiver bypasses it
 const suggestTriage = vi.hoisted(() => vi.fn());
@@ -24,6 +25,7 @@ vi.mock("../services/assist.js", async (orig) => ({
 }));
 
 const SLUG = "gt-test";
+const SENTRY_TEST_SECRET = "test-sentry-signing-secret";
 const T0 = Date.parse("2026-10-25T12:00:30.000Z");
 
 let sessionCookie = "";
@@ -359,8 +361,77 @@ describe("glitchtip native integration", () => {
     expect(r.status).toBe(413);
   });
 
-  it("rotation kills the old secret immediately and reveals the new one once", async () => {
-    const rot = await admin("/rotate", { method: "POST" });
+  // Sentry addresses the same error-source endpoint. Its payloads carry a
+  // signature; a Sentry-shaped body without one is refused, never parsed.
+  const sentryFx = (name: string): string =>
+    readFileSync(
+      new URL(`../../test/fixtures/sentry/${name}.json`, import.meta.url),
+      "utf8",
+    );
+  const sentryDelivery = (tok: string, raw: string, signature?: string) =>
+    req(`/webhooks/glitchtip/${tok}`, {
+      method: "POST",
+      body: raw,
+      cookie: false,
+      ...(signature ? { headers: { "sentry-hook-signature": signature } } : {}),
+    });
+
+  it("refuses an unsigned sentry delivery before parsing it", async () => {
+    const before = await db.select().from(intakeEvents);
+    const r = await sentryDelivery(token, sentryFx("issue-alert"));
+    expect(r.status).toBe(401);
+    expect(r.body).toMatchObject({ error: { code: "INVALID_SIGNATURE" } });
+    expect(await db.select().from(intakeEvents)).toHaveLength(before.length);
+  });
+
+  it("refuses a badly signed sentry delivery", async () => {
+    const raw = sentryFx("issue-alert");
+    const r = await sentryDelivery(token, raw, signSentryBody(raw, "wrong-secret"));
+    expect(r.status).toBe(401);
+    expect(r.body).toMatchObject({ error: { code: "INVALID_SIGNATURE" } });
+  });
+
+  it("accepts a signed sentry delivery and lands it on the mapped team", async () => {
+    const raw = sentryFx("issue-alert");
+    const r = await sentryDelivery(token, raw, signSentryBody(raw, SENTRY_TEST_SECRET));
+    expect(r.status).toBe(200);
+    const results = r.body.results as { status: string; teamKey: string; issueKey: string }[];
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ status: "created", teamKey: "PACE" });
+
+    const [issue] = await db.select().from(issues).where(eq(issues.key, results[0]!.issueKey));
+    expect(issue).toMatchObject({
+      state: "triage",
+      source: "intake",
+      intakeFingerprint: "sentry:portal-ui/4121",
+      occurrenceCount: 1,
+    });
+    expect(issue!.description).toContain("Project: portal-ui");
+    expect(issue!.description).toContain("sentry (error, error)");
+  });
+
+  it("folds a repeat sentry delivery onto the same issue, not a second one", async () => {
+    const raw = sentryFx("issue-alert");
+    // same event id = same delivery: dropped as a replay
+    const replay = await sentryDelivery(token, raw, signSentryBody(raw, SENTRY_TEST_SECRET));
+    expect((replay.body.results as { status: string }[])[0]!.status).toBe("duplicate_delivery");
+
+    // a new event for the same Sentry issue = a new occurrence
+    const later = raw.replace(
+      "c0ffee1d2e3f4a5b6c7d8e9f0a1b2c3d",
+      "deadbeef1d2e3f4a5b6c7d8e9f0a1b2c3d",
+    );
+    const r = await sentryDelivery(token, later, signSentryBody(later, SENTRY_TEST_SECRET));
+    expect((r.body.results as { status: string; occurrenceCount: number }[])[0]).toMatchObject({
+      status: "deduped",
+      occurrenceCount: 2,
+    });
+    expect(
+      await db.select().from(issues).where(eq(issues.intakeFingerprint, "sentry:portal-ui/4121")),
+    ).toHaveLength(1);
+  });
+
+  it("rotation kills the old secret immediately and reveals the new one once", async () => {    const rot = await admin("/rotate", { method: "POST" });
     expect(rot.status).toBe(200);
     const next = rot.body.token as string;
     expect(next).not.toBe(token);

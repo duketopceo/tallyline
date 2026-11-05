@@ -1,16 +1,16 @@
 {
   "projects": [
     {
-      "id": "f9682196-cd8c-4f56-99b7-230bfe649f32",
-      "workspaceId": "033d47ae-9629-4447-9d7c-434ff255e8a5",
+      "id": "5cf829ba-0b66-4168-b67b-48254bbb9873",
+      "workspaceId": "aa7562ca-2b9f-49b3-99c0-c1bf9ea90cec",
       "teamId": null,
-      "name": "Project tlysentinelios-contractbc13d368",
-      "description": "tlysentinelios-contractbc13d368",
+      "name": "Project tlysentinelios-contract94c7f81b",
+      "description": "tlysentinelios-contract94c7f81b",
       "status": "planned",
       "iconUrl": null,
       "startDate": null,
       "targetDate": null,
-      "createdAt": "2026-10-30T23:45:21.790Z"
+      "createdAt": "2026-11-04T09:56:40.390Z"
     }
   ]
 }

@@ -1,0 +1,41 @@
+{
+  "action": "triggered",
+  "installation": {
+    "uuid": "8f1c1d1e-2f2a-4d6b-9a29-8f0e7c1b2a11"
+  },
+  "data": {
+    "event": {
+      "event_id": "c0ffee1d2e3f4a5b6c7d8e9f0a1b2c3d",
+      "project": 42,
+      "project_name": "portal-ui",
+      "culprit": "src/portal/checkout.ts in submitOrder",
+      "message": "TypeError: Cannot read properties of undefined (reading 'id')",
+      "title": "TypeError: Cannot read properties of undefined (reading 'id')",
+      "web_url": "https://errors.pacehq.io/organizations/pace/issues/4121/events/c0ffee1d2e3f4a5b6c7d8e9f0a1b2c3d/",
+      "level": "error",
+      "platform": "javascript",
+      "datetime": "2026-11-03T18:20:31.000Z",
+      "issue_id": "4121",
+      "release": {
+        "version": "portal@1.4.2"
+      },
+      "tags": [
+        ["environment", "production"],
+        ["server_name", "portal-web-1"]
+      ]
+    },
+    "triggeredRule": {
+      "id": "7",
+      "name": "new error"
+    },
+    "issue": {
+      "id": "4121",
+      "title": "TypeError: Cannot read properties of undefined (reading 'id')",
+      "web_url": "https://errors.pacehq.io/organizations/pace/issues/4121/"
+    }
+  },
+  "actor": {
+    "type": "application",
+    "name": "Sentry"
+  }
+}

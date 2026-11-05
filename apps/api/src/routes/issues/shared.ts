@@ -98,6 +98,10 @@ export const bulkSchema = z
 
 export const commentSchema = z.object({
   body: z.string().min(1).max(50_000),
+  // reporter follow-up (plan 2026-11-03 U3): mark a reply public and it is
+  // visible through the reporter's handle and emailed to them. Internal by
+  // default — nothing is exposed to a reporter unless a human says so.
+  public: z.boolean().optional(),
 });
 
 // An `x-actor-id` header claiming an agent actor must name a real agent in

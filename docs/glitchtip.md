@@ -4,8 +4,10 @@ GlitchTip alerts land in Tallyline as triage issues, on the team that owns the
 GlitchTip project. No translator sits in between: GlitchTip posts its own alert
 payload to a Tallyline URL, and the receiver feeds the same intake pipe as
 `POST /v1/workspaces/:ws/intake` (dedupe, occurrence counts, triage, never
-auto-accepted). See [github-sync.md](./github-sync.md) and [slack.md](./slack.md)
-for the other inbound integrations.
+auto-accepted). Sentry uses the same endpoint and the same normaliser, with a
+signature check; see [intake.md](./intake.md). See
+[github-sync.md](./github-sync.md) and [slack.md](./slack.md) for the other
+inbound integrations.
 
 ## How it works
 
@@ -34,6 +36,10 @@ GlitchTip alert  ->  POST /webhooks/glitchtip/<secret>  ->  intake  ->  triage i
 | `fields[]` Project | picks the team (see below) |
 | `fields[]` Environment, Server Name, Release, extra tags | lines in the body |
 | `attachments[].color` | severity: `#e52b50` error, `#e9b949` warning, `#4b60b4` info |
+
+The same normaliser handles Sentry payloads, so an error source can move
+between the two without changing what lands on the board; the Sentry mapping
+is the second table in [intake.md](./intake.md).
 
 Severity limits: GlitchTip colors error and fatal the same, so `fatal` never
 appears. Any other color maps to `error`.
@@ -73,6 +79,8 @@ and are untrusted input.
 | Unknown, rotated, disabled or deleted secret | `404 NOT_FOUND`, nothing written |
 | Body is not JSON | `400 MALFORMED_PAYLOAD` |
 | Body over 256 KB | `413 PAYLOAD_TOO_LARGE` |
+| Sentry delivery with a missing or bad `sentry-hook-signature` | `401 INVALID_SIGNATURE` |
+| Sentry delivery and `SENTRY_SIGNING_SECRET` is unset | `503 SENTRY_NOT_CONFIGURED` |
 | No issue attachments (uptime alerts, test pings) | `200` with `ignored: true` |
 | Unmapped project, no default team | `422 UNMAPPED_PROJECT` |
 | Mapped team does not exist | `422 UNKNOWN_TEAM` |

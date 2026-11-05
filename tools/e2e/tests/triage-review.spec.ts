@@ -53,7 +53,9 @@ test("@keyboard review: evidence pane, held approval with undo, required note on
   await row.hover();
   const evidence = page.getByRole("region", { name: "Evidence" });
   await expect(evidence.getByRole("link", { name: "Open pull request" })).toBeVisible();
-  await expect(evidence.getByText("agent/fix-it")).toBeVisible();
+  // both the Agent summary and the Agent sessions regions can name the agent,
+  // so this assertion is scoped to the first match rather than failing strict mode
+  await expect(evidence.getByText("agent/fix-it").first()).toBeVisible();
 
   // send back needs a note
   await page.keyboard.press("r");

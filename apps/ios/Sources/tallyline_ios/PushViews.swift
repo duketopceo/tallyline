@@ -125,15 +125,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 }
 
-extension HomeSection {
-    init(_ destination: PushDestination) {
-        switch destination {
-        case .myIssues: self = .issues
-        case .review: self = .review
-        }
-    }
-}
-
 /// Settings > Notifications: turn push on, pick kinds, set quiet hours.
 struct NotificationSettingsView: View {
     var push: PushCenter

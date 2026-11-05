@@ -31,6 +31,21 @@ const idParam = {
   schema: { type: "string" },
 } as const;
 
+// reporter handles and public intake keys are opaque capability tokens
+const reportTokenParam = {
+  name: "token",
+  in: "path",
+  required: true,
+  schema: { type: "string", pattern: "^tlreport_" },
+} as const;
+
+const intakeKeyParam = {
+  name: "key",
+  in: "path",
+  required: true,
+  schema: { type: "string", pattern: "^tlintake_" },
+} as const;
+
 function jsonBody(schema: Record<string, unknown>) {
   return {
     required: true,
@@ -460,6 +475,130 @@ const basePaths = {
           "200": { description: "Deduped onto an existing issue or dropped as a duplicate delivery" },
           "201": { description: "Triage issue created" },
           "422": { description: "Workspace has no team to receive intake" },
+        },
+      },
+    },
+    "/v1/workspaces/{ws}/intake-credentials": {
+      get: {
+        summary:
+          "List intake credentials for this workspace — label, key last4, last use and revocation only; never the key or its hash. Human session, member",
+        parameters: [wsParam],
+        responses: { "200": { description: "Intake credentials" } },
+      },
+      post: {
+        summary:
+          "Mint a per-project intake key `tlintake_*` — plaintext returned once, hash stored; human session, member",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["projectId", "label"],
+          properties: {
+            projectId: { type: "string", format: "uuid" },
+            teamId: { type: "string", format: "uuid" },
+            label: { type: "string" },
+            reporterNotifyEmail: { type: "string", format: "email" },
+          },
+        }),
+        responses: {
+          "201": { description: "Credential minted, plaintext key included once" },
+          "422": { description: "PROJECT_NOT_FOUND, TEAM_NOT_FOUND or BAD_LABEL" },
+        },
+      },
+    },
+    "/v1/workspaces/{ws}/intake-credentials/{id}": {
+      delete: {
+        summary:
+          "Revoke an intake credential — idempotent, keeps the first revokedAt; another workspace's id is 404. Human session, member",
+        parameters: [wsParam, idParam],
+        responses: {
+          "200": { description: "Revoked (or already revoked)" },
+          "404": { description: "Credential not found in this workspace" },
+        },
+      },
+    },
+    "/v1/report/{token}": {
+      get: {
+        summary:
+          "Public reporter view — the report's status and title plus its public replies only. The handle token is the whole credential: no session, no cookie. Unknown and expired tokens both answer the same 404 so the route never confirms a report exists. Opening a view stamps lastViewedAt.",
+        parameters: [reportTokenParam],
+        responses: {
+          "200": { description: "Report status, title and public comments" },
+          "404": { description: "REPORT_NOT_FOUND — unknown or expired handle" },
+        },
+      },
+    },
+    "/v1/report/{token}/unsubscribe": {
+      get: {
+        summary:
+          "Stop follow-up email for a report handle. Idempotent, and the handle keeps working. Answers a plain HTML page because the link is opened from a mail client, not an app.",
+        parameters: [reportTokenParam],
+        responses: {
+          "200": { description: "text/html confirmation page" },
+          "404": { description: "REPORT_NOT_FOUND — unknown or expired handle" },
+        },
+      },
+    },
+    "/v1/intake/{key}": {
+      post: {
+        summary:
+          "Public intake — file one report with a per-project `tlintake_*` key; no session. Dedupes by provider externalId and folds repeated fingerprints onto one issue, landing new issues in triage. Optionally mints a reporter handle, returned once, when the reporter leaves an email or asks for follow-up. Rate limited per key, not per IP.",
+        parameters: [intakeKeyParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["kind", "title"],
+          properties: {
+            kind: { type: "string", enum: ["error", "bug", "help", "issue"] },
+            title: { type: "string" },
+            body: { type: "string" },
+            provider: { type: "string" },
+            fingerprint: { type: "string" },
+            externalId: { type: "string" },
+            url: { type: "string", format: "uri" },
+            severity: { type: "string", enum: ["fatal", "error", "warning", "info"] },
+            occurredAt: { type: "string" },
+            payload: { type: "object" },
+            reporter: {
+              type: "object",
+              properties: {
+                email: { type: "string", format: "email" },
+                name: { type: "string" },
+                followUp: { type: "boolean" },
+              },
+            },
+          },
+        }),
+        responses: {
+          "201": { description: "Triage issue created (reporterToken when one was minted)" },
+          "200": { description: "Deduped onto an existing issue or a replay of an accepted delivery" },
+          "401": { description: "INTAKE_KEY_INVALID — unknown key" },
+          "410": { description: "INTAKE_KEY_REVOKED" },
+          "413": { description: "PAYLOAD_TOO_LARGE — body exceeds 128 KB" },
+          "422": { description: "Workspace has no team to receive intake" },
+          "429": { description: "Rate limited for this key" },
+        },
+      },
+    },
+    "/v1/workspaces/{ws}/support": {
+      get: {
+        summary:
+          "Helpdesk list — intake-origin issues with kind, source app, reporter (and handleExpired when the follow-up link lapsed) and public-reply count; newest first, at most 500 rows with a truncated flag. Read-only, any workspace member credential.",
+        parameters: [
+          wsParam,
+          { name: "kind", in: "query", required: false, schema: { type: "string", enum: ["error", "bug", "help", "issue"] } },
+          { name: "project", in: "query", required: false, schema: { type: "string", format: "uuid" } },
+        ],
+        responses: { "200": { description: "Support issues and a truncated flag" } },
+      },
+    },
+    "/v1/workspaces/{ws}/support/{key}/handle": {
+      post: {
+        summary:
+          "Mint a fresh reporter handle for one intake report — the capability URL staff paste into a reply. The plaintext token is returned once and only its hash is stored. Human cookie session, member; agent credentials cannot mint reporter links.",
+        parameters: [wsParam, keyParam],
+        responses: {
+          "200": { description: "url and expiresAt (30 days)" },
+          "403": { description: "FORBIDDEN_AGENT or FORBIDDEN — an agent credential or a non-cookie session cannot mint reporter links" },
+          "404": { description: "Issue is not an intake report" },
         },
       },
     },

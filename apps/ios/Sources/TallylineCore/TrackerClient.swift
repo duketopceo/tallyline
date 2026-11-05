@@ -6,20 +6,33 @@ public struct IssueCreate: Codable, Sendable, Equatable {
     public var title: String
     public var description: String?
     public var teamId: String
+    /// The API picks the team by its key (`ENG`); without one it falls back to
+    /// the workspace's first team. Callers that know the team send both.
+    public var teamKey: String?
     /// Unset means the server default (backlog). The share sheet sends triage.
     public var state: IssueState?
     public var priority: IssuePriority?
     public var projectId: String?
     public var cycleId: String?
     public var parentId: String?
+    public var assigneeType: String?
+    public var assigneeId: String?
     public var delegateId: String?
     public var delegateType: String?
+    public var labelIds: [String]?
 
-    public init(title: String = "", description: String? = nil, teamId: String = "", state: IssueState? = nil, priority: IssuePriority? = nil, projectId: String? = nil, cycleId: String? = nil, parentId: String? = nil, delegateId: String? = nil, delegateType: String? = nil) {
-        self.title = title; self.description = description; self.teamId = teamId; self.state = state; self.priority = priority
+    public init(title: String = "", description: String? = nil, teamId: String = "", teamKey: String? = nil, state: IssueState? = nil, priority: IssuePriority? = nil, projectId: String? = nil, cycleId: String? = nil, parentId: String? = nil, assigneeType: String? = nil, assigneeId: String? = nil, delegateId: String? = nil, delegateType: String? = nil, labelIds: [String]? = nil) {
+        self.title = title; self.description = description; self.teamId = teamId; self.teamKey = teamKey; self.state = state; self.priority = priority
         self.projectId = projectId; self.cycleId = cycleId; self.parentId = parentId
-        self.delegateId = delegateId; self.delegateType = delegateType
+        self.assigneeType = assigneeType; self.assigneeId = assigneeId
+        self.delegateId = delegateId; self.delegateType = delegateType; self.labelIds = labelIds
     }
+}
+
+/// Fields a patch can set to null. `nil` on a plain property means "leave it
+/// alone"; clearing has to be said out loud.
+public enum IssuePatchClear: String, Codable, Sendable, CaseIterable {
+    case assignee, project, cycle
 }
 
 public struct IssuePatch: Codable, Sendable, Equatable {
@@ -28,16 +41,67 @@ public struct IssuePatch: Codable, Sendable, Equatable {
     public var state: IssueState?
     public var priority: IssuePriority?
     public var estimate: Int?
+    public var assigneeType: String?
     public var assigneeId: String?
     public var delegateId: String?
     public var delegateType: String?
     public var projectId: String?
     public var cycleId: String?
+    public var labelIds: [String]?
+    /// Sent as JSON null so the server unassigns or detaches.
+    public var cleared: Set<IssuePatchClear> = []
 
-    public init(title: String? = nil, description: String? = nil, state: IssueState? = nil, priority: IssuePriority? = nil, estimate: Int? = nil, assigneeId: String? = nil, delegateId: String? = nil, delegateType: String? = nil, projectId: String? = nil, cycleId: String? = nil) {
+    public init(title: String? = nil, description: String? = nil, state: IssueState? = nil, priority: IssuePriority? = nil, estimate: Int? = nil, assigneeType: String? = nil, assigneeId: String? = nil, delegateId: String? = nil, delegateType: String? = nil, projectId: String? = nil, cycleId: String? = nil, labelIds: [String]? = nil, cleared: Set<IssuePatchClear> = []) {
         self.title = title; self.description = description; self.state = state; self.priority = priority; self.estimate = estimate
-        self.assigneeId = assigneeId; self.delegateId = delegateId; self.delegateType = delegateType
-        self.projectId = projectId; self.cycleId = cycleId
+        self.assigneeType = assigneeType; self.assigneeId = assigneeId; self.delegateId = delegateId; self.delegateType = delegateType
+        self.projectId = projectId; self.cycleId = cycleId; self.labelIds = labelIds; self.cleared = cleared
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case title, description, state, priority, estimate, assigneeType, assigneeId
+        case delegateId, delegateType, projectId, cycleId, labelIds
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        title = try c.decodeIfPresent(String.self, forKey: .title)
+        description = try c.decodeIfPresent(String.self, forKey: .description)
+        state = try c.decodeIfPresent(IssueState.self, forKey: .state)
+        priority = try c.decodeIfPresent(IssuePriority.self, forKey: .priority)
+        estimate = try c.decodeIfPresent(Int.self, forKey: .estimate)
+        assigneeType = try c.decodeIfPresent(String.self, forKey: .assigneeType)
+        assigneeId = try c.decodeIfPresent(String.self, forKey: .assigneeId)
+        delegateId = try c.decodeIfPresent(String.self, forKey: .delegateId)
+        delegateType = try c.decodeIfPresent(String.self, forKey: .delegateType)
+        projectId = try c.decodeIfPresent(String.self, forKey: .projectId)
+        cycleId = try c.decodeIfPresent(String.self, forKey: .cycleId)
+        labelIds = try c.decodeIfPresent([String].self, forKey: .labelIds)
+        var cleared: Set<IssuePatchClear> = []
+        if try c.contains(.assigneeId) && c.decodeNil(forKey: .assigneeId) { cleared.insert(.assignee) }
+        if try c.contains(.projectId) && c.decodeNil(forKey: .projectId) { cleared.insert(.project) }
+        if try c.contains(.cycleId) && c.decodeNil(forKey: .cycleId) { cleared.insert(.cycle) }
+        self.cleared = cleared
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(title, forKey: .title)
+        try c.encodeIfPresent(description, forKey: .description)
+        try c.encodeIfPresent(state, forKey: .state)
+        try c.encodeIfPresent(priority, forKey: .priority)
+        try c.encodeIfPresent(estimate, forKey: .estimate)
+        try c.encodeIfPresent(delegateId, forKey: .delegateId)
+        try c.encodeIfPresent(delegateType, forKey: .delegateType)
+        try c.encodeIfPresent(labelIds, forKey: .labelIds)
+        if cleared.contains(.assignee) {
+            try c.encodeNil(forKey: .assigneeType)
+            try c.encodeNil(forKey: .assigneeId)
+        } else {
+            try c.encodeIfPresent(assigneeType, forKey: .assigneeType)
+            try c.encodeIfPresent(assigneeId, forKey: .assigneeId)
+        }
+        if cleared.contains(.project) { try c.encodeNil(forKey: .projectId) } else { try c.encodeIfPresent(projectId, forKey: .projectId) }
+        if cleared.contains(.cycle) { try c.encodeNil(forKey: .cycleId) } else { try c.encodeIfPresent(cycleId, forKey: .cycleId) }
     }
 }
 
@@ -110,6 +174,26 @@ extension APIClient {
     public func projects(ws slug: String) async throws -> [Project] {
         let list: ProjectList = try await send(method: "GET", path: "\(ws(slug))/projects")
         return list.projects
+    }
+
+    /// Exact counts per project and milestone, plus what finished since `since`
+    /// (the server defaults to the last 24 hours).
+    public func roadmapSummary(ws slug: String, since: Date? = nil) async throws -> RoadmapSummary {
+        var q: [String: String] = [:]
+        if let since { q["since"] = APIDate.format(since) }
+        return try await send(method: "GET", path: "\(ws(slug))/roadmap/summary", query: q)
+    }
+
+    /// Starts a project. Everything but the name takes the server's default.
+    public func createProject(ws slug: String, name: String) async throws -> Project {
+        struct Body: Encodable { let name: String }
+        return try await send(method: "POST", path: "\(ws(slug))/projects", query: [:], body: Body(name: name))
+    }
+
+    /// Every milestone in the workspace, with issue progress.
+    public func milestones(ws slug: String) async throws -> [Milestone] {
+        let list: MilestoneList = try await send(method: "GET", path: "\(ws(slug))/milestones")
+        return list.milestones
     }
 
     public func cycles(ws slug: String) async throws -> [Cycle] {

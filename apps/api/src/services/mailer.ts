@@ -17,7 +17,11 @@ import { config_ } from "../env.js";
 //               (CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_EMAIL_API_TOKEN).
 // Tests and local dev only ever use `log`; no real mail is sent from them.
 
-export type MailKind = "password_reset" | "password_changed" | "email_verify";
+export type MailKind =
+  | "password_reset"
+  | "password_changed"
+  | "email_verify"
+  | "reporter_reply";
 
 export interface MailMessage {
   kind: MailKind;

@@ -54,6 +54,12 @@ public struct TeamMemory {
         }
     }
 
+    /// The key (`ENG`) of a team from the remembered list. The API selects a
+    /// team by key, so drafts carry it next to the id.
+    public func teamKey(forId id: String) -> String? {
+        teams.first { $0.id == id }?.key
+    }
+
     public var teamId: String? {
         get { defaults.string(forKey: Self.key) }
         nonmutating set { defaults.set(newValue, forKey: Self.key) }

@@ -1,15 +1,15 @@
 {
   "token": "tly_pat_REDACTED",
   "tokenType": "Bearer",
-  "expiresAt": "2027-01-28T23:45:21.704Z",
+  "expiresAt": "2027-02-02T09:56:40.327Z",
   "scopes": [
     "read",
     "write"
   ],
-  "deviceId": "f3d26230-066c-422f-8c5f-a29ec2d86c06",
+  "deviceId": "8eba240f-c110-4ffc-8c5a-8a9b42618dca",
   "server": "http://localhost:4000",
   "workspace": {
-    "slug": "tenant-ios-contract-bc13d368",
-    "name": "Tenant tlysentinelios-contractbc13d368"
+    "slug": "tenant-ios-contract-94c7f81b",
+    "name": "Tenant tlysentinelios-contract94c7f81b"
   }
 }

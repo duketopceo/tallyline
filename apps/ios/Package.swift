@@ -10,7 +10,7 @@ let coreOnly = ProcessInfo.processInfo.environment["TALLYLINE_CORE_ONLY"] == "1"
 let package = Package(
     name: "tallyline-ios",
     platforms: [
-        .iOS(.v17),
+        .iOS(.v18),
         .macOS(.v14),
     ],
     products: coreOnly ? [] : [

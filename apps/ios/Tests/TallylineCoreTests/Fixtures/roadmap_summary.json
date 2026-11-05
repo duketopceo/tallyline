@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2026-11-04T10:00:00.000Z",
+  "since": "2026-11-03T10:00:00.000Z",
+  "totals": {
+    "issues": 5,
+    "done": 2,
+    "closed": 3,
+    "doneSince": 1
+  },
+  "projects": [
+    {
+      "projectId": "5cf829ba-0b66-4168-b67b-48254bbb9873",
+      "total": 4,
+      "done": 2,
+      "closed": 3,
+      "inProgress": 1,
+      "inReview": 0,
+      "doneSince": 1
+    }
+  ],
+  "milestones": [
+    {
+      "milestoneId": "0d6c5f4e-6f0a-4a77-a1d0-7a1d5a4f9e11",
+      "total": 3,
+      "done": 1
+    }
+  ],
+  "merges": [
+    {
+      "id": "812",
+      "issueKey": "IOS-7",
+      "issueTitle": "Ship the roadmap tab",
+      "projectId": "5cf829ba-0b66-4168-b67b-48254bbb9873",
+      "actorName": "Builder",
+      "actorType": "agent",
+      "at": "2026-11-04T09:30:00.000Z",
+      "pr": {
+        "number": 251,
+        "url": "https://github.com/example/repo/pull/251",
+        "title": "Roadmap tab",
+        "repo": "example/repo"
+      }
+    }
+  ]
+}

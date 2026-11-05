@@ -9,13 +9,21 @@ struct TallylineApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var session = SessionModel.shared
     @Environment(\.scenePhase) private var scenePhase
-    @AppStorage("appearance") private var appearance = SilverLiningAppearance.system.rawValue
+    @AppStorage(AppearanceKey.theme) private var appearance = SilverLiningAppearance.system.rawValue
+    @AppStorage(AppearanceKey.density) private var density = Density.comfortable.rawValue
+    @AppStorage(AppearanceKey.glintReduced) private var glintReduced = false
+    @AppStorage(AppearanceKey.reduceMotion) private var reduceMotion = false
+    @AppStorage(AppearanceKey.pulse) private var pulse = true
 
     var body: some Scene {
         WindowGroup {
             RootView(session: session)
                 .background(Theme.canvas.ignoresSafeArea())
                 .preferredColorScheme((SilverLiningAppearance(rawValue: appearance) ?? .system).colorScheme)
+                .environment(\.density, Density(rawValue: density) ?? .comfortable)
+                .environment(\.glintReduced, glintReduced)
+                .environment(\.appReducesMotion, reduceMotion)
+                .environment(\.pulseAnimates, pulse)
                 .task { await session.rotateIfNeeded() }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .background { Task { await WidgetBridge.refresh(session: session) } }
@@ -52,7 +60,7 @@ struct RootView: View {
         case .signedOut:
             InstancePickerView(session: session)
         case .signedIn(let credential):
-            HomeView(session: session, credential: credential)
+            ShellView(session: session, credential: credential)
                 // Re-register on every sign-in and launch; see PushRegistrar.
                 .task(id: credential.token) {
                     PushCenter.shared.session = session

@@ -302,6 +302,20 @@
       "when": 1793401562936,
       "tag": "0042_push_relay",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793738272120,
+      "tag": "0043_intake_credentials",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793738741783,
+      "tag": "0044_reporter_handles",
+      "breakpoints": true
     }
   ]
 }

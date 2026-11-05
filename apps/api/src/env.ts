@@ -1,7 +1,7 @@
 import { readEnv } from "@tallyline/types";
 import { config } from "dotenv";
 import { parseKeyExpiryDays } from "./lib/key-expiry.js";
-import { assertProductionSecrets, DEV_JWT_SECRET } from "./lib/startup-guard.js";
+import { assertProductionSecrets, DEV_JWT_SECRET, warnMissingProviderSecrets } from "./lib/startup-guard.js";
 
 config({ path: new URL("../../../.env", import.meta.url) });
 
@@ -15,6 +15,12 @@ const env = (key: string, fallback?: string): string => {
 
 // production boot refuses unset/default/weak secrets (see lib/startup-guard.ts)
 assertProductionSecrets({
+  nodeEnv: process.env.NODE_ENV,
+  jwtSecret: readEnv(process.env, "JWT_SECRET"),
+  authSecretKey: readEnv(process.env, "AUTH_SECRET_KEY"),
+});
+// optional, but say so once at boot instead of only when a save fails
+warnMissingProviderSecrets({
   nodeEnv: process.env.NODE_ENV,
   jwtSecret: readEnv(process.env, "JWT_SECRET"),
   authSecretKey: readEnv(process.env, "AUTH_SECRET_KEY"),
@@ -39,11 +45,17 @@ export const config_ = {
   rateLimitAnonPerMin: Number(env("RATE_LIMIT_ANON_PER_MIN", "120")),
   // login / bootstrap / invite-accept / OAuth start+callback per client IP
   rateLimitAuthPerMin: Number(env("RATE_LIMIT_AUTH_PER_MIN", "30")),
+  // public intake reports per credential (not per IP: one embedding app may
+  // report from a fleet behind one egress address); 0 disables
+  intakeRatePerMin: Number(env("INTAKE_RATE_PER_MIN", "60")),
   // GlitchTip webhook, per integration (not per IP: GlitchTip egresses from
   // one address for every workspace). Deliveries per minute and issues
   // created per hour; 0 disables either cap.
   glitchtipRatePerMin: Number(env("GLITCHTIP_RATE_PER_MIN", "60")),
   glitchtipIssuesPerHour: Number(env("GLITCHTIP_ISSUES_PER_HOUR", "100")),
+  // Sentry signs its webhooks with this shared secret (HMAC-SHA256). Empty
+  // means Sentry deliveries are refused; GlitchTip needs nothing here.
+  sentrySigningSecret: env("SENTRY_SIGNING_SECRET", ""),
   // dispatch ack window: a dispatch still `queued` this long is dead —
   // delivery retries (max ~7.5 min) must finish inside it. 0 disables.
   dispatchAckTimeoutMs: Number(env("DISPATCH_ACK_TIMEOUT_MS", "600000")),

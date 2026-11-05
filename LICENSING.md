@@ -4,8 +4,9 @@ Tallyline is dual-tier: the self-hosted app is copyleft, and the pieces you embe
 
 | Path | License | Package |
 |------|---------|---------|
-| Everything not listed below (including `apps/api`, `apps/web`, `packages/*`, `tools/e2e`, `ops/`, `docs/`) | [AGPL-3.0-only](./LICENSE) | private workspace packages |
+| Everything not listed below (including `apps/api`, `apps/web`, `packages/*` bar the one below, `tools/e2e`, `ops/`, `docs/`) | [AGPL-3.0-only](./LICENSE) | private workspace packages |
 | `apps/mcp-server/` | [MIT](./apps/mcp-server/LICENSE) | `@tallyline/mcp-server` |
+| `packages/intake-client/` | [MIT](./packages/intake-client/LICENSE) | `@tallyline/intake-client` |
 | `tools/cli/` | [MIT](./tools/cli/LICENSE) | `@tallyline/cli` |
 | `integrations/n8n/` | [MIT](./integrations/n8n/LICENSE) | `n8n-nodes-tallyline` |
 | `integrations/composio/` | [MIT](./integrations/composio/LICENSE) | `@tallyline/composio` |

@@ -1,10 +1,10 @@
 {
   "teams": [
     {
-      "id": "777ad698-1626-401f-9e6a-f67be4d148f7",
-      "workspaceId": "033d47ae-9629-4447-9d7c-434ff255e8a5",
+      "id": "0659e373-b138-4bd6-b224-eadc80f1ec78",
+      "workspaceId": "aa7562ca-2b9f-49b3-99c0-c1bf9ea90cec",
       "key": "IOS",
-      "name": "Team tlysentinelios-contractbc13d368",
+      "name": "Team tlysentinelios-contract94c7f81b",
       "nextIssueNumber": 2,
       "rolloverBehavior": "next_cycle",
       "cycleAutoEnabled": false,
@@ -12,7 +12,7 @@
       "cycleStartWeekday": 1,
       "cycleUpcomingCount": 2,
       "timezone": null,
-      "createdAt": "2026-10-30T23:45:21.662Z"
+      "createdAt": "2026-11-04T09:56:40.296Z"
     }
   ]
 }

@@ -102,6 +102,7 @@ final class ShareModel {
             title: title.trimmingCharacters(in: .whitespaces),
             description: body.isEmpty ? nil : body,
             teamId: teamId,
+            teamKey: memory.teamKey(forId: teamId),
             state: .triage
         )
         let item = SharedDraft(workspaceSlug: credential.workspaceSlug, draft: draft)

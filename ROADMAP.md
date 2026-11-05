@@ -27,7 +27,7 @@ None. Everything an agent can build has shipped; the rest needs Luke or is defer
 | S1 CLI | Live check of `connect` and `doctor` against the hosted server |
 | S2 install | Publish images and make them public, host and pin the installer, Homebrew tap, Railway template, clean-machine run, S2-U6 reachability spike |
 | S3 providers | Answer open questions 4 and 5 (OpenAI interest form, which Hermes); spend cap; one live Connect OpenRouter run on a capped account. See the [provider spike](./docs/research/2026-10-ai-providers-spike.md) |
-| S5 iOS | S5-U1 Apple setup (App ID with Push Notifications and the `group.app.tallyline.ios` App Group, plus widgets and share App IDs), S5-U8 first TestFlight build (pipeline in `apps/ios`, 897088d) |
+| S5 iOS | Done 2026-11-03: S5-U1 (App IDs and App Group) and S5-U8 (the app is on TestFlight; `ios-v1.0.3` was uploaded by `ios-release.yml`, which builds the widgets and share extension). Left: confirm pairing and sync on a device with each new build |
 | S4 push | Run the production push relay with the Apple push key; send one sandbox push to a test build ([docs/push.md](./docs/push.md)) |
 | S7 App Store | External TestFlight, listing, submission |
 

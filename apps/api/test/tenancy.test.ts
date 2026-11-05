@@ -114,6 +114,22 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
     ],
   },
   intake_events: { ops: ["POST /v1/workspaces/{ws}/intake"] },
+  intake_credentials: {
+    ops: [
+      "GET /v1/workspaces/{ws}/intake-credentials",
+      "POST /v1/workspaces/{ws}/intake-credentials",
+      "DELETE /v1/workspaces/{ws}/intake-credentials/{id}",
+    ],
+  },
+  reporter_handles: {
+    ops: [
+      "GET /v1/workspaces/{ws}/support",
+      "POST /v1/workspaces/{ws}/support/{key}/handle",
+    ],
+  },
+  reporter_reply_deliveries: {
+    ops: ["POST /v1/workspaces/{ws}/issues/{key}/comments"],
+  },
   issue_external_refs: { ops: ["POST /v1/workspaces/{ws}/import/linear", "POST /v1/workspaces/{ws}/import/plan", "GET /v1/workspaces/{ws}/issues/{key}"] },
   issue_relations: {
     ops: [
@@ -370,7 +386,7 @@ describe("tenancy: static coverage", () => {
     const stale = Object.keys(TABLE_ENDPOINTS).filter((t) => !tenantTables.includes(t));
     expect(missing, "tenant-scoped tables with no entry in TABLE_ENDPOINTS").toEqual([]);
     expect(stale, "TABLE_ENDPOINTS entries for tables that no longer have workspace_id").toEqual([]);
-    expect(tenantTables.length).toBe(43);
+    expect(tenantTables.length).toBe(46);
   });
 
   it("the export/purge table list (src/services/tenant-tables.ts) is exactly the tenant tables", () => {

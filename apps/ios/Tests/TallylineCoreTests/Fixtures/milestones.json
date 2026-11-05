@@ -1,0 +1,18 @@
+{
+  "milestones": [
+    {
+      "id": "0d6c5f4e-6f0a-4a77-a1d0-7a1d5a4f9e11",
+      "workspaceId": "aa7562ca-2b9f-49b3-99c0-c1bf9ea90cec",
+      "projectId": "5cf829ba-0b66-4168-b67b-48254bbb9873",
+      "title": "Beta",
+      "targetDate": "2026-12-01T00:00:00.000Z",
+      "sortOrder": 0,
+      "done": false,
+      "createdAt": "2026-11-04T09:56:40.390Z",
+      "progress": {
+        "total": 3,
+        "done": 1
+      }
+    }
+  ]
+}

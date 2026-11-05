@@ -48,6 +48,24 @@ public struct OutboxEntry: Codable, Sendable, Equatable, Identifiable {
     public var lastError: String?
 }
 
+/// What the shell shows for a queued write. Derived from the persisted entry,
+/// never stored: a new case here must not change the file format.
+public enum OutboxDisplayState: String, Sendable, Equatable, CaseIterable {
+    /// Saved on the phone, not yet attempted.
+    case pending
+    /// Attempted and failed; another try is scheduled.
+    case retrying
+    /// Out of attempts or refused. Needs Retry or Discard.
+    case parked
+}
+
+public extension OutboxEntry {
+    var displayState: OutboxDisplayState {
+        if case .failed = status { return .parked }
+        return attempts > 0 ? .retrying : .pending
+    }
+}
+
 /// Retry schedule from the plan: 1 s doubling to a 5 minute cap, 8 attempts.
 public struct OutboxPolicy: Sendable {
     public var baseDelay: TimeInterval = 1
