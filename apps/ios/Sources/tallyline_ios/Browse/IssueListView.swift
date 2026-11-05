@@ -129,6 +129,7 @@ struct IssueListView: View {
                 AccessibilityRotorEntry(IssueSpeech.label(issue), id: issue.id)
             }
         }
+        .modifier(BlockedRotor(issues: issues))
     }
 
     private func row(_ issue: Issue) -> some View {
@@ -152,6 +153,11 @@ struct IssueListView: View {
             .contextMenu {
                 Button { UIPasteboard.general.string = issue.key } label: {
                     Label("Copy key", systemImage: "doc.on.doc")
+                }
+                if let link = IssueLink.copyable(issue) {
+                    Button { UIPasteboard.general.string = link } label: {
+                        Label("Copy link", systemImage: "link")
+                    }
                 }
                 if issue.assigneeId != credential.userId {
                     Button { run { await actions.assignToMe(issue) } } label: {

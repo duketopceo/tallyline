@@ -41,13 +41,18 @@ public struct Issue: Codable, Sendable, Identifiable, Hashable {
     public var labels: [IssueLabel]? = nil
     /// True while an unfinished issue blocks this one (list responses).
     public var blocked: Bool? = nil
+    /// The issue's team. Optional so a server that does not send it still decodes.
+    public var teamId: String? = nil
+    /// The web permalink the server builds (`https://<web origin>/issues/<KEY>`).
+    /// Optional on purpose: clients copy it as given and never assemble links.
+    public var url: String? = nil
 
     public init(
         id: String, key: String, number: Int, title: String, description: String?, state: IssueState,
         priority: IssuePriority, estimate: Int?, dueDate: Date?, assigneeType: String?, assigneeId: String?,
         delegateType: String?, delegateId: String?, creatorType: String, creatorId: String?, projectId: String?,
         cycleId: String?, parentId: String?, source: String, occurrenceCount: Int, createdAt: Date, updatedAt: Date,
-        labels: [IssueLabel]? = nil, blocked: Bool? = nil
+        labels: [IssueLabel]? = nil, blocked: Bool? = nil, teamId: String? = nil, url: String? = nil
     ) {
         self.id = id; self.key = key; self.number = number; self.title = title; self.description = description
         self.state = state; self.priority = priority; self.estimate = estimate; self.dueDate = dueDate
@@ -57,7 +62,7 @@ public struct Issue: Codable, Sendable, Identifiable, Hashable {
         self.projectId = projectId; self.cycleId = cycleId; self.parentId = parentId
         self.source = source; self.occurrenceCount = occurrenceCount
         self.createdAt = createdAt; self.updatedAt = updatedAt
-        self.labels = labels; self.blocked = blocked
+        self.labels = labels; self.blocked = blocked; self.teamId = teamId; self.url = url
     }
 }
 
@@ -277,7 +282,7 @@ public extension Issue {
             cycleId: patch.cleared.contains(.cycle) ? nil : (patch.cycleId ?? cycleId),
             parentId: parentId, source: source, occurrenceCount: occurrenceCount,
             createdAt: createdAt, updatedAt: now,
-            labels: labels, blocked: blocked
+            labels: labels, blocked: blocked, teamId: patch.teamId ?? teamId, url: url
         )
         if let ids = patch.labelIds {
             next.labels = (labels ?? []).filter { ids.contains($0.id) }

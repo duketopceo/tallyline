@@ -48,18 +48,26 @@ public struct IssuePatch: Codable, Sendable, Equatable {
     public var projectId: String?
     public var cycleId: String?
     public var labelIds: [String]?
+    /// Moves the issue to another team. The server reassigns the key and keeps
+    /// the old one as an alias (roadmap plan U4).
+    public var teamId: String?
+    /// The issue version this edit was made against, for the server's stale
+    /// write check (roadmap plan U3). Nil sends no precondition, which is what
+    /// shipped servers expect. Persisted with the queued write so a replay
+    /// carries the version it was made against.
+    public var expectedVersion: String?
     /// Sent as JSON null so the server unassigns or detaches.
     public var cleared: Set<IssuePatchClear> = []
 
-    public init(title: String? = nil, description: String? = nil, state: IssueState? = nil, priority: IssuePriority? = nil, estimate: Int? = nil, assigneeType: String? = nil, assigneeId: String? = nil, delegateId: String? = nil, delegateType: String? = nil, projectId: String? = nil, cycleId: String? = nil, labelIds: [String]? = nil, cleared: Set<IssuePatchClear> = []) {
+    public init(title: String? = nil, description: String? = nil, state: IssueState? = nil, priority: IssuePriority? = nil, estimate: Int? = nil, assigneeType: String? = nil, assigneeId: String? = nil, delegateId: String? = nil, delegateType: String? = nil, projectId: String? = nil, cycleId: String? = nil, labelIds: [String]? = nil, teamId: String? = nil, expectedVersion: String? = nil, cleared: Set<IssuePatchClear> = []) {
         self.title = title; self.description = description; self.state = state; self.priority = priority; self.estimate = estimate
         self.assigneeType = assigneeType; self.assigneeId = assigneeId; self.delegateId = delegateId; self.delegateType = delegateType
-        self.projectId = projectId; self.cycleId = cycleId; self.labelIds = labelIds; self.cleared = cleared
+        self.projectId = projectId; self.cycleId = cycleId; self.labelIds = labelIds; self.teamId = teamId; self.expectedVersion = expectedVersion; self.cleared = cleared
     }
 
     private enum CodingKeys: String, CodingKey {
         case title, description, state, priority, estimate, assigneeType, assigneeId
-        case delegateId, delegateType, projectId, cycleId, labelIds
+        case delegateId, delegateType, projectId, cycleId, labelIds, teamId, expectedVersion
     }
 
     public init(from decoder: Decoder) throws {
@@ -76,6 +84,8 @@ public struct IssuePatch: Codable, Sendable, Equatable {
         projectId = try c.decodeIfPresent(String.self, forKey: .projectId)
         cycleId = try c.decodeIfPresent(String.self, forKey: .cycleId)
         labelIds = try c.decodeIfPresent([String].self, forKey: .labelIds)
+        teamId = try c.decodeIfPresent(String.self, forKey: .teamId)
+        expectedVersion = try c.decodeIfPresent(String.self, forKey: .expectedVersion)
         var cleared: Set<IssuePatchClear> = []
         if try c.contains(.assigneeId) && c.decodeNil(forKey: .assigneeId) { cleared.insert(.assignee) }
         if try c.contains(.projectId) && c.decodeNil(forKey: .projectId) { cleared.insert(.project) }
@@ -93,6 +103,8 @@ public struct IssuePatch: Codable, Sendable, Equatable {
         try c.encodeIfPresent(delegateId, forKey: .delegateId)
         try c.encodeIfPresent(delegateType, forKey: .delegateType)
         try c.encodeIfPresent(labelIds, forKey: .labelIds)
+        try c.encodeIfPresent(teamId, forKey: .teamId)
+        try c.encodeIfPresent(expectedVersion, forKey: .expectedVersion)
         if cleared.contains(.assignee) {
             try c.encodeNil(forKey: .assigneeType)
             try c.encodeNil(forKey: .assigneeId)

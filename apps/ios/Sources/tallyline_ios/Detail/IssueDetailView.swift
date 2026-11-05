@@ -1,11 +1,12 @@
 #if os(iOS)
 import SwiftUI
+import UIKit
 import TallylineCore
 import TallylineDesign
 
 /// Which property sheet is open.
 private enum DetailSheet: String, Identifiable {
-    case state, priority, project, cycle, labels, assignee
+    case state, priority, project, cycle, labels, assignee, team
     var id: String { rawValue }
 }
 
@@ -97,6 +98,7 @@ struct IssueDetailView: View {
                 pill(.project) { PropertyPill(catalog.project(issue.projectId)?.name ?? "No project", systemImage: "square.stack.3d.up") }
                 pill(.cycle) { PropertyPill(catalog.cycle(issue.cycleId)?.title ?? "No cycle", systemImage: "arrow.triangle.2.circlepath") }
                 pill(.labels) { PropertyPill(labelsTitle, systemImage: "tag") }
+                if hasTeam { pill(.team) { PropertyPill(teamTitle, systemImage: "person.2") } }
             }
         }
         .scrollClipDisabled()
@@ -107,6 +109,12 @@ struct IssueDetailView: View {
             .buttonStyle(.plain)
             .matchedTransitionSource(id: which, in: pillSpace)
     }
+
+    /// The team control only appears when the server sent the issue's team
+    /// and there is somewhere else to move it.
+    private var hasTeam: Bool { issue.teamId != nil && catalog.teams.count > 1 }
+
+    private var teamTitle: String { catalog.team(issue.teamId)?.name ?? "Team" }
 
     private var assigneeIsAgent: Bool { issue.assigneeType == "agent" && issue.assigneeId != nil }
 
@@ -182,6 +190,10 @@ struct IssueDetailView: View {
                 let parts = picked.split(separator: ":", maxSplits: 1).map(String.init)
                 if parts.count == 2 { edit(IssuePatch(assigneeType: parts[0], assigneeId: parts[1])) }
             }
+        case .team:
+            PropertySheet(title: "Team", groups: catalog.teamGroups, selection: issue.teamId.map { [$0] } ?? []) { chosen in
+                if let id = chosen.first, id != issue.teamId { edit(IssuePatch(teamId: id)) }
+            }
         }
     }
 
@@ -194,6 +206,7 @@ struct IssueDetailView: View {
             inspectorRow("Project", .project) { Text(catalog.project(issue.projectId)?.name ?? "None") }
             inspectorRow("Cycle", .cycle) { Text(catalog.cycle(issue.cycleId)?.title ?? "None") }
             inspectorRow("Labels", .labels) { Text(labelsTitle) }
+            if hasTeam { inspectorRow("Team", .team) { Text(teamTitle) } }
         }
     }
 
@@ -220,10 +233,18 @@ struct IssueDetailView: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Approve") { Task { await review("approve") } }
             }
+        }
+        // One menu for the rest. Copy link is absent when the server sent no url.
+        if issue.state == .inReview || IssueLink.copyable(issue) != nil {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button("Send back", systemImage: "arrow.uturn.backward", role: .destructive) {
-                        Task { await review("send_back") }
+                    if let link = IssueLink.copyable(issue) {
+                        Button("Copy link", systemImage: "link") { UIPasteboard.general.string = link }
+                    }
+                    if issue.state == .inReview {
+                        Button("Send back", systemImage: "arrow.uturn.backward", role: .destructive) {
+                            Task { await review("send_back") }
+                        }
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -359,14 +380,14 @@ struct IssueLoaderView: View {
     let credential: DeviceCredential
     let key: String
     @State private var issue: Issue?
-    @State private var error: String?
+    @State private var failure: IssueLoadFailure?
 
     var body: some View {
         Group {
             if let issue {
                 IssueDetailView(session: session, credential: credential, issue: issue)
-            } else if let error {
-                ContentUnavailableView("Could not load \(key)", systemImage: "exclamationmark.triangle", description: Text(error))
+            } else if let failure {
+                ContentUnavailableView(failure.title, systemImage: failure.isNotFound ? "questionmark.folder" : "exclamationmark.triangle", description: Text(failure.detail))
             } else {
                 ProgressView()
             }
@@ -374,7 +395,7 @@ struct IssueLoaderView: View {
         .task {
             guard let client = session.client else { return }
             do { issue = try await client.issue(ws: credential.workspaceSlug, key: key) }
-            catch { self.error = error.localizedDescription }
+            catch { failure = IssueLoadFailure.describe(error, key: key) }
         }
     }
 }
