@@ -3,7 +3,7 @@ import {
   ProjectsSettings,
   type ProjectRow,
 } from "@/components/projects-settings";
-import { SettingsTabs } from "@/components/settings-tabs";
+import { SettingsHeader } from "@/components/settings/settings-header";
 
 interface ProjectsResponse {
   projects?: ProjectRow[];
@@ -21,13 +21,16 @@ export default async function ProjectsPage() {
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
-      <header className="flex h-12 shrink-0 items-center border-b border-lining-faint px-4">
-        <h1 className="text-sm font-semibold">Projects</h1>
-        <SettingsTabs />
-        <span className="ml-auto font-mono text-[11px] text-ink-tertiary">
-          {rows.length}
-        </span>
-      </header>
+      <SettingsHeader
+        title="Projects"
+        actions={
+          <>
+            <span className="font-mono text-[11px] text-ink-tertiary">
+              {rows.length}
+            </span>
+          </>
+        }
+      />
       <ProjectsSettings projects={rows} />
     </main>
   );

@@ -1,5 +1,5 @@
 import { AccountSettings } from "@/components/account/account-settings";
-import { SettingsTabs } from "@/components/settings-tabs";
+import { SettingsHeader } from "@/components/settings/settings-header";
 import { api, type Me } from "@/lib/api";
 
 export default async function AccountPage() {
@@ -10,10 +10,7 @@ export default async function AccountPage() {
     .map((m) => m.workspaceSlug);
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-lining-faint px-4">
-        <h1 className="text-sm font-semibold">Account</h1>
-        <SettingsTabs />
-      </header>
+      <SettingsHeader title="Account" />
       <AccountSettings
         name={me.data.name}
         email={me.data.email}

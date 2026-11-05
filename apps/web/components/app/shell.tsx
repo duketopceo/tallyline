@@ -81,7 +81,7 @@ export function Shell({
     (id) => {
       if (id === "sidebar") toggleCollapsed();
       else if (id === "palette-help") document.dispatchEvent(new KeyboardEvent("keydown", { key: "?" }));
-      else if (id === "settings") router.push("/settings/members");
+      else if (id === "settings") router.push("/settings");
     },
   );
 
@@ -109,7 +109,7 @@ export function Shell({
   const more: Item[] = [
     { href: "/activity", label: "Activity", hint: "g e", icon: "activity" },
     { href: "/insights", label: "Insights", hint: "g s", icon: "insights" },
-    ...(meta.role === "owner" || meta.role === "admin" ? [{ href: "/settings/members", label: "Settings", hint: "g ,", icon: "settings" }] : []),
+    ...(meta.role === "owner" || meta.role === "admin" ? [{ href: "/settings", label: "Settings", hint: "g ,", icon: "settings" }] : []),
   ];
   const mine: Item = { href: "/my-issues", label: "My issues", hint: "g i", icon: "my-issues" };
   const inbox: Item = { href: "/notifications", label: "Inbox", hint: "g n", icon: "inbox", count: meta.counts.unread };

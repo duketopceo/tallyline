@@ -19,7 +19,7 @@ const GOTO: Record<string, string> = {
   e: "/activity",
   p: "/roadmap",
   o: "/projects",
-  ",": "/settings/members",
+  ",": "/settings",
 };
 
 const SEQUENCE_TIMEOUT_MS = 800;

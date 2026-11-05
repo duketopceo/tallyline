@@ -1,6 +1,6 @@
 import { api, type Me } from "@/lib/api";
 import { formatBytes } from "@/lib/format-bytes";
-import { SettingsTabs } from "@/components/settings-tabs";
+import { SettingsHeader } from "@/components/settings/settings-header";
 import { UsageLoader } from "@/components/usage-loader";
 import type { UsageDay } from "@/components/usage-charts";
 
@@ -117,15 +117,18 @@ export default async function UsagePage() {
 
   return (
     <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-lining-faint px-4">
-        <h1 className="text-sm font-semibold">Usage</h1>
-        <SettingsTabs />
-        {u && (
-          <span className="ml-auto hidden font-mono text-[11px] text-ink-tertiary sm:inline">
-            last 30 days · UTC
-          </span>
-        )}
-      </header>
+      <SettingsHeader
+        title="Usage"
+        actions={
+          <>
+            {u && (
+              <span className="hidden font-mono text-[11px] text-ink-tertiary sm:inline">
+                last 30 days · UTC
+              </span>
+            )}
+          </>
+        }
+      />
 
       {!u ? (
         <p className="p-4 text-sm text-ink-subtle">

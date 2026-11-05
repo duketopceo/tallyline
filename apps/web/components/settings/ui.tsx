@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { armSecretExpiry, secretTestId } from "@/lib/secret-expiry";
 import { apiFailure } from "@/lib/secrets-key";
-import { SettingsTabs } from "@/components/settings-tabs";
+import { SettingsHeader } from "@/components/settings/settings-header";
 
 export const field =
   "mt-1 w-full rounded-sm border border-control bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-lining-strong";
@@ -16,15 +16,7 @@ export const dangerBtn =
   "rounded-sm border border-urgent px-3 py-1.5 text-[13px] font-medium text-urgent hover:bg-surface-2 disabled:opacity-60";
 
 export function PageHeader({ title, meta }: { title: string; meta?: string }) {
-  return (
-    <header className="flex h-12 shrink-0 items-center gap-4 border-b border-lining-faint px-4">
-      <h1 className="shrink-0 text-sm font-semibold">{title}</h1>
-      <SettingsTabs />
-      {meta && (
-        <span className="ml-auto shrink-0 font-mono text-[11px] text-ink-tertiary">{meta}</span>
-      )}
-    </header>
-  );
+  return <SettingsHeader title={title} meta={meta} />;
 }
 
 export function Panel({

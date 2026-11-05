@@ -22,6 +22,8 @@ const screens = [
   ["my-issues", "/my-issues"], ["issues", "/issues"], ["board", "/board"], ["issue", `/issues/${process.env.SHOOT_ISSUE ?? "TLY-37"}`],
   ["triage", "/triage"], ["review", "/review"], ["cycle", "/cycle"], ["roadmap", "/roadmap"],
   ["insights", "/insights"], ["activity", "/activity"],
+  ["settings", "/settings"], ["settings-members", "/settings/members"], ["settings-account", "/settings/account"],
+  ["settings-workspace", "/settings/workspace"], ["settings-agents", "/settings/agents"],
   ["landing", "/", "out"], ["login", "/login", "out"],
 ];
 const sizes = [["1440", 1440, 900], ["390", 390, 844]];

@@ -47,7 +47,7 @@ async function call(method, path, { cookie, bearer, body } = {}) {
 
 function sessionCookie(headers) {
   const raw = headers.getSetCookie?.() ?? [];
-  const hit = raw.find((c) => c.startsWith("dok_session="));
+  const hit = raw.find((c) => c.startsWith("tly_session="));
   return hit ? hit.split(";")[0] : null;
 }
 
