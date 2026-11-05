@@ -108,6 +108,14 @@ function sealKey(plain: string): string {
   return encryptSecret(plain, config_.authSecretKey);
 }
 
+function isOpenRouterUrl(raw: string): boolean {
+  try {
+    return new URL(raw).hostname === new URL(OPENROUTER_BASE).hostname;
+  } catch {
+    return false;
+  }
+}
+
 export async function resolveProvider(workspaceId: string): Promise<ResolvedProvider | null> {
   const [row] = await db.select().from(aiProviders).where(eq(aiProviders.workspaceId, workspaceId));
   if (row) {
@@ -141,7 +149,9 @@ export async function resolveProvider(workspaceId: string): Promise<ResolvedProv
       label: "Set by the server",
       baseUrl: config_.llmBaseUrl.replace(/\/+$/, ""),
       model: config_.llmModel,
-      fallbacks: [...config_.llmFallbacks],
+      // the env provider is labelled openrouter even when TALLYLINE_LLM_BASE_URL
+      // points at some other OpenAI-compatible server, which may reject `models`
+      fallbacks: isOpenRouterUrl(config_.llmBaseUrl) ? [...config_.llmFallbacks] : [],
       apiKey: config_.llmApiKey,
       capCents: null,
     };

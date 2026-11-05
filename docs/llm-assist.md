@@ -30,7 +30,8 @@ fits your budget.
 OpenRouter moves down the list when a model is down or rate limited. A
 workspace that picked its own model keeps it as the primary and inherits the
 server's fallbacks. OpenAI-compatible providers get only their configured
-model, since they don't understand `models`. The usage ledger records the model
+model, since they don't understand `models`; so does the server-wide provider
+when `TALLYLINE_LLM_BASE_URL` isn't openrouter.ai. The usage ledger records the model
 that actually answered (the response's `model`), so spend is attributed to it.
 
 ## Surfaces

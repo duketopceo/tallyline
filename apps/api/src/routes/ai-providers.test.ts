@@ -367,6 +367,22 @@ describe("default model and OpenRouter fallbacks", () => {
     expect(seen[0]!.body.models).toEqual([DEFAULT_LLM_MODEL, ...CHAIN]);
   });
 
+  it("a server-wide provider pointed at another endpoint gets no fallbacks", async () => {
+    const m = config_ as unknown as { llmBaseUrl: string };
+    const savedBase = m.llmBaseUrl;
+    try {
+      m.llmBaseUrl = "https://llm.example.com/v1";
+      mutableConfig.llmApiKey = "env-provider-key-xyz";
+      mutableConfig.llmFallbacks = [...CHAIN];
+      const seen = fakeFetch({ status: 200, body: okReply() });
+      await call(A, "/provider/test", { method: "POST", cookie: admin });
+      expect(seen[0]!.url).toBe("https://llm.example.com/v1/chat/completions");
+      expect(seen[0]!.body).not.toHaveProperty("models");
+    } finally {
+      m.llmBaseUrl = savedBase;
+    }
+  });
+
   it("an openai-compatible provider gets only its configured model", async () => {
     mutableConfig.llmFallbacks = [...CHAIN];
     process.env.TALLYLINE_WEBHOOK_ALLOW_PRIVATE = "1";
