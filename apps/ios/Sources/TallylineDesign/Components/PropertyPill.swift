@@ -31,9 +31,9 @@ public struct PropertyPill<Leading: View>: View {
     }
 }
 
-public extension PropertyPill where Leading == Image {
+public extension PropertyPill where Leading == AnyView {
     init(_ title: String, systemImage: String, tint: Color = Theme.inkMuted) {
-        self.init(title) { Image(systemName: systemImage).foregroundStyle(tint) }
+        self.init(title) { AnyView(Image(systemName: systemImage).foregroundStyle(tint)) }
     }
 }
 
