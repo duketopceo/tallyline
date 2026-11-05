@@ -1,6 +1,6 @@
 import { api, type Me } from "@/lib/api";
 import { ProviderPanel, type ProviderRow } from "@/components/provider-form";
-import { SettingsTabs } from "@/components/settings-tabs";
+import { SettingsHeader } from "@/components/settings/settings-header";
 
 interface ProvidersResponse { providers?: ProviderRow[] }
 
@@ -12,9 +12,7 @@ export default async function ProvidersPage() {
   if (!me.data.isInstanceAdmin) {
     return (
       <main className="flex min-h-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center border-b border-lining-faint px-4">
-          <h1 className="text-sm font-semibold">Sign-in providers</h1>
-        </header>
+        <SettingsHeader title="Sign-in providers" />
         <p className="p-4 text-sm text-ink-subtle">
           Provider administration is locked to instance admins
           (AUTH_ADMIN_EMAILS, or the bootstrap owner on fresh installs).
@@ -25,10 +23,7 @@ export default async function ProvidersPage() {
   const res = await api<ProvidersResponse>("/v1/auth/providers");
   return (
     <main className="flex min-h-0 flex-1 flex-col">
-      <header className="flex h-12 shrink-0 items-center border-b border-lining-faint px-4">
-        <h1 className="text-sm font-semibold">Sign-in providers</h1>
-        <SettingsTabs />
-      </header>
+      <SettingsHeader title="Sign-in providers" />
       <ProviderPanel providers={res.data?.providers ?? []} />
     </main>
   );

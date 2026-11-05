@@ -18,6 +18,7 @@ export {
   Plus as IconPlus,
   List as IconMenu,
   CaretLeft as IconCollapse,
+  CaretRight as IconChevron,
   FunnelSimple as IconView,
   User as IconMyIssues,
   X as IconX,

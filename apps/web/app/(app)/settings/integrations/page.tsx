@@ -8,7 +8,7 @@ import {
   type GlitchtipStatus,
   type TeamOption,
 } from "@/components/glitchtip-integration";
-import { SettingsTabs } from "@/components/settings-tabs";
+import { SettingsHeader } from "@/components/settings/settings-header";
 
 interface ReposResponse {
   repos?: GithubRepoRow[];
@@ -28,9 +28,7 @@ export default async function IntegrationsPage() {
   if (!canAdmin) {
     return (
       <main className="flex min-h-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center border-b border-lining-faint px-4">
-          <h1 className="text-sm font-semibold">Integrations</h1>
-        </header>
+        <SettingsHeader title="Integrations" />
         <p className="p-4 text-sm text-ink-subtle">Requires admin access.</p>
       </main>
     );
@@ -59,18 +57,19 @@ export default async function IntegrationsPage() {
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
-      <header className="flex h-12 shrink-0 items-center gap-4 border-b border-lining-faint px-4">
-        <h1 className="text-sm font-semibold">Integrations</h1>
-        <SettingsTabs />
+      <SettingsHeader
+        title="Integrations"
+        actions={
         <a
           href={installed ? manageUrl : (installRes.data?.installUrl ?? manageUrl)}
           target="_blank"
           rel="noreferrer"
-          className="ml-auto font-mono text-[11px] text-ink-tertiary hover:text-ink"
+          className="font-mono text-[11px] text-ink-tertiary hover:text-ink"
         >
           {installed ? "manage on GitHub ↗" : "install App ↗"}
         </a>
-      </header>
+        }
+      />
       <GithubRepoPanel
         repos={repos}
         installed={installed}

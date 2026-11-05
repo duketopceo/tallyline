@@ -305,10 +305,6 @@
       "count": 10,
       "tracking": "U4 migration (frontend polish plan)"
     },
-    "apps/web/components/settings-tabs.tsx": {
-      "count": 1,
-      "tracking": "U4 migration (frontend polish plan)"
-    },
     "apps/web/components/settings/agents-panel.tsx": {
       "count": 4,
       "tracking": "U4 migration (frontend polish plan)"
@@ -322,7 +318,7 @@
       "tracking": "U4 migration (frontend polish plan)"
     },
     "apps/web/components/settings/ui.tsx": {
-      "count": 7,
+      "count": 6,
       "tracking": "U4 migration (frontend polish plan)"
     },
     "apps/web/components/welcome-checklist.tsx": {
