@@ -14,7 +14,7 @@ import type { MemoryRateStore } from "../lib/rate-limit.js";
 import { settleBackground } from "../services/background.js";
 import { clock, resetClock, setClock } from "../services/clock.js";
 import { notifyUsers } from "../services/notifications.js";
-import { isQuiet, pushToUsers } from "../services/push.js";
+import { isQuiet, pushToUsers, setRelayFetch } from "../services/push.js";
 import { newSession, seedTenant, type Tenant } from "../../test/tenants.js";
 import { pairMintLimiter } from "./devices.js";
 
@@ -236,6 +236,59 @@ describe("push on", () => {
     expect(await notifyUsers(A.ws.id, [ownerId()], { kind: "mention" })).toBe(1);
     expect(Date.now() - t0).toBeLessThan(1000);
     await settleBackground();
+  });
+});
+
+describe("test push", () => {
+  afterEach(() => setRelayFetch(null));
+  const test = (bearer: string) => call(ws("/push/test"), { method: "POST", bearer, body: "{}" });
+
+  it("is off, and canTest false, when the server has no relay", async () => {
+    const { token } = await pairPhone();
+    const cfg = await call(ws("/push/config"), { bearer: token });
+    expect(cfg.body).toMatchObject({ enabled: false, canTest: false });
+    expect((await test(token)).status).toBe(409);
+  });
+
+  it("sends one ping through the stubbed relay, never the live one", async () => {
+    on();
+    const { token } = await pairPhone();
+    await registerPush(token);
+    expect((await call(ws("/push/config"), { bearer: token })).body).toMatchObject({ enabled: true, canTest: true });
+    const seen: string[] = [];
+    setRelayFetch(async (url) => {
+      seen.push(url);
+      return new Response("{}", { status: 202 });
+    });
+    const r = await test(token);
+    expect(r.status).toBe(200);
+    expect(seen).toEqual([`${relayBase}/v1/push`]);
+  });
+
+  it("asks the phone to register first when it has no handle", async () => {
+    on();
+    const { token } = await pairPhone();
+    setRelayFetch(async () => new Response("{}", { status: 202 }));
+    const r = await test(token);
+    expect(r.status).toBe(409);
+    expect((r.body.error as { code: string }).code).toBe("NO_HANDLE");
+  });
+
+  it("reports a relay failure as one 502 the app can retry", async () => {
+    on();
+    const { token } = await pairPhone();
+    await registerPush(token);
+    setRelayFetch(async () => new Response("{}", { status: 502 }));
+    expect((await test(token)).status).toBe(502);
+    setRelayFetch(async () => {
+      throw new Error("down");
+    });
+    expect((await test(token)).status).toBe(502);
+  });
+
+  it("is for a paired device only", async () => {
+    on();
+    expect((await call(ws("/push/test"), { method: "POST", cookie: owner, body: "{}" })).status).toBe(403);
   });
 });
 

@@ -8,6 +8,7 @@ import {
   getPrefs,
   isValidTimeZone,
   pushConfig,
+  pushTestToDevice,
   setDeviceHandle,
   setPrefs,
   type PushKind,
@@ -70,6 +71,19 @@ export const pushRoutes = new Hono()
     if (!d) return apiError(c, 404, "NOT_A_DEVICE", "this credential isn't a paired device");
     await setDeviceHandle(d.id, null, null);
     return c.json({ ok: true });
+  })
+  .post("/workspaces/:ws/push/test", async (c) => {
+    const tokenId = patTokenId(c);
+    const session = c.get("session");
+    if (!tokenId || !session) return apiError(c, 403, "FORBIDDEN", "only a paired device can send itself a test push");
+    const ws = await requireWorkspace(c);
+    const d = await deviceForToken(ws.id, session.userId, tokenId);
+    if (!d) return apiError(c, 404, "NOT_A_DEVICE", "this credential isn't a paired device");
+    if (!pushConfig().enabled) return apiError(c, 409, "PUSH_OFF", "push isn't set up on this server");
+    const result = await pushTestToDevice(d.id, ws.id, session.userId);
+    if (result === "sent") return c.json({ ok: true });
+    if (result === "no_handle") return apiError(c, 409, "NO_HANDLE", "this phone isn't registered for push yet — turn notifications on first");
+    return apiError(c, 502, "RELAY_FAILED", "the push relay didn't accept the test — try again in a moment");
   })
   .get("/workspaces/:ws/push/preferences", async (c) => {
     const session = c.get("session");

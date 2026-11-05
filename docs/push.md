@@ -86,6 +86,14 @@ Settings > Notifications in the iOS app (S6-U2):
   the handle goes to your server. A rotated server key heals itself this way.
 - Toggles per kind and a quiet-hours window write the preferences above.
   Quiet hours use the phone's time zone.
+- **Send a test notification** shows only when the server reports push on
+  and `canTest` true. It calls `POST /v1/workspaces/:ws/push/test` with the
+  phone's own credential, which sends one ping to that phone through the
+  relay (ignoring quiet hours; it uses the fixed "You were mentioned" line).
+  Answers: 200 sent, 409 `PUSH_OFF` or `NO_HANDLE` (turn notifications on
+  first), 502 `RELAY_FAILED`. A failure shows one inline error and the button
+  becomes "Try again". Servers without the endpoint omit `canTest`, so the
+  row is absent.
 - Tapping a push opens Issues (assigned, mention, agent run) or Review.
 - Signing out deletes the handle from your server first.
 

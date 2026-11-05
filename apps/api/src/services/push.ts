@@ -55,6 +55,8 @@ export interface PushConfig {
   relayUrl: string | null;
   serverKey: string | null;
   kinds: readonly PushKind[];
+  /** this server has `POST /push/test`; older servers omit it, so apps hide the row */
+  canTest: boolean;
 }
 
 export function pushConfig(): PushConfig {
@@ -64,6 +66,7 @@ export function pushConfig(): PushConfig {
     relayUrl: url,
     serverKey: url ? signingKey().pub : null,
     kinds: PUSH_KINDS,
+    canTest: url !== null,
   };
 }
 
@@ -218,4 +221,46 @@ export async function pushToUsers(workspaceId: string, userIds: string[], kind: 
     }
   }
   return accepted;
+}
+
+export type TestPushResult = "sent" | "no_handle" | "relay_refused" | "relay_unreachable";
+
+/** one ping to a single paired phone, for Settings > Notifications > Send a test.
+ *  Ignores quiet hours and turned-off kinds: the person just asked for it.
+ *  Uses a fixed kind, so the lock screen shows one of the usual fixed lines. */
+export async function pushTestToDevice(deviceId: string, workspaceId: string, userId: string): Promise<TestPushResult> {
+  const base = relayUrl();
+  if (!base) return "relay_unreachable";
+  const [d] = await db
+    .select({ handle: devices.pushHandle })
+    .from(devices)
+    .where(and(eq(devices.id, deviceId), isNull(devices.revokedAt)));
+  if (!d?.handle) return "no_handle";
+  const signed = signPing({
+    v: 1,
+    handle: d.handle,
+    kind: "mention",
+    badge: await unreadCount(workspaceId, userId),
+    ts: clock.ms(),
+    nonce: randomBytes(16).toString("base64url"),
+  });
+  try {
+    const res = await relayFetch(`${base}/v1/push`, {
+      method: "POST",
+      headers: signed.headers,
+      body: signed.body,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (res.status === 202) return "sent";
+    if (res.status === 410) {
+      await db
+        .update(devices)
+        .set({ pushHandle: null, pushEnv: null, pushUpdatedAt: clock.now() })
+        .where(and(eq(devices.id, deviceId), eq(devices.pushHandle, d.handle)));
+      return "no_handle";
+    }
+    return "relay_refused";
+  } catch {
+    return "relay_unreachable";
+  }
 }

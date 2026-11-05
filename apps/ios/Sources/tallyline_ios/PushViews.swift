@@ -130,10 +130,26 @@ struct NotificationSettingsView: View {
     var push: PushCenter
     @State private var prefs: PushPreferences?
     @State private var saveError: String?
+    @State private var canTest = false
+    @State private var test: TestState = .idle
+
+    private enum TestState: Equatable { case idle, sending, sent, failed }
 
     var body: some View {
         Form {
             Section { statusRow }
+            if canTest && push.status == .on {
+                Section {
+                    Button(testTitle) { Task { await sendTest() } }
+                        .disabled(test == .sending)
+                } footer: {
+                    switch test {
+                    case .failed: Text("Could not send the test. Check your connection and try again.").foregroundStyle(Theme.urgent)
+                    case .sent: Text("Sent. It should arrive in a moment.")
+                    default: Text("Sends one notification to this phone through your server.")
+                    }
+                }
+            }
             if let prefs {
                 Section("Notify me about") {
                     ForEach(PushKind.allCases) { kind in
@@ -166,6 +182,26 @@ struct NotificationSettingsView: View {
         .task {
             await push.refresh()
             prefs = try? await push.api()?.preferences()
+            // Absent, not disabled, unless the server reports push on and can test.
+            canTest = (try? await push.api()?.pushConfig())?.offersTest ?? false
+        }
+    }
+
+    private var testTitle: String {
+        switch test {
+        case .sending: "Sending"
+        case .failed: "Try again"
+        default: "Send a test notification"
+        }
+    }
+
+    private func sendTest() async {
+        test = .sending
+        do {
+            try await push.api()?.sendTest()
+            test = .sent
+        } catch {
+            test = .failed
         }
     }
 

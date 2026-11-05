@@ -163,11 +163,16 @@ public actor Outbox {
 
     /// Entries allowed to send now: the oldest entry of each ordering key, if
     /// it is pending and due. Anything behind a waiting or failed entry waits.
-    public func ready() -> [OutboxEntry] {
+    ///
+    /// With `workspaceSlug`, only that workspace's entries are considered: the
+    /// device credential is bound to one workspace, so an entry from another
+    /// one must wait for its own workspace instead of replaying here.
+    public func ready(workspaceSlug: String? = nil) -> [OutboxEntry] {
         var seen = Set<String>()
         var out: [OutboxEntry] = []
         let t = now()
         for entry in entries {
+            if let workspaceSlug, entry.workspaceSlug != workspaceSlug { continue }
             guard seen.insert(entry.orderingKey).inserted else { continue }
             if entry.status == .pending, entry.nextAttemptAt <= t { out.append(entry) }
         }
@@ -175,11 +180,11 @@ public actor Outbox {
     }
 
     /// Sends everything ready, repeating until nothing more is ready now.
-    public func drain(using sender: any OutboxSender) async -> DrainResult {
+    public func drain(using sender: any OutboxSender, workspaceSlug: String? = nil) async -> DrainResult {
         var result = DrainResult()
         var attempted = Set<String>()
         while true {
-            let batch = ready().filter { !attempted.contains($0.id) }
+            let batch = ready(workspaceSlug: workspaceSlug).filter { !attempted.contains($0.id) }
             if batch.isEmpty { break }
             for entry in batch {
                 attempted.insert(entry.id)
@@ -201,8 +206,8 @@ public actor Outbox {
     }
 
     /// When the next entry becomes due, for scheduling a timer.
-    public func nextWake() -> Date? {
-        entries.filter { $0.status == .pending }.map(\.nextAttemptAt).min()
+    public func nextWake(workspaceSlug: String? = nil) -> Date? {
+        entries.filter { $0.status == .pending && (workspaceSlug == nil || $0.workspaceSlug == workspaceSlug) }.map(\.nextAttemptAt).min()
     }
 
     public func retry(_ id: String) throws {

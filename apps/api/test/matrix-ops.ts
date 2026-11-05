@@ -424,6 +424,7 @@ export const OPERATIONS: Record<string, Builder> = {
     environment: "sandbox",
   }),
   "DELETE /v1/workspaces/{ws}/devices/current/push": simple("DELETE", (t) => `${base(t)}/devices/current/push`),
+  "POST /v1/workspaces/{ws}/push/test": simple("POST", (t) => `${base(t)}/push/test`, {}),
   "GET /v1/workspaces/{ws}/push/preferences": get((t) => `${base(t)}/push/preferences`),
   "PUT /v1/workspaces/{ws}/push/preferences": simple("PUT", (t) => `${base(t)}/push/preferences`, {
     disabledKinds: [],
