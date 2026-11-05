@@ -1070,7 +1070,20 @@ const basePaths = {
         summary:
           "Whether push is on, the relay address and this server's public Ed25519 key (the app binds its relay handle to it); people only",
         parameters: [wsParam],
-        responses: { "200": { description: "{enabled, relayUrl|null, serverKey|null, kinds}" } },
+        responses: { "200": { description: "{enabled, relayUrl|null, serverKey|null, kinds, canTest}" } },
+      },
+    },
+    "/v1/workspaces/{ws}/push/test": {
+      post: {
+        summary:
+          "A paired device asks the server to send it one test ping through the push relay; the app shows its test row only when push/config says canTest",
+        parameters: [wsParam],
+        responses: {
+          "200": { description: "{ok}" },
+          "404": { description: "Not a paired device" },
+          "409": { description: "PUSH_OFF (no relay) or NO_HANDLE (this phone has not registered for push)" },
+          "502": { description: "RELAY_FAILED: the relay did not accept the ping; retry" },
+        },
       },
     },
     "/v1/workspaces/{ws}/push/preferences": {
