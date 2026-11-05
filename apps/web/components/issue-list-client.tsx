@@ -42,6 +42,7 @@ export interface ListIssue {
   triageSuggestion?: { action: "accept" | "decline"; reason: string } | null;
   createdAt?: string;
   updatedAt?: string;
+  version?: number;
   dueDate?: string | null;
   labels?: ListLabel[];
   /** U19: an unfinished issue blocks this one (set by the list API) */

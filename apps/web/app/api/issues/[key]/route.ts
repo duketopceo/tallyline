@@ -51,6 +51,8 @@ export async function PATCH(
       headers: {
         "content-type": "application/json",
         cookie: `${SESSION_COOKIE}=${session}`,
+        // write contract C6: the issue version the edit was made against
+        ...(req.headers.get("if-match") ? { "if-match": req.headers.get("if-match")! } : {}),
       },
       body: await req.text(),
     },

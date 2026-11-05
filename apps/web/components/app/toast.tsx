@@ -9,6 +9,9 @@ export interface ToastInput {
   message: string;
   undo?: () => void | Promise<void>;
   error?: boolean;
+  // a decision the person must make (stale write: Keep mine / Use theirs);
+  // persists like an error until one is chosen
+  actions?: { label: string; run: () => void | Promise<void> }[];
 }
 interface ToastItem extends ToastInput { id: number }
 
@@ -38,7 +41,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const push = useCallback((t: ToastInput) => {
     const id = ++seq.current;
     setItems((l) => [...l.slice(-2), { ...t, id }]);
-    if (!t.error) setTimeout(() => dismiss(id), t.undo ? UNDO_MS : 4000);
+    if (!t.error && !t.actions) setTimeout(() => dismiss(id), t.undo ? UNDO_MS : 4000);
   }, [dismiss]);
 
   // Undo instead of confirm for irreversible actions (approve, complete a cycle,
@@ -121,7 +124,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 Undo <kbd className="font-mono text-[11px] text-ink-subtle">⌘Z</kbd>
               </button>
             )}
-            {t.error && (
+            {t.actions?.map((a) => (
+              <button
+                key={a.label}
+                type="button"
+                onClick={() => { dismiss(t.id); void a.run(); }}
+                className="h-6 shrink-0 rounded-xs px-1.5 text-[12px] font-medium text-accent hover:bg-surface-4"
+              >
+                {a.label}
+              </button>
+            ))}
+            {t.error && !t.actions && (
               <button
                 type="button"
                 onClick={() => dismiss(t.id)}

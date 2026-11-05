@@ -192,7 +192,7 @@ export function BoardClient({ issues }: { issues: ListIssue[] }) {
   const move = useCallback((key: string, target: BoardState) => {
     const issue = displayed.find((i) => i.key === key);
     if (!issue || issue.state === target || !findPath(issue.state, target)) return;
-    void apply([{ key, patch: { state: target }, prior: { state: issue.state } }], `${key} → ${STATE_LABEL[target]}`);
+    void apply([{ key, version: issue.version, patch: { state: target }, prior: { state: issue.state } }], `${key} → ${STATE_LABEL[target]}`);
   }, [displayed, apply]);
 
   function cursorPos(): { state: BoardState; idx: number } | null {
