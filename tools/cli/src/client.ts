@@ -40,8 +40,8 @@ export interface Issue {
   teamId: string | null;
   /** canonical link to the issue; absent on servers older than the link API */
   url?: string;
-  /** per-issue write version, when the server's write contract provides one */
-  version?: number | string;
+  /** per-issue write version (an integer), when the server's write contract provides one */
+  version?: number;
   cycleId: string | null;
   projectId: string | null;
   parentId: string | null;
@@ -170,7 +170,7 @@ export interface PatchIssueInput {
 /** Write-contract headers: replays are no-ops, a stale version gets 409 STALE_WRITE. */
 export interface WriteOpts {
   idempotencyKey?: string;
-  /** the version (or updatedAt) the caller last read */
+  /** the integer issue version the caller last read */
   ifMatch?: string;
 }
 
