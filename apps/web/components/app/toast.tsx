@@ -129,7 +129,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 key={a.label}
                 type="button"
                 onClick={() => { dismiss(t.id); void a.run(); }}
-                className="h-6 shrink-0 rounded-xs px-1.5 text-[12px] font-medium text-accent hover:bg-surface-4"
+                className="h-6 shrink-0 rounded-xs px-1.5 text-xs font-medium text-accent hover:bg-surface-4"
               >
                 {a.label}
               </button>
