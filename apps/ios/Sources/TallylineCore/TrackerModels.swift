@@ -41,13 +41,16 @@ public struct Issue: Codable, Sendable, Identifiable, Hashable {
     public var labels: [IssueLabel]? = nil
     /// True while an unfinished issue blocks this one (list responses).
     public var blocked: Bool? = nil
+    /// Write-contract version, sent back as `If-Match`. Nil from an API that
+    /// predates the contract (no precondition is sent then).
+    public var version: Int? = nil
 
     public init(
         id: String, key: String, number: Int, title: String, description: String?, state: IssueState,
         priority: IssuePriority, estimate: Int?, dueDate: Date?, assigneeType: String?, assigneeId: String?,
         delegateType: String?, delegateId: String?, creatorType: String, creatorId: String?, projectId: String?,
         cycleId: String?, parentId: String?, source: String, occurrenceCount: Int, createdAt: Date, updatedAt: Date,
-        labels: [IssueLabel]? = nil, blocked: Bool? = nil
+        labels: [IssueLabel]? = nil, blocked: Bool? = nil, version: Int? = nil
     ) {
         self.id = id; self.key = key; self.number = number; self.title = title; self.description = description
         self.state = state; self.priority = priority; self.estimate = estimate; self.dueDate = dueDate
@@ -57,7 +60,7 @@ public struct Issue: Codable, Sendable, Identifiable, Hashable {
         self.projectId = projectId; self.cycleId = cycleId; self.parentId = parentId
         self.source = source; self.occurrenceCount = occurrenceCount
         self.createdAt = createdAt; self.updatedAt = updatedAt
-        self.labels = labels; self.blocked = blocked
+        self.labels = labels; self.blocked = blocked; self.version = version
     }
 }
 

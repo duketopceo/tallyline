@@ -150,8 +150,11 @@ extension APIClient {
         try await send(method: "POST", path: "\(ws(slug))/issues", query: [:], body: draft, idempotencyKey: idempotencyKey)
     }
 
-    public func updateIssue(ws slug: String, key: String, _ patch: IssuePatch, idempotencyKey: String = UUID().uuidString) async throws -> Issue {
-        try await send(method: "PATCH", path: "\(ws(slug))/issues/\(key)", query: [:], body: patch, idempotencyKey: idempotencyKey)
+    /// `ifMatchVersion` is the issue `version` the edit was made against; a
+    /// newer server issue answers `APIClientError.staleWrite`. Nil sends no
+    /// precondition (and is what a server without the write contract needs).
+    public func updateIssue(ws slug: String, key: String, _ patch: IssuePatch, idempotencyKey: String = UUID().uuidString, ifMatchVersion: Int? = nil) async throws -> Issue {
+        try await send(method: "PATCH", path: "\(ws(slug))/issues/\(key)", query: [:], body: patch, idempotencyKey: idempotencyKey, ifMatchVersion: ifMatchVersion)
     }
 
     public func comments(ws slug: String, key: String) async throws -> [IssueComment] {
