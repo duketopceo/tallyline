@@ -3,117 +3,6 @@ import SwiftUI
 import TallylineCore
 import TallylineDesign
 
-/// Top-level destinations. Order drives the Command-1...4 shortcuts.
-enum HomeSection: String, CaseIterable, Identifiable, Hashable {
-    case triage, issues, review, settings
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .triage: "Triage"
-        case .issues: "Issues"
-        case .review: "Review"
-        case .settings: "Settings"
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .triage: "tray"
-        case .issues: "list.bullet"
-        case .review: "checkmark.circle"
-        case .settings: "gearshape"
-        }
-    }
-
-    var shortcut: KeyEquivalent {
-        switch self {
-        case .triage: "1"
-        case .issues: "2"
-        case .review: "3"
-        case .settings: "4"
-        }
-    }
-}
-
-/// Signed-in shell. Tabs on iPhone; a sidebar split view on iPad and in
-/// wide multitasking, where Command-1...4 switch sections.
-struct HomeView: View {
-    var session: SessionModel
-    let credential: DeviceCredential
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var section: HomeSection = .triage
-
-    var body: some View {
-        Group {
-            if sizeClass == .regular {
-                NavigationSplitView {
-                    List(HomeSection.allCases, selection: Binding(
-                        get: { section },
-                        set: { if let next = $0 { section = next } }
-                    )) { item in
-                        Label(item.title, systemImage: item.symbol).tag(item)
-                    }
-                    .navigationTitle(credential.workspaceName)
-                } detail: {
-                    sectionView(section)
-                }
-            } else {
-                TabView(selection: $section) {
-                    ForEach(HomeSection.allCases) { item in
-                        sectionView(item)
-                            .tabItem { Label(item.title, systemImage: item.symbol) }
-                            .tag(item)
-                    }
-                }
-            }
-        }
-        .tint(Theme.accent)
-        .background { sectionShortcuts }
-        .onChange(of: AppRouter.shared.destination, initial: true) { _, destination in
-            guard let destination else { return }
-            section = HomeSection(destination)
-            AppRouter.shared.destination = nil
-        }
-        .sheet(item: Binding(
-            get: { AppRouter.shared.issueKey.map { OpenIssueKey(id: $0) } },
-            set: { AppRouter.shared.issueKey = $0?.id }
-        )) { item in
-            NavigationStack {
-                IssueLoaderView(session: session, credential: credential, key: item.id)
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Done") { AppRouter.shared.issueKey = nil }
-                        }
-                    }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func sectionView(_ item: HomeSection) -> some View {
-        switch item {
-        case .triage: IssueListView(session: session, credential: credential, state: .triage)
-        case .issues: IssueListView(session: session, credential: credential, state: nil)
-        case .review: ReviewQueueView(session: session, credential: credential)
-        case .settings: SettingsView(session: session, credential: credential)
-        }
-    }
-
-    /// Invisible buttons that carry the hardware-keyboard section shortcuts.
-    private var sectionShortcuts: some View {
-        ZStack {
-            ForEach(HomeSection.allCases) { item in
-                Button(item.title) { section = item }
-                    .keyboardShortcut(item.shortcut, modifiers: .command)
-            }
-        }
-        .opacity(0)
-        .frame(width: 0, height: 0)
-        .accessibilityHidden(true)
-    }
-}
-
 /// A state-filtered issue list with pull-to-refresh and delta reloads.
 struct OpenIssueKey: Identifiable {
     let id: String
@@ -166,14 +55,17 @@ struct IssueListView: View {
                 IssueDetailView(session: session, credential: credential, issue: issue)
             }
             .toolbar {
-                Button { Task { await reload() } } label: {
-                    Image(systemName: "arrow.clockwise")
+                ProfileToolbarItem(session: session)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showCreate = true } label: { Image(systemName: "plus") }
+                        .keyboardShortcut("n", modifiers: .command)
+                        .accessibilityLabel("New issue")
                 }
-                .keyboardShortcut("r", modifiers: .command)
-                .accessibilityLabel("Refresh")
-                Button { showCreate = true } label: { Image(systemName: "plus") }
-                    .keyboardShortcut("n", modifiers: .command)
-                    .accessibilityLabel("New issue")
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { Task { await reload() } } label: { Image(systemName: "arrow.clockwise") }
+                        .keyboardShortcut("r", modifiers: .command)
+                        .accessibilityLabel("Refresh")
+                }
             }
             .refreshable { await reload() }
             .task { await reload() }
@@ -380,6 +272,7 @@ struct IssueDetailView: View {
 struct ReviewQueueView: View {
     var session: SessionModel
     let credential: DeviceCredential
+    @Binding var count: Int
     @State private var entries: [ReviewQueueEntry] = []
 
     var body: some View {
@@ -397,6 +290,7 @@ struct ReviewQueueView: View {
             .navigationDestination(for: ReviewQueueEntry.self) { entry in
                 IssueLoaderView(session: session, credential: credential, key: entry.key)
             }
+            .toolbar { ProfileToolbarItem(session: session) }
             .refreshable { await load() }
             .task { await load() }
         }
@@ -405,6 +299,7 @@ struct ReviewQueueView: View {
     private func load() async {
         guard let client = session.client else { return }
         entries = (try? await client.reviewQueue(ws: credential.workspaceSlug)) ?? []
+        count = entries.count
     }
 }
 
@@ -551,6 +446,7 @@ struct SettingsView: View {
     var session: SessionModel
     let credential: DeviceCredential
     @State private var whoami: Whoami?
+    @Environment(\.dismiss) private var dismiss
     @AppStorage("appearance") private var appearance = SilverLiningAppearance.system.rawValue
 
     private var outboxSummary: String {
@@ -598,6 +494,10 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
             .task {
                 guard let client = session.client else { return }
                 whoami = try? await client.whoami()

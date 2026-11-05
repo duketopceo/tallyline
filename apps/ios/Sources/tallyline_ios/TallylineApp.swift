@@ -52,7 +52,7 @@ struct RootView: View {
         case .signedOut:
             InstancePickerView(session: session)
         case .signedIn(let credential):
-            HomeView(session: session, credential: credential)
+            ShellView(session: session, credential: credential)
                 // Re-register on every sign-in and launch; see PushRegistrar.
                 .task(id: credential.token) {
                     PushCenter.shared.session = session

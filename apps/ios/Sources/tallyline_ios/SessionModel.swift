@@ -19,6 +19,13 @@ final class SessionModel {
 
     private(set) var state: SignInState = .signedOut
     private(set) var lastError: String?
+    /// The signed-in person, for the profile button and Settings.
+    private(set) var me: Whoami?
+
+    func loadMe() async {
+        guard me == nil, let client else { return }
+        me = try? await client.whoami()
+    }
 
     func clearError() { lastError = nil }
     func setError(_ message: String) { lastError = message }
@@ -133,6 +140,7 @@ final class SessionModel {
     }
 
     func signOut() {
+        me = nil
         try? store.clear()
         state = .signedOut
         WidgetBridge.clear()

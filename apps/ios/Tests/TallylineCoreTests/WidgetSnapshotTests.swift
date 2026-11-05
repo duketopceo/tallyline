@@ -85,3 +85,28 @@ final class WidgetSnapshotTests: XCTestCase {
         XCTAssertNil(AppLink.destination(URL(string: "https://open/issues")!))
     }
 }
+
+final class ShellLinkTests: XCTestCase {
+    func testEveryDestinationRoundTrips() {
+        for destination in [PushDestination.myIssues, .review, .now, .projects, .roadmap, .settings] {
+            XCTAssertEqual(AppLink.destination(AppLink.url(destination)), destination)
+        }
+    }
+
+    func testProjectLinks() {
+        let url = AppLink.url(project: "abc")
+        XCTAssertEqual(url.absoluteString, "tallyline://open/projects/abc")
+        XCTAssertEqual(AppLink.destination(url), .projects)
+        XCTAssertEqual(AppLink.projectID(url), "abc")
+        XCTAssertNil(AppLink.projectID(AppLink.url(.projects)))
+        XCTAssertNil(AppLink.destination(URL(string: "tallyline://open/issues/extra")!))
+    }
+
+    func testInitials() {
+        XCTAssertEqual(Initials.from("Ada Lovelace"), "AL")
+        XCTAssertEqual(Initials.from("ada"), "A")
+        XCTAssertEqual(Initials.from("  grace  m. hopper "), "GH")
+        XCTAssertEqual(Initials.from(nil), "?")
+        XCTAssertEqual(Initials.from(""), "?")
+    }
+}

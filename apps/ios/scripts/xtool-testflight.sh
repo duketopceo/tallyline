@@ -41,6 +41,14 @@ cat "$WORK/dist.cer" "$WORK/dist.key" > "$WORK/dist.pem"
 chmod 600 "$WORK/dist.key" "$WORK/dist.pem"
 base64 -d "$WORK/appstore.mobileprovision" > "$WORK/profile.mobileprovision"
 
+# One deployment floor: Package.swift, project.yml and this script must agree.
+FLOOR=$(sed -n 's/.*\.iOS(\.v\([0-9]*\)).*/\1/p' Package.swift | head -1).0
+YML_FLOOR=$(sed -n 's/^ *iOS: "\(.*\)"/\1/p' project.yml | head -1)
+if [ "$FLOOR" != "$YML_FLOOR" ] || [ "$FLOOR" != "18.0" ]; then
+  echo "Deployment floor disagrees: Package.swift $FLOOR, project.yml $YML_FLOOR, script 18.0" >&2
+  exit 1
+fi
+
 echo "→ unpack, embed profile, compile icons"
 mkdir -p "$SIGN"
 (cd "$SIGN" && unzip -q "$OLDPWD/xtool/tallyline_ios.ipa")
@@ -50,7 +58,7 @@ cp App.entitlements "$SIGN/ent.plist"
 ssh "$MAC_HOST" "mkdir -p '$REMOTE_TMP'"
 scp -qr Resources/Assets.xcassets "$MAC_HOST:$REMOTE_TMP/"
 ssh "$MAC_HOST" "cd '$REMOTE_TMP' && xcrun actool --compile . --platform iphoneos \
-  --minimum-deployment-target 26.0 --app-icon AppIcon \
+  --minimum-deployment-target "$FLOOR" --app-icon AppIcon \
   --output-partial-info-plist actool.plist Assets.xcassets >/dev/null"
 scp -q "$MAC_HOST:$REMOTE_TMP/Assets.car" "$MAC_HOST:$REMOTE_TMP/actool.plist" "$APP/"
 
@@ -70,7 +78,7 @@ for name, size in [("AppIcon60x60@2x.png", 120), ("AppIcon60x60@3x.png", 180),
 path = os.path.join(app, "Info.plist")
 with open(path, "rb") as f:
     pl = plistlib.load(f)
-pl.update({"CFBundleIdentifier": "app.tallyline.ios", "MinimumOSVersion": "26.0",
+pl.update({"CFBundleIdentifier": "app.tallyline.ios", "MinimumOSVersion": "18.0",
            "DTPlatformName": "iphoneos", "DTPlatformVersion": "26.0", "DTSDKName": "iphoneos26.0",
            "DTSDKBuild": "23A339", "DTXcode": "2600", "DTXcodeBuild": "17A321",
            "DTCompiler": "com.apple.compilers.llvm.clang.1_0", "BuildMachineOSBuild": "25A362",
