@@ -107,9 +107,9 @@ struct CreateProjectView: View {
             await session.workspace.refresh(client: client, workspaceSlug: credential.workspaceSlug)
             dismiss()
         } catch let APIClientError.http(_, _, message) {
-            error = message ?? "The server could not create the project."
+            self.error = message ?? "The server could not create the project."
         } catch {
-            error = "You're offline. Try again when you're back."
+            self.error = "You're offline. Try again when you're back."
         }
     }
 }

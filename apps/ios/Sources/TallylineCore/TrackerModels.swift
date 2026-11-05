@@ -136,6 +136,11 @@ public struct RoadmapSummary: Codable, Sendable, Equatable {
         public let inReview: Int
         public let doneSince: Int?
         public var id: String { projectId }
+
+        /// What a project the summary does not mention reads as.
+        public static func zero(_ projectId: String) -> ProjectCounts {
+            ProjectCounts(projectId: projectId, total: 0, done: 0, closed: 0, inProgress: 0, inReview: 0, doneSince: nil)
+        }
     }
 
     public struct MilestoneCounts: Codable, Sendable, Equatable, Identifiable {
@@ -175,7 +180,7 @@ public struct RoadmapSummary: Codable, Sendable, Equatable {
     /// issues yet, so it reads as zero rather than missing.
     public func counts(forProject id: String) -> ProjectCounts {
         projects.first { $0.projectId == id }
-            ?? ProjectCounts(projectId: id, total: 0, done: 0, closed: 0, inProgress: 0, inReview: 0, doneSince: nil)
+            ?? .zero(id)
     }
 
     public func counts(forMilestone id: String) -> MilestoneCounts {
