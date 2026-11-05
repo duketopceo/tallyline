@@ -52,13 +52,12 @@ export function SettingsOverview({
           </h2>
           <ul className="divide-y divide-lining-faint overflow-hidden rounded-md border border-lining bg-surface-1">
             {s.items.map((i) => {
-              const descId = `settings-row-${i.href.replace(/\W+/g, "-")}`;
               return (
                 <li key={i.href}>
-                  <Link href={i.href} aria-describedby={descId} className={row}>
+                  <Link href={i.href} className={row}>
                     <span className="min-w-0 flex-1">
                       <span className="block text-body font-medium text-ink">{i.label}</span>
-                      <span id={descId} className="block text-xs text-ink-subtle">
+                      <span className="block text-xs text-ink-subtle">
                         {i.description}
                       </span>
                     </span>

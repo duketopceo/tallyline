@@ -1,10 +1,10 @@
 import { SettingsHeader } from "@/components/settings/settings-header";
 import { SettingsOverview } from "@/components/settings/settings-overview";
-import { api, type Me } from "@/lib/api";
+import { getMe } from "@/lib/me";
 import { visibleSections } from "@/lib/settings-nav";
 
 export default async function SettingsPage() {
-  const me = await api<Me>("/v1/auth/me");
+  const me = await getMe();
   if (!me.data) return <main className="p-8 text-sm text-ink-subtle">Not signed in.</main>;
   const active = me.data.memberships.find((m) => m.workspaceSlug === me.data!.workspaceSlug);
   return (

@@ -27,11 +27,9 @@ export default async function CyclesPage() {
       <SettingsHeader
         title="Cycles"
         actions={
-          <>
-            <span className="font-mono text-[11px] text-ink-tertiary">
-              {rows.length}
-            </span>
-          </>
+        <span className="font-mono text-[11px] text-ink-tertiary">
+          {rows.length}
+        </span>
         }
       />
       <CyclesSettings cycles={rows} teams={teams} />

@@ -24,11 +24,9 @@ export default async function ProjectsPage() {
       <SettingsHeader
         title="Projects"
         actions={
-          <>
-            <span className="font-mono text-[11px] text-ink-tertiary">
-              {rows.length}
-            </span>
-          </>
+        <span className="font-mono text-[11px] text-ink-tertiary">
+          {rows.length}
+        </span>
         }
       />
       <ProjectsSettings projects={rows} />

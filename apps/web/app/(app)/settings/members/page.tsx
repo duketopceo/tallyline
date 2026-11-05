@@ -22,11 +22,9 @@ export default async function MembersPage() {
       <SettingsHeader
         title="Members"
         actions={
-          <>
-            <span className="font-mono text-[11px] text-ink-tertiary">
-              {rows.length} on this workspace
-            </span>
-          </>
+        <span className="font-mono text-[11px] text-ink-tertiary">
+          {rows.length} on this workspace
+        </span>
         }
       />
       {res.ok ? (

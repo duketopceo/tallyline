@@ -60,16 +60,14 @@ export default async function IntegrationsPage() {
       <SettingsHeader
         title="Integrations"
         actions={
-          <>
-            <a
-              href={installed ? manageUrl : (installRes.data?.installUrl ?? manageUrl)}
-              target="_blank"
-              rel="noreferrer"
-              className="font-mono text-[11px] text-ink-tertiary hover:text-ink"
-            >
-              {installed ? "manage on GitHub ↗" : "install App ↗"}
-            </a>
-          </>
+        <a
+          href={installed ? manageUrl : (installRes.data?.installUrl ?? manageUrl)}
+          target="_blank"
+          rel="noreferrer"
+          className="font-mono text-[11px] text-ink-tertiary hover:text-ink"
+        >
+          {installed ? "manage on GitHub ↗" : "install App ↗"}
+        </a>
         }
       />
       <GithubRepoPanel

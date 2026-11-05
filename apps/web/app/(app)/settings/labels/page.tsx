@@ -21,11 +21,9 @@ export default async function LabelsPage() {
       <SettingsHeader
         title="Labels"
         actions={
-          <>
-            <span className="font-mono text-[11px] text-ink-tertiary">
-              {rows.length}
-            </span>
-          </>
+        <span className="font-mono text-[11px] text-ink-tertiary">
+          {rows.length}
+        </span>
         }
       />
       <LabelsSettings labels={rows} />

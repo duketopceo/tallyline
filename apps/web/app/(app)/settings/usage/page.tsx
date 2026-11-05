@@ -120,13 +120,11 @@ export default async function UsagePage() {
       <SettingsHeader
         title="Usage"
         actions={
-          <>
-            {u && (
-              <span className="hidden font-mono text-[11px] text-ink-tertiary sm:inline">
-                last 30 days · UTC
-              </span>
-            )}
-          </>
+          u && (
+            <span className="hidden font-mono text-[11px] text-ink-tertiary sm:inline">
+              last 30 days · UTC
+            </span>
+          )
         }
       />
 
