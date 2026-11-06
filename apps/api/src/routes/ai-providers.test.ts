@@ -2,11 +2,12 @@ import { and, eq } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../db/client.js";
 import { aiProviders, aiUsageLedger, events } from "../db/schema.js";
-import { config_ } from "../env.js";
+import { config_, DEFAULT_LLM_FALLBACKS, DEFAULT_LLM_MODEL, parseModelList } from "../env.js";
 import { app } from "../index.js";
 import { MemoryRateStore } from "../lib/rate-limit.js";
 import { aiTestLimiter } from "./ai-providers.js";
-import { __setAiFetchForTests, type AiFetch } from "../services/ai-providers.js";
+import { __setAiFetchForTests, modelChain, type AiFetch } from "../services/ai-providers.js";
+import { DEFAULT_OPENROUTER_MODEL } from "../services/openrouter-connect.js";
 import { newSession, seedTenant, type Tenant } from "../../test/tenants.js";
 
 // S3-U2: bring-your-own AI provider. The API key is sealed, never echoed, a
@@ -19,7 +20,14 @@ let admin: string;
 let member: string;
 let bAdmin: string;
 
-const mutableConfig = config_ as unknown as { authSecretKey: string; llmApiKey: string };
+const mutableConfig = config_ as unknown as {
+  authSecretKey: string;
+  llmApiKey: string;
+  llmModel: string;
+  llmFallbacks: string[];
+};
+const savedModel = mutableConfig.llmModel;
+const savedFallbacks = mutableConfig.llmFallbacks;
 const savedSecret = mutableConfig.authSecretKey;
 const savedLlmKey = mutableConfig.llmApiKey;
 const savedPrivate = process.env.TALLYLINE_WEBHOOK_ALLOW_PRIVATE;
@@ -48,6 +56,8 @@ beforeEach(async () => {
 afterEach(async () => {
   mutableConfig.authSecretKey = savedSecret;
   mutableConfig.llmApiKey = savedLlmKey;
+  mutableConfig.llmModel = savedModel;
+  mutableConfig.llmFallbacks = savedFallbacks;
   if (savedPrivate === undefined) delete process.env.TALLYLINE_WEBHOOK_ALLOW_PRIVATE;
   else process.env.TALLYLINE_WEBHOOK_ALLOW_PRIVATE = savedPrivate;
   __setAiFetchForTests(null);
@@ -313,5 +323,99 @@ describe("the test button and the ledger", () => {
     const b = await call(B, "/usage", { cookie: bAdmin });
     expect(b.text).not.toContain("only-a");
     await db.delete(aiUsageLedger).where(and(eq(aiUsageLedger.workspaceId, A.ws.id), eq(aiUsageLedger.action, "only-a")));
+  });
+});
+
+describe("default model and OpenRouter fallbacks", () => {
+  const CHAIN = ["google/gemma-4-26b-a4b-it", "deepseek/deepseek-v4-flash"];
+
+  it("defaults to nemotron-3.5-lightning with gemma then deepseek behind it", () => {
+    expect(DEFAULT_LLM_MODEL).toBe("nvidia/nemotron-3.5-lightning");
+    expect(DEFAULT_OPENROUTER_MODEL).toBe(DEFAULT_LLM_MODEL);
+    expect([...DEFAULT_LLM_FALLBACKS]).toEqual(CHAIN);
+    if (!process.env.TALLYLINE_LLM_MODEL) expect(savedModel).toBe(DEFAULT_LLM_MODEL);
+    if (!process.env.TALLYLINE_LLM_FALLBACKS) expect(savedFallbacks).toEqual(CHAIN);
+    expect(parseModelList(" a/x, b/y ,,a/x ")).toEqual(["a/x", "b/y"]);
+    expect(parseModelList("none")).toEqual([]);
+  });
+
+  it("builds a deduped chain for openrouter only", () => {
+    expect(modelChain({ kind: "openrouter", model: "nvidia/nemotron-3.5-lightning", fallbacks: CHAIN })).toEqual([
+      "nvidia/nemotron-3.5-lightning",
+      ...CHAIN,
+    ]);
+    expect(modelChain({ kind: "openrouter", model: CHAIN[0]!, fallbacks: CHAIN })).toEqual(CHAIN);
+    expect(modelChain({ kind: "openrouter", model: "a/x", fallbacks: [] })).toBeNull();
+    expect(modelChain({ kind: "openai_compatible", model: "llama3", fallbacks: CHAIN })).toBeNull();
+  });
+
+  it("an openrouter workspace keeps its own model first and sends the fallbacks as `models`", async () => {
+    mutableConfig.llmFallbacks = [...CHAIN];
+    await put(orBody);
+    const seen = fakeFetch({ status: 200, body: okReply() });
+    expect((await call(A, "/provider/test", { method: "POST", cookie: admin })).body.ok).toBe(true);
+    expect(seen[0]!.body.model).toBe("openai/gpt-4o-mini");
+    expect(seen[0]!.body.models).toEqual(["openai/gpt-4o-mini", ...CHAIN]);
+  });
+
+  it("the server-wide provider sends the default chain", async () => {
+    mutableConfig.llmApiKey = "env-provider-key-xyz";
+    mutableConfig.llmModel = DEFAULT_LLM_MODEL;
+    mutableConfig.llmFallbacks = [...CHAIN];
+    const seen = fakeFetch({ status: 200, body: okReply() });
+    expect((await call(A, "/provider/test", { method: "POST", cookie: admin })).body.ok).toBe(true);
+    expect(seen[0]!.body.models).toEqual([DEFAULT_LLM_MODEL, ...CHAIN]);
+  });
+
+  it("a server-wide provider pointed at another endpoint gets no fallbacks", async () => {
+    const m = config_ as unknown as { llmBaseUrl: string };
+    const savedBase = m.llmBaseUrl;
+    try {
+      m.llmBaseUrl = "https://llm.example.com/v1";
+      mutableConfig.llmApiKey = "env-provider-key-xyz";
+      mutableConfig.llmFallbacks = [...CHAIN];
+      const seen = fakeFetch({ status: 200, body: okReply() });
+      await call(A, "/provider/test", { method: "POST", cookie: admin });
+      expect(seen[0]!.url).toBe("https://llm.example.com/v1/chat/completions");
+      expect(seen[0]!.body).not.toHaveProperty("models");
+    } finally {
+      m.llmBaseUrl = savedBase;
+    }
+  });
+
+  it("an openai-compatible provider gets only its configured model", async () => {
+    mutableConfig.llmFallbacks = [...CHAIN];
+    process.env.TALLYLINE_WEBHOOK_ALLOW_PRIVATE = "1";
+    await put({ kind: "openai_compatible", label: "Local", model: "llama3", baseUrl: "http://127.0.0.1:11434/v1" });
+    const seen = fakeFetch({ status: 200, body: okReply({ usage: undefined }) });
+    expect((await call(A, "/provider/test", { method: "POST", cookie: admin })).body.ok).toBe(true);
+    expect(seen[0]!.body.model).toBe("llama3");
+    expect(seen[0]!.body).not.toHaveProperty("models");
+  });
+
+  it("fallbacks set to none send no `models` array", async () => {
+    mutableConfig.llmFallbacks = [];
+    await put(orBody);
+    const seen = fakeFetch({ status: 200, body: okReply() });
+    expect((await call(A, "/provider/test", { method: "POST", cookie: admin })).body.ok).toBe(true);
+    expect(seen[0]!.body).not.toHaveProperty("models");
+  });
+
+  it("records the model that actually served, so a fallback is billed as itself", async () => {
+    mutableConfig.llmFallbacks = [...CHAIN];
+    await put(orBody);
+    fakeFetch({ status: 200, body: okReply({ model: "deepseek/deepseek-v4-flash" }) });
+    const r = await call(A, "/provider/test", { method: "POST", cookie: admin });
+    expect(r.body).toMatchObject({ ok: true, model: "deepseek/deepseek-v4-flash" });
+    const u = await call(A, "/usage", { cookie: admin });
+    expect(u.body.recent[0]).toMatchObject({ action: "test", status: "ok", model: "deepseek/deepseek-v4-flash" });
+  });
+
+  it("falls back to the requested model in the ledger when the response doesn't name one", async () => {
+    await put(orBody);
+    fakeFetch({ status: 200, body: okReply() });
+    await call(A, "/provider/test", { method: "POST", cookie: admin });
+    const u = await call(A, "/usage", { cookie: admin });
+    expect(u.body.recent[0]).toMatchObject({ model: "openai/gpt-4o-mini" });
   });
 });

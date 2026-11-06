@@ -5,6 +5,18 @@ import { assertProductionSecrets, DEV_JWT_SECRET, warnMissingProviderSecrets } f
 
 config({ path: new URL("../../../.env", import.meta.url) });
 
+// AI assist defaults (S3 model refresh, 2026-11). Cheap, open-weight, text-only,
+// structured outputs, 262k context; the fallbacks are OpenRouter's native
+// `models` chain, tried in order when the primary is down or rate limited.
+export const DEFAULT_LLM_MODEL = "nvidia/nemotron-3.5-lightning";
+export const DEFAULT_LLM_FALLBACKS = ["google/gemma-4-26b-a4b-it", "deepseek/deepseek-v4-flash"] as const;
+
+/** comma list of model ids; "none" turns fallbacks off */
+export function parseModelList(raw: string): string[] {
+  if (raw.trim().toLowerCase() === "none") return [];
+  return [...new Set(raw.split(",").map((m) => m.trim()).filter(Boolean))];
+}
+
 const env = (key: string, fallback?: string): string => {
   const value = readEnv(process.env, key) ?? fallback;
   if (value === undefined) {
@@ -184,5 +196,8 @@ export const config_ = {
   llmApiKey: env("TALLYLINE_LLM_API_KEY", ""),
   llmBaseUrl: env("TALLYLINE_LLM_BASE_URL", "https://openrouter.ai/api/v1"),
   // cheap-by-default per the spend ceiling; override for your budget
-  llmModel: env("TALLYLINE_LLM_MODEL", "google/gemini-2.5-flash-lite"),
+  llmModel: env("TALLYLINE_LLM_MODEL", DEFAULT_LLM_MODEL),
+  // OpenRouter fallbacks appended after the primary model ("none" = off);
+  // never sent to openai_compatible providers, which don't know `models`
+  llmFallbacks: parseModelList(env("TALLYLINE_LLM_FALLBACKS", DEFAULT_LLM_FALLBACKS.join(","))),
 } as const;

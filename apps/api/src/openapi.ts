@@ -1207,7 +1207,7 @@ const basePaths = {
           type: "object",
           properties: {
             mode: { type: "string", enum: ["redirect", "headless"], description: "default redirect (back to /settings/ai/openrouter)" },
-            model: { type: "string", description: "default google/gemini-2.5-flash-lite" },
+            model: { type: "string", description: "default nvidia/nemotron-3.5-lightning (OpenRouter falls back to google/gemma-4-26b-a4b-it, then deepseek/deepseek-v4-flash)" },
             monthlyCapCents: { type: "integer", description: "monthly spend ceiling in cents; default 1000" },
           },
         }),

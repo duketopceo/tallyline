@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { decryptSecret, encryptSecret } from "../auth/secrets.js";
-import { config_ } from "../env.js";
+import { config_, DEFAULT_LLM_MODEL } from "../env.js";
 import { aiFetch, AiError, DEFAULT_MONTHLY_CAP_CENTS, MAX_MONTHLY_CAP_CENTS, saveProvider } from "./ai-providers.js";
 import { clock } from "./clock.js";
 
@@ -18,7 +18,7 @@ export const OPENROUTER_AUTH_URL = "https://openrouter.ai/auth";
 export const OPENROUTER_KEYS_URL = "https://openrouter.ai/api/v1/auth/keys";
 export const CONNECT_TTL_MS = 10 * 60_000;
 /** same default the server-wide env provider uses */
-export const DEFAULT_OPENROUTER_MODEL = "google/gemini-2.5-flash-lite";
+export const DEFAULT_OPENROUTER_MODEL = DEFAULT_LLM_MODEL;
 
 export type ConnectMode = "redirect" | "headless";
 
