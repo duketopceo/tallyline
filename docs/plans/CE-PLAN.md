@@ -28,7 +28,7 @@ Verified against local checkout + open GitHub plans (2026-11-04).
 
 | Artifact | Role |
 |---|---|
-| [ROADMAP.md](../../ROADMAP.md) | Status ledger as of ~2026-10-31; most agent-buildable U/S units **shipped**; remainder is owner ops / deferred |
+| [ROADMAP.md](../../ROADMAP.md) | Status ledger as of 2026-11-05; most agent-buildable U/S units **shipped**; remainder is owner ops / deferred |
 | [docs/next-tasks.md](../next-tasks.md) | Ordered owner-gated handoff (TestFlight, push, deploy, backups, …) |
 | [docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md](./2026-10-17-0000-feat-tallyline-full-roadmap-plan.md) | PM-ready program U1–U25 (mostly done) |
 | [docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md](./2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md) | Self-host + iOS S1–S7 (client mostly done; Apple/TestFlight owner-gated) |
@@ -36,9 +36,9 @@ Verified against local checkout + open GitHub plans (2026-11-04).
 | [docs/plans/2026-10-10-1506-feat-oauth-org-identity-plan.md](./2026-10-10-1506-feat-oauth-org-identity-plan.md) | Identity / OAuth foundation (`auth_identities`, Google/GitHub/OIDC) |
 | [docs/plans/2026-11-02-001-feat-app-review-demo-access-plan.md](./2026-11-02-001-feat-app-review-demo-access-plan.md) | App Review demo account + pairing notes (Guideline 2.1) |
 | [docs/plans/2026-11-01-1030-feat-cloudflare-frontend-plan.md](./2026-11-01-1030-feat-cloudflare-frontend-plan.md) | Cloudflare front-end / offline Worker |
-| **PR #230** `docs/ios-projects-roadmap-plan` | Full iOS/iPadOS UI/UX plan (U1–U12 shell, Now feed, projects, motion) — **open** |
-| **PR #231** `docs/intake-helpdesk-home-plan` | Public intake + helpdesk + agent-first iOS home — **open** |
-| **PR #240** `wo/intake-batch` | Intake implementation batch — **open** |
+| **PR #230** `docs/ios-projects-roadmap-plan` | Full iOS/iPadOS UI/UX plan (U1–U12 shell, Now feed, projects, motion) — **merged** |
+| **PR #231** `docs/intake-helpdesk-home-plan` | Public intake + helpdesk + agent-first iOS home — **merged** |
+| **PR #240** `wo/intake-batch` | Intake implementation batch — **merged** |
 | [docs/plans-and-usage.md](../plans-and-usage.md) + `apps/api/src/plans.ts` | Free/Team limits when `BILLING=on`; **no Stripe yet (PLAN-060)** |
 | iOS today | Pairing → `tly_pat_*` → delta sync + outbox (`apps/ios/README.md`). **No SIWA.** |
 | API today | Hono + Postgres; OAuth providers env-gated; MCP OAuth; device pairing; usage metering |
@@ -145,9 +145,9 @@ U-IDs below are **stable for this ledger** (`C` = cloud parity). Do not renumber
 | C1c | Web OAuth Apple authorize/callback (Services ID) | ⬜ | `/v1/auth/methods` lists Apple when configured |
 | C2 | App Review demo workspace ops (per 2026-11-02 plan) | 🟡 plan exists | Demo account + mint path proven |
 | C3 | PLAN-060 Stripe + `BILLING=on` + Pro $8 / Business $14 copy | ⬜ | Checkout + portal; Free caps enforced |
-| C4 | Public intake credentials (PR #231 / #240) | 🟡 in flight | Outside apps post without human session |
+| C4 | Public intake credentials (PR #231 / #240) | ✅ merged (#231, #240) | Outside apps post without human session |
 | C5 | Hardening: rate limits, abuse on auth + MCP, backup owner gates (U2/U3) | 🟡 partial | owner checklist in next-tasks green |
-| C6 | Write contract for both clients: idempotency keys on every mutation, `409 STALE_WRITE` carrying the server version on conflict, one documented optimistic-update shape | ⬜ | Web and iOS share the contract; replaying any write is a no-op; a stale write fails with a recoverable code, never a silent overwrite |
+| C6 | Write contract for both clients: idempotency keys on every mutation, `409 STALE_WRITE` carrying the server version on conflict, one documented optimistic-update shape | 🟡 in review (#256) | Web and iOS share the contract; replaying any write is a no-op; a stale write fails with a recoverable code, never a silent overwrite |
 
 **Depends on owner:** Apple Developer Services ID + iOS App ID SIWA capability; ASC; APNs for push (S4).
 
@@ -168,7 +168,7 @@ U-IDs below are **stable for this ledger** (`C` = cloud parity). Do not renumber
 | I1 | SIWA button on cloud path → C1b PAT → existing sync | ⬜ | Sign in → Issues without typing `tlpair_` |
 | I2 | Pairing retained (instance URL + code/QR) for self-host | ✅ keep | Regression tests still pass |
 | I3 | App Review / TestFlight (S5-U8, S7, 2026-11-02 plan) | 🟡 owner | Reviewer enters; Guideline 2.1 closed |
-| I4 | Native UI plan (#230 U1–U12): shell, Now feed, projects, motion | 🟡 plan open | Feels first-party iOS 26; not a thin list clone |
+| I4 | Native UI plan (#230 U1–U12): shell, Now feed, projects, motion | 🟡 shell, Now feed, projects and Settings on `main` (#244 to #246, #250); closers in review (#253) | Feels first-party iOS 26; not a thin list clone |
 | I5 | Agent-first home / roadmap consumption (#231 U7 / #230 U5–U6) | 🟡 planned | Opens on living work, not only flat triage |
 
 ## 6. Next execution slice (recommended order)
@@ -203,6 +203,8 @@ U-IDs below are **stable for this ledger** (`C` = cloud parity). Do not renumber
 | Billing (later) | With `BILLING=on`, Free hits 402 at seat/agent caps; Pro checkout grants `team`/`pro` |
 
 ## 9. Definition of Done (this track’s v1 “Linear-class enough”)
+
+Status 2026-11-05 (readiness pass): no box is checked yet. The cloud beta units are partly in review (#256, #255, #253) and nothing is deployed or device-verified. See the Readiness pass section in [docs/next-tasks.md](../next-tasks.md).
 
 - [ ] Web + iOS Apple sign-in → same user → same workspace data.
 - [ ] iOS sync (delta + outbox) works without pairing on cloud.

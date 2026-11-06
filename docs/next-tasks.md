@@ -57,3 +57,32 @@ Heaviest open work, ordered by impact. Every item comes from the "Open: needs Lu
     - Files: `apps/ios`, plus store assets in `assets/`.
     - Luke provides: listing copy, screenshots approval, and the submit decision.
     - Verify: the build passes App Review.
+
+## Readiness pass 2026-11-05 (cloud beta)
+
+State: `main` is at `56235dd`. U1 reconciliation is done (the `ios-v1.1.0` tag's `apps/ios` equals `main` at `3291445`, #250; `main` has since gained #254). Merged this run: #252 (U8 CLI), #254 (U7 iOS extras). In review, none merged: #256 (U3 write contract), #255 (U4 team change and issue link API), #253 (U5 iOS closers), and a web Settings redesign PR (pending; not open yet). Skipped by owner decision: U2 (needs a device), U6 (web Apple sign-in, not built), U10 (owner-only), U11 (environment gate), U12 (board sync). The cloud beta has no Stripe. The Definition of Done in [CE-PLAN.md](./plans/CE-PLAN.md) has no boxes checked, and the beta is not done.
+
+Owner steps, in order:
+
+1. **Merge order:** #256, then #255, then #253, then the web Settings redesign (independent).
+2. **Renumber a migration:** #256 and #255 both add a migration numbered 0045. Whichever merges second renumbers its migration file and its drizzle journal entry. #255 also notes `0043_apple_provider.sql` is missing from the drizzle journal; add it.
+3. **Wire the contract:** when #255 merges, wire `If-Match` and confirm the header name and the 409 `current` field match between #256 and the already merged CLI (#252). Rebase #253 (`TrackerClient`, outbox) on #256.
+4. **Deploy decision:** owner decides who deploys and when. Nothing here is deployed.
+5. **Device checks (U2):** VoiceOver and on-device checks of the iOS shell, skipped for now because they need a device.
+6. **Apple console (U5, U6):** Apple developer console setup for the iOS Apple capabilities (OQ4). U6 web Apple sign-in is not built.
+7. **Push relay (U7 test row):** run the production push relay (item 2 above) so the Settings test notification row can be exercised.
+
+### Day-in-the-life walkthrough (U9)
+
+Not yet runnable: it needs the merges above plus a deploy. Run it after both, then file failures as issues.
+
+1. Sign in with Apple on web and on the phone (web Apple sign-in is U6, not built; web uses password until then).
+2. Create an issue; edit one offline.
+3. Reconnect and let the outbox drain.
+4. Resolve one stale write (409 `STALE_WRITE`).
+5. Move an issue to another team.
+6. Copy a link and open it.
+7. Connect an agent over MCP.
+8. Intake one report.
+
+Also run the plan's Verification Contract end to end after the merges.
