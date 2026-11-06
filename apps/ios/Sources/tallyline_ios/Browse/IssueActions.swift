@@ -15,7 +15,9 @@ struct IssueActions {
         session.offline.applyLocally(optimistic ?? issue.applying(patch))
         let outcome = await session.offline.submit(
             .updateIssue(key: issue.key, patch: patch),
-            workspaceSlug: credential.workspaceSlug
+            workspaceSlug: credential.workspaceSlug,
+            // If-Match: the version this edit was made against (U3)
+            baseVersion: issue.version
         )
         if case .rejected = outcome { session.offline.applyLocally(issue) }
         return outcome

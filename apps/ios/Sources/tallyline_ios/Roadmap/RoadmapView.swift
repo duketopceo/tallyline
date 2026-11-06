@@ -63,6 +63,10 @@ struct RoadmapView: View {
                         .accessibilityHidden(true)
                 }
             }
+            .scrollTargetBehavior(MilestoneSnap(
+                offsets: RoadmapSnap.offsets(spans: spans, months: months, monthWidth: Double(monthWidth)),
+                enabled: !(systemReducesMotion || appReducesMotion)
+            ))
             .onAppear { proxy.scrollTo("today", anchor: .center) }
         }
         .background(Theme.canvas)
@@ -160,6 +164,20 @@ private struct EdgeFade: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// Horizontal scrolling comes to rest on a milestone column (or the grid's
+/// start). The settle is the system's own deceleration, which is motion, so
+/// under Reduce Motion (system or the app's own switch) the scroll stays free.
+private struct MilestoneSnap: ScrollTargetBehavior {
+    let offsets: [Double]
+    let enabled: Bool
+
+    func updateTarget(_ target: inout ScrollTarget, context: TargetContext) {
+        guard enabled, offsets.count > 1 else { return }
+        let maxX = max(0, context.contentSize.width - context.containerSize.width)
+        target.rect.origin.x = CGFloat(RoadmapSnap.settle(Double(target.rect.origin.x), among: offsets, maxOffset: Double(maxX)))
     }
 }
 #endif

@@ -25,6 +25,13 @@ struct NowView: View {
         return NowFeed.grouped(items)
     }
 
+    /// Feed rows whose issue is blocked, from the issues the phone holds.
+    private var blockedEntries: [(id: String, label: String)] {
+        let cached = session.offline.cachedIssues(workspaceSlug: credential.workspaceSlug, state: nil)
+        let keys = BlockedIssues.keys(cached)
+        return BlockedIssues.items(groups.flatMap(\.items), blockedKeys: keys).map { ($0.id, $0.sentence) }
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -43,6 +50,7 @@ struct NowView: View {
                         }
                     }
                     .motion(.standard, value: groups.flatMap(\.items).map(\.id))
+                    .modifier(BlockedRotor(entries: blockedEntries))
                 }
             }
             .navigationTitle("Now")

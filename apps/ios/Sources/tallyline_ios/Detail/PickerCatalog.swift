@@ -34,6 +34,7 @@ final class PickerCatalog {
         loaded = true
     }
 
+    func team(_ id: String?) -> Team? { teams.first { $0.id == id } }
     func project(_ id: String?) -> Project? { projects.first { $0.id == id } }
     func cycle(_ id: String?) -> Cycle? { cycles.first { $0.id == id } }
     func agent(_ id: String?) -> Agent? { agents.first { $0.id == id } }

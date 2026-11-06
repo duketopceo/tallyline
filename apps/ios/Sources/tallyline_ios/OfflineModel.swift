@@ -75,14 +75,21 @@ final class OfflineModel {
 
     // ── Writes ──────────────────────────────────────────────────────────
 
-    /// Queue a write and try to send it now.
-    func submit(_ operation: OutboxOperation, workspaceSlug: String) async -> SubmitOutcome {
-        guard let entry = try? await outbox.enqueue(operation, workspaceSlug: workspaceSlug) else {
+    /// Queue a write and try to send it now. `baseVersion` is the issue
+    /// `version` an edit was made against, sent as `If-Match` (U3 write
+    /// contract); nil sends no precondition.
+    func submit(_ operation: OutboxOperation, workspaceSlug: String, baseVersion: Int? = nil) async -> SubmitOutcome {
+        guard let entry = try? await outbox.enqueue(operation, workspaceSlug: workspaceSlug, baseVersion: baseVersion) else {
             return .rejected("Could not save the change on this phone")
         }
         await drain()
         if let current = entries.first(where: { $0.id == entry.id }) {
-            if case .failed(let reason) = current.status {
+            var refused: String?
+            if case .failed(let reason) = current.status { refused = reason }
+            // STALE_WRITE while the person is looking: the issue changed
+            // elsewhere, so keep theirs and say so instead of parking it.
+            if case .needsDecision(let reason, _) = current.status { refused = reason }
+            if let reason = refused {
                 // The person is looking at the result; tell them and do not keep it.
                 try? await outbox.discard(entry.id)
                 await refreshEntries()
@@ -124,7 +131,13 @@ final class OfflineModel {
     }
 
     func retry(_ id: String) async {
-        try? await outbox.retry(id)
+        // A stale-write entry retried as is would conflict again: Retry means
+        // Keep mine, sent against the server's current version.
+        if entries.first(where: { $0.id == id })?.needsDecision == true {
+            try? await outbox.keepMine(id)
+        } else {
+            try? await outbox.retry(id)
+        }
         await drain()
     }
 

@@ -30,6 +30,13 @@ struct TallylineApp: App {
                     if phase == .active { Task { await session.offline.importSharedDrafts() } }
                 }
                 .onOpenURL { url in
+                    // https://<web origin>/issues/<KEY>: delivered only once the app's
+                    // associated-domains entitlement ships (owner step); until then
+                    // iOS opens these links in the browser.
+                    if let key = IssueLink.key(fromUniversalLink: url) {
+                        AppRouter.shared.open(issueKey: key)
+                        return
+                    }
                     // tallyline://open/issues|review from widgets and shortcuts.
                     if let destination = AppLink.destination(url) {
                         AppRouter.shared.open(destination)

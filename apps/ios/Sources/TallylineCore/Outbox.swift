@@ -20,7 +20,8 @@ public enum OutboxOperation: Codable, Sendable, Equatable {
         switch self {
         case .createIssue(let draft): "New issue: \(draft.title)"
         case .updateIssue(let key, let patch):
-            if let state = patch.state { "\(key): move to \(state.rawValue.replacingOccurrences(of: "_", with: " "))" }
+            if patch.teamId != nil { "\(key): change team" }
+            else if let state = patch.state { "\(key): move to \(state.rawValue.replacingOccurrences(of: "_", with: " "))" }
             else if let priority = patch.priority { "\(key): priority \(priority.rawValue)" }
             else { "\(key): edit" }
         case .addComment(let key, _): "\(key): comment"

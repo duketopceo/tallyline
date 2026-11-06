@@ -90,7 +90,9 @@ The device credential lives in the App Group keychain access group so the extens
 
 ## Accessibility
 
-- VoiceOver reads each issue row as one sentence (`IssueSpeech` in TallylineCore): key, title, state, then priority, agent and repeat count. The issue list has "Urgent and high" and "Agent work" rotors.
+- VoiceOver reads each issue row as one sentence (`IssueSpeech` in TallylineCore): key, title, state, then priority, agent and repeat count. The issue list has "Urgent and high", "In review", "Agent work" and "Blocked" rotors; Now has "Blocked" too. A rotor with no entries is not added.
+
+Links: "Copy link" (issue context menu and detail menu) copies the API's `url` field exactly and is hidden when the server sends none (`IssueLink`, TallylineCore). `https://<web origin>/issues/<KEY>` opens that issue in the app (`IssueLink.key(fromUniversalLink:)`); a key that no longer resolves shows a not-found state. iOS only hands these links to the app once the associated-domains entitlement and the web origin's association file exist (owner step, not in `project.yml` yet), so the routing is dark until then. Moving an issue to another team writes through the outbox as a `teamId` patch; the team pill shows when the server sends `teamId` and the workspace has more than one team.
 - Text uses Dynamic Type styles only; the agent glint scales with it, and row titles get more lines at accessibility sizes.
 - `ContrastTests` checks the generated tokens against the DESIGN.md floors in light, dark and high-contrast dark (4.5:1 text, 3:1 glyphs).
 - The app has no custom animation, so Reduce Motion needs nothing extra. Haptics fire only for a finished create or review, or a failed review.
