@@ -595,8 +595,9 @@ const showCmd: Command = {
 export const EXIT_STALE_WRITE = 6;
 
 function staleWriteError(ctx: CmdCtx, err: ApiError, key: string): CliError {
-  const d = (err.details ?? {}) as { current?: unknown; issue?: unknown };
-  const current = d.current ?? d.issue;
+  // the API's 409 body is `{ error: { code, message }, issue }`, issue = current server issue
+  const d = (err.details ?? {}) as { issue?: unknown };
+  const current = d.issue;
   if (ctx.json) {
     emit(ctx, { error: { code: "STALE_WRITE", message: err.message }, key, current: current ?? null });
     return new CliError(EXIT_STALE_WRITE, ""); // empty message: already reported
@@ -638,7 +639,9 @@ const moveTeamCmd: Command = {
           { teamId: team.id },
           {
             idempotencyKey: `cli-${randomUUID()}`,
-            ifMatch: String(issue.version ?? issue.updatedAt),
+            // C6: If-Match is the integer issue version; a server without
+            // versions gets no precondition (anything else is 400 BAD_IF_MATCH)
+            ...(Number.isInteger(issue.version) ? { ifMatch: String(issue.version) } : {}),
           },
         );
       } catch (err) {

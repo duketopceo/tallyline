@@ -13,6 +13,7 @@ const baseIssue = {
   title: "t",
   teamId: TEAM_A,
   updatedAt: "2026-11-05T10:00:00.000Z",
+  version: 4,
   children: [],
   labels: [],
 };
@@ -24,7 +25,7 @@ interface Seen {
   body: unknown;
 }
 
-function harness(opts: { url?: string | null; patch?: () => Response } = {}) {
+function harness(opts: { url?: string | null; patch?: () => Response; issue?: Record<string, unknown> } = {}) {
   const seen: Seen[] = [];
   const out: string[] = [];
   const err: string[] = [];
@@ -43,6 +44,7 @@ function harness(opts: { url?: string | null; patch?: () => Response } = {}) {
     if (req.method === "PATCH") {
       return opts.patch ? opts.patch() : Response.json({ ...baseIssue, key: "OPS-3", teamId: TEAM_B });
     }
+    if (opts.issue) return Response.json(opts.issue);
     return Response.json(opts.url === null ? baseIssue : { ...baseIssue, url: opts.url ?? "https://app.example.test/issues/ENG-7" });
   };
   const io: CliIo = {
@@ -65,7 +67,14 @@ describe("tallyline move-team", () => {
     expect(patch?.path).toBe("/v1/workspaces/acme/issues/ENG-7");
     expect(patch?.body).toEqual({ teamId: TEAM_B });
     expect(patch?.headers.get("idempotency-key")).toMatch(/^cli-[0-9a-f-]{36}$/);
-    expect(patch?.headers.get("if-match")).toBe(baseIssue.updatedAt);
+    expect(patch?.headers.get("if-match")).toBe("4");
+  });
+
+  it("sends no If-Match when the server has no issue version", async () => {
+    const { version: _v, ...unversioned } = baseIssue;
+    const h = harness({ issue: unversioned });
+    expect(await run(["move-team", "ENG-7", "OPS"], h.io)).toBe(0);
+    expect(h.seen.find((s) => s.method === "PATCH")?.headers.get("if-match")).toBeNull();
   });
 
   it("matches a team by name", async () => {
@@ -95,7 +104,7 @@ describe("tallyline move-team", () => {
 
   const stale = () =>
     Response.json(
-      { error: { code: "STALE_WRITE", message: "changed" }, current: { ...baseIssue, teamId: TEAM_B } },
+      { error: { code: "STALE_WRITE", message: "changed" }, issue: { ...baseIssue, teamId: TEAM_B, version: 5 } },
       { status: 409 },
     );
 
