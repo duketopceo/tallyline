@@ -7,9 +7,11 @@
 //   shape as STALE_DIFF) means the issue changed since the version was read;
 //   nothing was written and `issue.version` is the version to resolve against.
 // - Anything else non-2xx is a plain error with the server's message.
+// - On success `key` is the issue's key after the write: a patch with `teamId`
+//   moves the issue to another team and the reply carries its new key.
 
 export type PatchResult =
-  | { kind: "ok"; version: number | null }
+  | { kind: "ok"; version: number | null; key: string | null }
   | { kind: "stale"; version: number | null; message: string }
   | { kind: "error"; message: string };
 
@@ -17,6 +19,7 @@ interface Body {
   error?: { code?: string; message?: string };
   issue?: { version?: unknown };
   version?: unknown;
+  key?: unknown;
 }
 
 const asVersion = (v: unknown): number | null => (typeof v === "number" && Number.isInteger(v) ? v : null);
@@ -41,7 +44,7 @@ export async function sendIssuePatch(
     return { kind: "error", message: "network unreachable" };
   }
   const data = (await res.json().catch(() => null)) as Body | null;
-  if (res.ok) return { kind: "ok", version: asVersion(data?.version) };
+  if (res.ok) return { kind: "ok", version: asVersion(data?.version), key: typeof data?.key === "string" && data.key ? data.key : null };
   if (res.status === 409 && data?.error?.code === "STALE_WRITE") {
     return { kind: "stale", version: asVersion(data.issue?.version), message: data.error.message ?? "changed elsewhere" };
   }

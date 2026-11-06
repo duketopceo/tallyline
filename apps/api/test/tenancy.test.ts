@@ -131,6 +131,7 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
     ops: ["POST /v1/workspaces/{ws}/issues/{key}/comments"],
   },
   issue_external_refs: { ops: ["POST /v1/workspaces/{ws}/import/linear", "POST /v1/workspaces/{ws}/import/plan", "GET /v1/workspaces/{ws}/issues/{key}"] },
+  issue_key_aliases: { ops: ["GET /v1/workspaces/{ws}/issues/{key}", "PATCH /v1/workspaces/{ws}/issues/{key}"] },
   issue_relations: {
     ops: [
       "GET /v1/workspaces/{ws}/issues/{key}/relations",
@@ -386,7 +387,7 @@ describe("tenancy: static coverage", () => {
     const stale = Object.keys(TABLE_ENDPOINTS).filter((t) => !tenantTables.includes(t));
     expect(missing, "tenant-scoped tables with no entry in TABLE_ENDPOINTS").toEqual([]);
     expect(stale, "TABLE_ENDPOINTS entries for tables that no longer have workspace_id").toEqual([]);
-    expect(tenantTables.length).toBe(46);
+    expect(tenantTables.length).toBe(47);
   });
 
   it("the export/purge table list (src/services/tenant-tables.ts) is exactly the tenant tables", () => {

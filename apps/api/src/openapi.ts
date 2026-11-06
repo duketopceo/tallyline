@@ -286,6 +286,12 @@ const basePaths = {
             cycleId: { type: ["string", "null"], format: "uuid" },
             projectId: { type: ["string", "null"], format: "uuid" },
             parentId: { type: ["string", "null"], format: "uuid" },
+            teamId: {
+              type: "string",
+              format: "uuid",
+              description:
+                "Move the issue to another team of the same workspace (a team of another workspace is 404). The issue gets a new key (TEAM-n from the target team's counter) and its old key keeps resolving as an alias. A cycle or team-scoped project of the old team is cleared. Moving to the current team is a no-op. Writes one `team_changed` event",
+            },
             labelIds: {
               type: "array",
               maxItems: 10,
@@ -294,7 +300,7 @@ const basePaths = {
           },
         }),
         responses: {
-          "200": { description: "Updated issue" },
+          "200": { description: "Updated issue. Every issue representation carries `url`, the web permalink built from the configured web origin" },
           "400": { description: "BAD_IF_MATCH: If-Match is not an integer version" },
           "409": {
             description:

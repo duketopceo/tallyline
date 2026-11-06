@@ -14,7 +14,7 @@ import { expectedVersion, staleWriteResponse } from "../../lib/write-contract.js
 import { decodeCursor, encodeCursor } from "../../lib/pagination.js";
 import { createDispatch } from "../../services/dispatch.js";
 import { assertWithinLimit } from "../../services/entitlements.js";
-import { createIssue, transitionIssue } from "../../services/issues.js";
+import { createIssue, moveIssueToTeam, transitionIssue, withUrl } from "../../services/issues.js";
 import { notifyUsers } from "../../services/notifications.js";
 import { requireHumanReviewer, requireRole } from "../../services/members.js";
 import { requireWorkspace } from "../workspaces.js";
@@ -218,12 +218,12 @@ export const coreIssueRoutes = new Hono()
             body.title,
             body.description,
           );
-          return c.json({ ...result, possibleDuplicates }, 201);
+          return c.json({ ...withUrl(result), possibleDuplicates }, 201);
         } catch {
           // dup detection is advisory — never fail the create over it
         }
       }
-      return c.json(result, 201);
+      return c.json(withUrl(result), 201);
     },
   )
   .get(
@@ -390,7 +390,7 @@ export const coreIssueRoutes = new Hono()
       }
       return c.json({
         issues: page.map((i) => ({
-          ...i,
+          ...withUrl(i),
           labels: labelsByIssue.get(i.id) ?? [],
           blocked: blockedIds.has(i.id),
         })),
@@ -443,7 +443,7 @@ export const coreIssueRoutes = new Hono()
       ...(r.meta as { repo: string; number: number; title: string; state: string }),
       url: r.url,
     }));
-    return c.json({ ...issue, children, labels: issueLabelRows, pullRequests });
+    return c.json({ ...withUrl(issue), children, labels: issueLabelRows, pullRequests });
   })
   .patch(
     "/workspaces/:ws/issues/:key",
@@ -451,9 +451,22 @@ export const coreIssueRoutes = new Hono()
     zValidator("json", patchSchema),
     async (c) => {
       const ws = await requireWorkspace(c);
-      const key = c.req.param("key");
       const body = c.req.valid("json");
       const actor = actorFromHeaders(c);
+      // the key in the path may be an alias a team move left behind
+      const original = await findIssue(ws.id, c.req.param("key"));
+      let key = original.key;
+      // a team change is validated up front: a team of another workspace is
+      // a 404 (never a 403), and cycle/project checks run against the target
+      let targetTeamId = original.teamId;
+      if (body.teamId !== undefined && body.teamId !== original.teamId) {
+        const [target] = await db
+          .select({ id: teams.id })
+          .from(teams)
+          .where(and(eq(teams.id, body.teamId), eq(teams.workspaceId, ws.id)));
+        if (!target) throw new HttpError(404, "NOT_FOUND", "team not found");
+        targetTeamId = target.id;
+      }
 
       // C6: refuse a stale write before anything is validated or written
       const expected = expectedVersion(c);
@@ -498,11 +511,11 @@ export const coreIssueRoutes = new Hono()
       // milestone that no longer matches the project (below)
       let clearMilestone = false;
       if (body.cycleId || body.projectId !== undefined || body.milestoneId) {
-        const issue = await findIssue(ws.id, key);
+        const issue = original;
         if (body.cycleId)
-          await validateCycle(ws.id, issue.teamId, body.cycleId);
+          await validateCycle(ws.id, targetTeamId, body.cycleId);
         if (body.projectId)
-          await validateProject(ws.id, issue.teamId, body.projectId);
+          await validateProject(ws.id, targetTeamId, body.projectId);
         const project =
           body.projectId !== undefined ? body.projectId : issue.projectId;
         if (body.milestoneId) {
@@ -514,6 +527,12 @@ export const coreIssueRoutes = new Hono()
         ) {
           clearMilestone = true;
         }
+      }
+      // the move itself: new key, old key kept as an alias, one event. It runs
+      // before the remaining field writes, which address the issue by new key
+      if (targetTeamId !== original.teamId) {
+        const result = await moveIssueToTeam(ws.id, original.id, targetTeamId, actor);
+        key = result.issue.key;
       }
       if (body.state !== undefined) {
         // approving (-> done) or sending back (-> in_progress) a review item
@@ -649,7 +668,7 @@ export const coreIssueRoutes = new Hono()
           actor,
         });
       }
-      return c.json(issue);
+      return c.json(issue ? withUrl(issue) : issue);
     },
   )
 ;

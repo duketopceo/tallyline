@@ -7,7 +7,7 @@ import { agents, cycles, issueLabels, issues, labels, projectMilestones, project
 import { HttpError } from "../../lib/errors.js";
 import { createAssist } from "../../services/assist.js";
 import { mirrorIssueLabels } from "../../services/github-sync.js";
-import type { Actor } from "../../services/issues.js";
+import { resolveIssueByKey, type Actor } from "../../services/issues.js";
 import { createSlack } from "../../services/slack.js";
 import { track } from "../../services/background.js";
 
@@ -47,6 +47,7 @@ export const patchSchema = z.object({
   projectId: z.uuid().nullable().optional(),
   milestoneId: z.uuid().nullable().optional(),
   parentId: z.uuid().nullable().optional(),
+  teamId: z.uuid().optional(),
   labelIds: z.array(z.uuid()).max(10).optional(),
 });
 
@@ -272,10 +273,7 @@ export async function validateParent(
 
 
 export async function findIssue(workspaceId: string, key: string) {
-  const [issue] = await db
-    .select()
-    .from(issues)
-    .where(and(eq(issues.workspaceId, workspaceId), eq(issues.key, key)));
+  const issue = await resolveIssueByKey(workspaceId, key);
   if (!issue) throw new HttpError(404, "NOT_FOUND", `issue ${key} not found`);
   return issue;
 }

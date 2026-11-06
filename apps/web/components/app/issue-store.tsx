@@ -3,6 +3,7 @@
 import { findPath, type IssueState, type Priority } from "@tallyline/types";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { pathAfterMove } from "@/lib/issue-link";
 import { latestVersion, sendIssuePatch } from "@/lib/write-contract";
 import { useToast } from "./toast";
 
@@ -18,6 +19,7 @@ export type IssuePatch = Partial<{
   cycleId: string | null;
   projectId: string | null;
   milestoneId: string | null;
+  teamId: string;
   estimate: number | null;
   labels: { id: string; name: string; color: string }[];
   dueDate: string | null;
@@ -98,13 +100,23 @@ export function IssueStoreProvider({ children }: { children: ReactNode }) {
       await Promise.all(
         edits.map(async (e) => {
           let version = latestVersion(e.version, known.current[e.key]);
+          // the issue's current key: a teamId step re-keys it, and every later
+          // step of this edit addresses the new key
+          let key = e.key;
           // one PATCH; false stops this edit (rolled back below)
           const step = async (body: Record<string, unknown>) => {
-            const r = await sendIssuePatch(e.key, body, version);
+            const r = await sendIssuePatch(key, body, version);
             if (r.kind === "ok") {
+              if (r.key && r.key !== key) {
+                // the open page for the old key follows the issue to its new one
+                const to = pathAfterMove(window.location.pathname, key, r.key);
+                if (to) router.replace(to);
+                key = r.key;
+              }
               if (r.version !== null) {
                 version = r.version;
                 known.current[e.key] = r.version;
+                known.current[key] = r.version;
               }
               return true;
             }
@@ -153,7 +165,13 @@ export function IssueStoreProvider({ children }: { children: ReactNode }) {
       refresh();
       const ok = edits.filter((e) => !failed.has(e.key));
       if (ok.length && !opts?.silent) {
-        const undoable = ok.every((e) => e.patch.state === undefined || e.prior.state === undefined || findPath(e.patch.state, e.prior.state) !== null);
+        // a team move re-keys the issue and clears team-scoped fields; moving back
+        // would mint a third key, not restore the old one, so it has no Undo
+        const undoable = ok.every(
+          (e) =>
+            e.patch.teamId === undefined &&
+            (e.patch.state === undefined || e.prior.state === undefined || findPath(e.patch.state, e.prior.state) !== null),
+        );
         toast.push({
           message: label,
           ...(undoable
@@ -163,7 +181,7 @@ export function IssueStoreProvider({ children }: { children: ReactNode }) {
       }
       return failed.size === 0;
     },
-    [refresh, toast],
+    [refresh, router, toast],
   );
 
   const value = useMemo(() => ({ overrides, apply }), [overrides, apply]);

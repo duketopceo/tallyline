@@ -4,6 +4,7 @@ import { findPath, type IssueState } from "@tallyline/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRegisterActions } from "@/components/app/actions";
 import { useIssueEdit, useMerged } from "@/components/app/issue-store";
 import { useIssueEditors } from "@/components/app/pickers";
 import { useMeta, useNames } from "@/components/app/providers";
@@ -16,6 +17,7 @@ import { AgentQuestions, BreakdownButton, PrBriefButton, SummarizeButton } from 
 import { RelationsSection, SuggestionChips } from "@/components/issue-relations";
 import { SessionTimeline, type Outcome, type Session } from "@/components/session-timeline";
 import { PRIORITY_LABEL, relTime, STATE_LABEL } from "@/lib/format";
+import { issueLink } from "@/lib/issue-link";
 import { Markdown } from "@/lib/markdown";
 
 export interface DetailComment { id: string; body: string; actorType: string; actorId: string | null; createdAt: string; pending?: boolean }
@@ -66,6 +68,24 @@ export function IssueDetailView({
   const labelBtn = useRef<HTMLButtonElement>(null);
 
   useEffect(() => recordRecent(issue.key), [issue.key]);
+
+  const teamBtn = useRef<HTMLButtonElement>(null);
+  const copyLink = () => {
+    void navigator.clipboard?.writeText(issueLink(issue, window.location.href));
+    toast.push({ message: `Link to ${issue.key} copied` });
+  };
+  // the issue menu is the command palette: link and team live there too
+  useRegisterActions(
+    "issue-detail",
+    [
+      { id: "copy-link", label: "Copy link", group: "Issue" },
+      { id: "team", label: "Change team", group: "Issue" },
+    ],
+    (id) => {
+      if (id === "copy-link") copyLink();
+      else if (id === "team") setTimeout(() => teamBtn.current?.click(), 0);
+    },
+  );
   useEffect(() => setLocal([]), [comments]);
 
   // single-key shortcuts on this issue (Silver Lining section 7)
@@ -240,6 +260,7 @@ export function IssueDetailView({
           </span>
         );
       }
+      case "team_changed": return <span className="text-body text-ink-muted">moved this issue from <span className="font-mono text-xs">{b?.key}</span> to <span className="font-mono text-xs">{a?.key}</span></span>;
       case "created": return <span className="text-[13px] text-ink-muted">created this issue{issue.source !== "web" ? ` via ${issue.source}` : ""}</span>;
       case "dispatched": return <span className="text-[13px] text-ink-muted">dispatched to <strong className="font-medium text-ink">{(a as { agent?: string } | null)?.agent ?? "an agent"}</strong> ({(a as { trigger?: string } | null)?.trigger})</span>;
       case "dispatch_completed": return <span className="text-[13px] text-healthy">finished its session</span>;
@@ -286,6 +307,7 @@ export function IssueDetailView({
     );
 
   const prop = "flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-[13px] text-ink hover:bg-surface-2";
+  const team = meta.teams.find((t) => t.id === issue.teamId);
   const cycle = meta.cycles.find((c) => c.id === issue.cycleId);
   const project = meta.projects.find((p) => p.id === issue.projectId);
   // a stale milestone from before a project move is not shown (the API clears it)
@@ -299,7 +321,7 @@ export function IssueDetailView({
         <span aria-hidden className="text-ink-tertiary">/</span>
         {project && <span title={`Project: ${project.name}`} className="flex"><ProjectIcon name={project.name} iconUrl={project.iconUrl} size={20} /></span>}
         <span className="font-mono text-[12px] text-ink-muted">{issue.key}</span>
-        <button type="button" onClick={() => { void navigator.clipboard?.writeText(window.location.href); toast.push({ message: `Link to ${issue.key} copied` }); }} className="h-7 rounded-sm px-2 text-[12px] text-ink-subtle hover:bg-surface-2 hover:text-ink">Copy link</button>
+        <button type="button" onClick={copyLink} className="h-7 rounded-sm px-2 text-[12px] text-ink-subtle hover:bg-surface-2 hover:text-ink">Copy link</button>
         <span className="ml-auto hidden items-center gap-2 text-[11px] text-ink-subtle md:flex"><span><Kbd>s</Kbd> state</span><span><Kbd>p</Kbd> priority</span><span><Kbd>a</Kbd> assign</span><span><Kbd>e</Kbd> title</span><span><Kbd>d</Kbd> description</span></span>
       </header>
       <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto">
@@ -469,6 +491,10 @@ export function IssueDetailView({
               </button>
             </div>
             <dl className="mt-4 space-y-3 px-2 text-[13px]">
+              <div>
+                <dt className="text-xs text-ink-subtle">Team</dt>
+                <dd><button ref={teamBtn} type="button" className="-ml-2 mt-0.5 h-7 w-full rounded-sm px-2 text-left text-ink hover:bg-surface-2" aria-label={`Team: ${team?.name ?? "none"}. Change`} onClick={(e) => editors.pickTeam(e.currentTarget, [like])}>{team ? <span className="flex items-center gap-2"><span className="font-mono text-xs text-ink-muted">{team.key}</span>{team.name}</span> : <span className="text-ink-subtle">No team</span>}</button></dd>
+              </div>
               <div>
                 <dt className="text-[12px] text-ink-subtle">Labels</dt>
                 <dd className="mt-1">

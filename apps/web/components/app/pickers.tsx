@@ -144,6 +144,20 @@ export function useIssueEditors() {
     [meta, picker, run],
   );
 
+  // moving re-keys the issue (the old key keeps working) and drops a cycle or
+  // team-scoped project of the old team, so the label says so
+  const pickTeam = useCallback(
+    (anchor: HTMLElement, issues: IssueLike[]) => {
+      picker.open({
+        anchor,
+        title: "Move to team",
+        options: meta.teams.map((t) => ({ id: t.id, label: `${t.key} · ${t.name}`, checked: issues.length === 1 && issues[0]!.teamId === t.id })),
+        onSelect: (id) => run(issues, { teamId: id }, `${who(issues)} moved to ${meta.teams.find((t) => t.id === id)?.key ?? "team"}`),
+      });
+    },
+    [meta, picker, run],
+  );
+
   const pickCycle = useCallback(
     (anchor: HTMLElement, issues: IssueLike[]) => {
       const team = issues[0]?.teamId;
@@ -195,5 +209,5 @@ export function useIssueEditors() {
 
   const setTitle = useCallback((issue: IssueLike, title: string) => run([issue], { title }, `${issue.key} renamed`), [run]);
 
-  return { pickState, pickPriority, pickAssignee, pickProject, pickMilestone, pickCycle, pickLabels, setTitle, run };
+  return { pickState, pickPriority, pickAssignee, pickProject, pickMilestone, pickTeam, pickCycle, pickLabels, setTitle, run };
 }

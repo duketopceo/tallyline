@@ -7,7 +7,8 @@ import {
   type IssueState,
 } from "@tallyline/types";
 import { db } from "../db/client.js";
-import { events, issues, teams } from "../db/schema.js";
+import { events, issueKeyAliases, issues, projects, teams } from "../db/schema.js";
+import { config_ } from "../env.js";
 import { mirrorIssueState } from "./github-sync.js";
 import { evaluateIssueCreatedLoops, evaluateIssueTransitionLoops } from "./loops.js";
 import { notifyUsers, staffUserIds } from "./notifications.js";
@@ -203,4 +204,124 @@ export async function transitionIssue(
     }),
   );
   return updated;
+}
+
+// The permalink for an issue key on the configured web origin — the one place
+// links are assembled, so clients never build their own.
+export function issueUrl(key: string): string {
+  return `${config_.webUrl}/issues/${encodeURIComponent(key)}`;
+}
+
+export function withUrl<T extends { key: string }>(issue: T): T & { url: string } {
+  return { ...issue, url: issueUrl(issue.key) };
+}
+
+// Resolves a key to its issue, falling back to the aliases a team move leaves
+// behind. The current key always wins over an alias.
+export async function resolveIssueByKey(workspaceId: string, key: string) {
+  const [issue] = await db
+    .select()
+    .from(issues)
+    .where(and(eq(issues.workspaceId, workspaceId), eq(issues.key, key)));
+  if (issue) return issue;
+  const [aliased] = await db
+    .select({ issue: issues })
+    .from(issueKeyAliases)
+    .innerJoin(issues, eq(issues.id, issueKeyAliases.issueId))
+    .where(and(eq(issueKeyAliases.workspaceId, workspaceId), eq(issueKeyAliases.key, key)));
+  return aliased?.issue;
+}
+
+export interface MoveIssueResult {
+  issue: typeof issues.$inferSelect;
+  moved: boolean;
+}
+
+// Moves an issue to another team of the same workspace: new key from the
+// target team's counter, old key kept as an alias, one `team_changed` event.
+// A cycle or team-scoped project of the old team does not carry over. Moving
+// to the current team is a no-op and writes no event.
+export async function moveIssueToTeam(
+  workspaceId: string,
+  issueId: string,
+  teamId: string,
+  actor: Actor,
+): Promise<MoveIssueResult> {
+  const result = await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select()
+      .from(issues)
+      .where(and(eq(issues.id, issueId), eq(issues.workspaceId, workspaceId)))
+      .for("update");
+    if (!current) throw new NotFoundError("issue");
+    if (current.teamId === teamId) return { issue: current, moved: false, before: null };
+
+    const [team] = await tx
+      .update(teams)
+      .set({ nextIssueNumber: sql`${teams.nextIssueNumber} + 1` })
+      .where(and(eq(teams.id, teamId), eq(teams.workspaceId, workspaceId)))
+      .returning({ key: teams.key, nextIssueNumber: teams.nextIssueNumber });
+    if (!team) throw new NotFoundError("team");
+
+    const number = team.nextIssueNumber - 1;
+    const key = `${team.key}-${number}`;
+
+    let projectId = current.projectId;
+    let milestoneId = current.milestoneId;
+    if (projectId) {
+      const [project] = await tx
+        .select({ teamId: projects.teamId })
+        .from(projects)
+        .where(eq(projects.id, projectId));
+      if (project?.teamId && project.teamId !== teamId) {
+        projectId = null;
+        milestoneId = null;
+      }
+    }
+
+    await tx
+      .insert(issueKeyAliases)
+      .values({ workspaceId, issueId, key: current.key })
+      .onConflictDoNothing();
+    const [issue] = await tx
+      .update(issues)
+      .set({
+        teamId,
+        key,
+        number,
+        cycleId: null,
+        projectId,
+        milestoneId,
+        updatedAt: clock.now(),
+      })
+      .where(eq(issues.id, issueId))
+      .returning();
+
+    const before = { teamId: current.teamId, key: current.key };
+    await tx.insert(events).values({
+      workspaceId,
+      entityType: "issue",
+      entityId: issueId,
+      action: "team_changed",
+      actorType: actor.type,
+      actorId: actor.id,
+      before,
+      after: { teamId, key },
+    });
+    return { issue: issue!, moved: true, before };
+  });
+  if (result.moved && result.before) {
+    await queueDeliveries({
+      workspaceId,
+      entityType: "issue",
+      entityId: issueId,
+      action: "team_changed",
+      actorType: actor.type,
+      actorId: actor.id,
+      before: result.before,
+      after: { teamId, key: result.issue.key },
+      issueKey: result.issue.key,
+    });
+  }
+  return { issue: result.issue, moved: result.moved };
 }

@@ -18,8 +18,13 @@ describe("sendIssuePatch", () => {
   });
 
   it("returns the new version on success", async () => {
-    expect(await sendIssuePatch("ENG-1", {}, 4, reply(200, { version: 5 }))).toEqual({ kind: "ok", version: 5 });
-    expect(await sendIssuePatch("ENG-1", {}, undefined, reply(200, {}))).toEqual({ kind: "ok", version: null });
+    expect(await sendIssuePatch("ENG-1", {}, 4, reply(200, { version: 5 }))).toEqual({ kind: "ok", version: 5, key: null });
+    expect(await sendIssuePatch("ENG-1", {}, undefined, reply(200, {}))).toEqual({ kind: "ok", version: null, key: null });
+  });
+
+  it("returns the issue's key after the write, new when a team move re-keyed it", async () => {
+    const r = await sendIssuePatch("ENG-1", { teamId: "t" }, 4, reply(200, { key: "OPS-9", version: 5 }));
+    expect(r).toEqual({ kind: "ok", version: 5, key: "OPS-9" });
   });
 
   it("reads STALE_WRITE as a conflict with the server's version, not an error", async () => {

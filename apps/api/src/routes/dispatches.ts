@@ -1,3 +1,4 @@
+import { resolveIssueByKey } from "../services/issues.js";
 import { zValidator } from "@hono/zod-validator";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
@@ -299,11 +300,7 @@ export const dispatchRoutes = new Hono()
   // issue timeline view — every dispatch on the issue + its session log
   .get("/workspaces/:ws/issues/:key/sessions", async (c) => {
     const ws = await requireWorkspace(c);
-    const [issue] = await db
-      .select({ id: issues.id, key: issues.key })
-      .from(issues)
-      .where(and(eq(issues.workspaceId, ws.id), eq(issues.key, c.req.param("key"))))
-      .limit(1);
+    const issue = await resolveIssueByKey(ws.id, c.req.param("key"));
     if (!issue) throw new HttpError(404, "NOT_FOUND", "issue not found");
 
     const runs = await db
