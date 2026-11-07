@@ -1,0 +1,113 @@
+import { eq } from "drizzle-orm";
+import { beforeEach, describe, expect, it } from "vitest";
+import { db } from "../db/client.js";
+import { authIdentities, users } from "../db/schema.js";
+import { app } from "../index.js";
+import { appleProvider, appleWebReady } from "../auth/providers/apple.js";
+import { newSession, seedTenant, type Tenant } from "../../test/tenants.js";
+
+// U6: web Apple sign-in (form_post bounce) and linked identities.
+
+let t: Tenant;
+let cookie: string;
+
+async function call(path: string, init: { method?: string; body?: string; headers?: Record<string, string>; cookie?: string } = {}) {
+  const res = await app.fetch(
+    new Request(`http://api.test${path}`, {
+      method: init.method ?? "GET",
+      redirect: "manual",
+      headers: { ...(init.cookie ? { cookie: `tly_session=${init.cookie}` } : {}), ...init.headers },
+      ...(init.body !== undefined ? { body: init.body } : {}),
+    }),
+  );
+  return res;
+}
+
+beforeEach(async () => {
+  t = await seedTenant("aw", "AWA");
+  cookie = await newSession(t, "owner");
+});
+
+describe("apple web provider", () => {
+  const full = { appleClientId: "app.tallyline.web", appleTeamId: "T", appleKeyId: "K", applePrivateKey: "P" };
+
+  it("is ready only when Services ID, team, key and private key are all set", () => {
+    expect(appleWebReady(full)).toBe(true);
+    expect(appleWebReady({ ...full, applePrivateKey: "" })).toBe(false);
+    expect(appleWebReady({ ...full, appleClientId: "" })).toBe(false);
+  });
+
+  it("authorizes with form_post, the openid email name scope and PKCE", async () => {
+    const p = appleProvider({ key: "apple", label: "Apple", clientId: "c", teamId: "T", keyId: "K", privateKeyPem: "P", source: "env" });
+    const u = new URL(await p.authorizeUrl({ redirectUri: "https://api/cb", state: "s", nonce: "n", codeChallenge: "ch" }));
+    expect(u.searchParams.get("response_mode")).toBe("form_post");
+    expect(u.searchParams.get("scope")).toBe("openid email name");
+    expect(u.searchParams.get("code_challenge_method")).toBe("S256");
+  });
+});
+
+describe("form_post callback", () => {
+  it("303s the cross-site POST to the GET leg carrying code and state only", async () => {
+    const res = await call("/v1/auth/oauth/apple/callback", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: "code=abc&state=xyz&user=%7B%22name%22%3A%22x%22%7D&evil=1",
+    });
+    expect(res.status).toBe(303);
+    const loc = new URL(res.headers.get("location")!);
+    expect(loc.pathname).toBe("/v1/auth/oauth/apple/callback");
+    expect(loc.searchParams.get("code")).toBe("abc");
+    expect(loc.searchParams.get("state")).toBe("xyz");
+    expect(loc.searchParams.has("user")).toBe(false);
+    expect(loc.searchParams.has("evil")).toBe(false);
+  });
+
+  it("a forged state on the GET leg still fails closed to the web error path", async () => {
+    const res = await call("/v1/auth/oauth/apple/callback?code=abc&state=forged");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toContain("/login?error=");
+  });
+});
+
+describe("linked identities", () => {
+  async function link(userId: string, email: string | null, sub: string) {
+    const [row] = await db
+      .insert(authIdentities)
+      .values({ userId, providerKey: "apple", providerSubject: sub, email, emailVerified: true })
+      .returning();
+    return row!;
+  }
+
+  it("lists provider, link date and relay marker, never the subject", async () => {
+    await link(t.people.owner.id, "abc123@privaterelay.appleid.com", "sub-secret-1");
+    const res = await call("/v1/me/identities", { cookie });
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).not.toContain("sub-secret-1");
+    const body = JSON.parse(text) as { identities: { provider: string; relayEmail: boolean; linkedAt: string }[]; hasPassword: boolean };
+    expect(body.identities).toHaveLength(1);
+    expect(body.identities[0]).toMatchObject({ provider: "apple", relayEmail: true });
+    expect(body.hasPassword).toBe(true);
+  });
+
+  it("disconnects when another method remains, refuses the last one", async () => {
+    const row = await link(t.people.owner.id, null, "sub-2");
+    const ok = await call(`/v1/me/identities/${row.id}`, { method: "DELETE", cookie });
+    expect(ok.status).toBe(200);
+    expect(await db.select().from(authIdentities).where(eq(authIdentities.userId, t.people.owner.id))).toHaveLength(0);
+
+    // passwordless account with a single identity: that identity is the last method
+    const only = await link(t.people.owner.id, null, "sub-3");
+    await db.update(users).set({ passwordHash: null }).where(eq(users.id, t.people.owner.id));
+    const refused = await call(`/v1/me/identities/${only.id}`, { method: "DELETE", cookie });
+    expect(refused.status).toBe(409);
+    expect(((await refused.json()) as { error: { code: string } }).error.code).toBe("LAST_SIGN_IN_METHOD");
+    expect(await db.select().from(authIdentities).where(eq(authIdentities.id, only.id))).toHaveLength(1);
+  });
+
+  it("another user's identity is a 404 and requires a session", async () => {
+    const other = await link(t.people.admin.id, null, "sub-4");
+    expect((await call(`/v1/me/identities/${other.id}`, { method: "DELETE", cookie })).status).toBe(404);
+    expect((await call("/v1/me/identities")).status).toBe(401);
+  });
+});

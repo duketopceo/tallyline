@@ -116,6 +116,19 @@ export const oauthRoutes = new Hono()
     });
     return c.redirect(url, 302);
   })
+  // leg 2 (form_post providers, i.e. Apple): the provider POSTs code/state
+  // cross-site, so no state cookie rides along. Bounce to the GET leg with a
+  // top-level 303; the Lax state cookie is sent there and the usual checks run.
+  .post("/oauth/:provider/callback", async (c) => {
+    const form = await c.req.parseBody().catch(() => ({}) as Record<string, string | File>);
+    const u = new URL(`${config_.apiBaseUrl}/v1/auth/oauth/${c.req.param("provider")}/callback`);
+    for (const k of ["code", "state", "error"]) {
+      const v = form[k];
+      if (typeof v === "string" && v.length < 4096) u.searchParams.set(k, v);
+    }
+    c.header("cache-control", "no-store");
+    return c.redirect(u.toString(), 303);
+  })
   // leg 2: provider lands here; verify state, exchange, resolve, mint code
   .get("/oauth/:provider/callback", async (c) => {
     const provider = await getProvider(c.req.param("provider"));

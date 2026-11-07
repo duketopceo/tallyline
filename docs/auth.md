@@ -46,6 +46,14 @@ client ID → Web application.
 - The consent screen needs `email`/`profile` — internal workspaces can
   restrict to the Google Workspace org.
 
+### Apple (web)
+
+Web sign-in uses a Services ID, separate from the iOS bundle ID. It turns on when `APPLE_CLIENT_ID` (Services ID), `APPLE_TEAM_ID`, `APPLE_KEY_ID` and `APPLE_PRIVATE_KEY` (.p8, `\n`-escaped) are all set; the login page then shows "Sign in with Apple" and `/v1/auth/methods` lists `apple`.
+
+In the Apple developer console, register the Services ID with the domain of the API and the return URL `https://<api-host>/v1/auth/oauth/apple/callback`. Apple posts the result (`response_mode=form_post`, required for name and email), so the API answers the POST with a 303 to its own GET callback, where the state cookie and PKCE checks run. Identity is matched by Apple's stable `sub`, never by email, so a hidden relay address still resolves to the same user as iOS.
+
+Settings > Account > Sign-in methods lists linked providers (link date, private-relay marker). Disconnecting is refused when it would remove the last sign-in method; a password counts as one.
+
 ### Generic OIDC
 
 Any spec-compliant IdP (Keycloak, Authentik, Entra, Okta, Dex…).

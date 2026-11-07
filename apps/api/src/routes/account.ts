@@ -1,11 +1,11 @@
 import { zValidator } from "@hono/zod-validator";
-import { eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { setCookie } from "hono/cookie";
 import { stream } from "hono/streaming";
 import { z } from "zod";
 import { db } from "../db/client.js";
-import { users } from "../db/schema.js";
+import { authIdentities, users } from "../db/schema.js";
 import { config_ } from "../env.js";
 import { apiError } from "../lib/errors.js";
 import { authLimiter } from "../lib/rate-limit.js";
@@ -109,6 +109,45 @@ export const accountPublicRoutes = new Hono()
 // ── signed-in: mounted under /v1 ────────────────────────────────────────────
 
 export const accountRoutes = new Hono()
+  // Settings > Security: linked sign-in identities. Never exposes the subject.
+  .get("/me/identities", async (c) => {
+    const denied = humanOnly(c, "listing linked sign-in methods");
+    if (denied) return denied;
+    const userId = c.get("session")!.userId;
+    const rows = await db
+      .select()
+      .from(authIdentities)
+      .where(eq(authIdentities.userId, userId))
+      .orderBy(asc(authIdentities.createdAt));
+    const [u] = await db.select({ passwordHash: users.passwordHash }).from(users).where(eq(users.id, userId));
+    return c.json({
+      hasPassword: Boolean(u?.passwordHash),
+      identities: rows.map((r) => ({
+        id: r.id,
+        provider: r.providerKey,
+        email: r.email,
+        relayEmail: /@privaterelay\.appleid\.com$/i.test(r.email ?? ""),
+        linkedAt: r.createdAt.toISOString(),
+      })),
+    });
+  })
+  // the last remaining sign-in method (password included) cannot be removed
+  .delete("/me/identities/:id", async (c) => {
+    const denied = humanOnly(c, "disconnecting a sign-in method");
+    if (denied) return denied;
+    const userId = c.get("session")!.userId;
+    const id = c.req.param("id");
+    if (!z.uuid().safeParse(id).success) return apiError(c, 404, "NOT_FOUND", "identity not found");
+    const rows = await db.select().from(authIdentities).where(eq(authIdentities.userId, userId));
+    const [u] = await db.select({ passwordHash: users.passwordHash }).from(users).where(eq(users.id, userId));
+    if (!rows.some((r) => r.id === id)) return apiError(c, 404, "NOT_FOUND", "identity not found");
+    if (rows.length + (u?.passwordHash ? 1 : 0) <= 1) {
+      return apiError(c, 409, "LAST_SIGN_IN_METHOD", "this is your only sign-in method; add another before disconnecting it");
+    }
+    await db.delete(authIdentities).where(and(eq(authIdentities.id, id), eq(authIdentities.userId, userId)));
+    await audit("identity_unlinked", { userId });
+    return c.json({ ok: true });
+  })
   .post("/me/verify-email/resend", async (c) => {
     const denied = humanOnly(c, "resending the confirmation email");
     if (denied) return denied;
