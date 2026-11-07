@@ -1,7 +1,7 @@
-import { createHash, randomBytes } from "node:crypto";
+import { OpenRouterError } from "@openrouter/sdk/models/errors";
 import { decryptSecret, encryptSecret } from "../auth/secrets.js";
 import { config_, DEFAULT_LLM_MODEL } from "../env.js";
-import { aiFetch, AiError, DEFAULT_MONTHLY_CAP_CENTS, MAX_MONTHLY_CAP_CENTS, saveProvider } from "./ai-providers.js";
+import { AiError, DEFAULT_MONTHLY_CAP_CENTS, MAX_MONTHLY_CAP_CENTS, openRouterClient, saveProvider } from "./ai-providers.js";
 import { clock } from "./clock.js";
 
 // S3-U3: connect OpenRouter with its OAuth PKCE flow instead of a pasted key.
@@ -14,8 +14,6 @@ import { clock } from "./clock.js";
 // good for the workspace and person that started it, for ten minutes (the life
 // of an OpenRouter code).
 
-export const OPENROUTER_AUTH_URL = "https://openrouter.ai/auth";
-export const OPENROUTER_KEYS_URL = "https://openrouter.ai/api/v1/auth/keys";
 export const CONNECT_TTL_MS = 10 * 60_000;
 /** same default the server-wide env provider uses */
 export const DEFAULT_OPENROUTER_MODEL = DEFAULT_LLM_MODEL;
@@ -46,10 +44,6 @@ function secretKey(): string {
 
 const b64url = (b: Buffer) => b.toString("base64url");
 
-export function challengeFor(verifier: string): string {
-  return b64url(createHash("sha256").update(verifier).digest());
-}
-
 export function callbackUrl(): string {
   return `${config_.webUrl}/settings/ai/openrouter`;
 }
@@ -62,12 +56,13 @@ export interface StartInput {
   monthlyCapCents?: number | undefined;
 }
 
-export function startOpenRouterConnect(input: StartInput): { authUrl: string; state: string; expiresAt: string } {
+export async function startOpenRouterConnect(input: StartInput): Promise<{ authUrl: string; state: string; expiresAt: string }> {
   const cap = input.monthlyCapCents ?? DEFAULT_MONTHLY_CAP_CENTS;
   if (cap < 0 || cap > MAX_MONTHLY_CAP_CENTS) {
     throw new AiError(422, "BAD_CAP", "the monthly limit must be between $0 and $10,000");
   }
-  const verifier = b64url(randomBytes(48));
+  // SDK PKCE helpers: S256 challenge + a fresh RFC 7636 verifier
+  const { codeChallenge, codeVerifier: verifier } = await openRouterClient("-").oAuth.createSHA256CodeChallenge();
   const exp = clock.now().getTime() + CONNECT_TTL_MS;
   const sealed: SealedState = {
     v: 1,
@@ -80,12 +75,17 @@ export function startOpenRouterConnect(input: StartInput): { authUrl: string; st
     exp,
   };
   const state = b64url(Buffer.from(encryptSecret(JSON.stringify(sealed), secretKey()), "utf8"));
-  const url = new URL(OPENROUTER_AUTH_URL);
-  if (input.mode === "redirect") url.searchParams.set("callback_url", callbackUrl());
-  url.searchParams.set("code_challenge", challengeFor(verifier));
-  url.searchParams.set("code_challenge_method", "S256");
+  const url = new URL(
+    await openRouterClient("-").oAuth.createAuthorizationUrl({
+      callbackUrl: callbackUrl(),
+      codeChallenge,
+      codeChallengeMethod: "S256",
+    }),
+  );
   url.searchParams.set("key_label", "Tallyline");
+  // headless (CLI over ssh): no browser callback, the person pastes the code back
   if (input.mode === "redirect") url.searchParams.set("state", state);
+  else url.searchParams.delete("callback_url");
   return { authUrl: url.toString(), state, expiresAt: new Date(exp).toISOString() };
 }
 
@@ -116,31 +116,24 @@ export interface CompleteConnectInput {
 
 export async function completeOpenRouterConnect(input: CompleteConnectInput): Promise<{ model: string }> {
   const st = openState(input.state, input.workspaceId, input.userId);
-  let res: { status: number; body: string };
+  let key: string;
   try {
-    res = await aiFetch(OPENROUTER_KEYS_URL, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code: input.code, code_verifier: st.verifier, code_challenge_method: "S256" }),
+    const r = await openRouterClient("-").oAuth.exchangeAuthCodeForAPIKey({
+      requestBody: { code: input.code, codeVerifier: st.verifier, codeChallengeMethod: "S256" },
     });
-  } catch {
+    key = r.key;
+  } catch (e) {
+    if (e instanceof OpenRouterError) {
+      if (e.statusCode === 400 || e.statusCode === 403 || e.statusCode === 404) {
+        throw new AiError(
+          400,
+          "CONNECT_CODE_REJECTED",
+          "OpenRouter didn't accept that code (it may be used, expired or mistyped); start again",
+        );
+      }
+      throw new AiError(502, "OPENROUTER_ERROR", `OpenRouter answered ${e.statusCode}; try again in a minute`);
+    }
     throw new AiError(502, "OPENROUTER_UNREACHABLE", "OpenRouter didn't answer; try again in a minute");
-  }
-  if (res.status === 400 || res.status === 403 || res.status === 404) {
-    throw new AiError(
-      400,
-      "CONNECT_CODE_REJECTED",
-      "OpenRouter didn't accept that code (it may be used, expired or mistyped); start again",
-    );
-  }
-  if (res.status < 200 || res.status >= 300) {
-    throw new AiError(502, "OPENROUTER_ERROR", `OpenRouter answered ${res.status}; try again in a minute`);
-  }
-  let key: unknown;
-  try {
-    key = (JSON.parse(res.body) as { key?: unknown }).key;
-  } catch {
-    key = undefined;
   }
   if (typeof key !== "string" || key.length < 8) {
     throw new AiError(502, "OPENROUTER_ERROR", "OpenRouter's answer had no key; try again");

@@ -96,7 +96,7 @@ export const aiProviderRoutes = new Hono()
     if (limited) return limited;
     const body = c.req.valid("json");
     return c.json(
-      startOpenRouterConnect({
+      await startOpenRouterConnect({
         workspaceId: ws.id,
         userId,
         mode: body.mode,

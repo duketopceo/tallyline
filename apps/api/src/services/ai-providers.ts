@@ -1,4 +1,6 @@
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { HTTPClient, OpenRouter } from "@openrouter/sdk";
+import { OpenRouterError } from "@openrouter/sdk/models/errors";
 import { decryptSecret, encryptSecret } from "../auth/secrets.js";
 import { db } from "../db/client.js";
 import { aiProviders, aiUsageLedger, events } from "../db/schema.js";
@@ -345,6 +347,31 @@ export function __setAiFetchForTests(f: AiFetch | null): void {
     f ?? ((url, init) => safeFetchText(url, { ...init, timeoutMs: TIMEOUT_MS, maxBytes: MAX_RESPONSE_BYTES }));
 }
 
+/**
+ * An SDK client whose transport is the guarded `aiFetch` (SSRF guard, timeout,
+ * size cap, test hook), so the SDK never touches the network on its own. Only
+ * buffered JSON calls go through it (no streaming).
+ */
+export function openRouterClient(apiKey: string, serverURL?: string): OpenRouter {
+  return new OpenRouter({
+    apiKey,
+    ...(serverURL ? { serverURL } : {}),
+    httpReferer: config_.apiBaseUrl,
+    appTitle: "tallyline",
+    httpClient: new HTTPClient({
+      fetcher: async (input, init) => {
+        const req = new Request(input, init);
+        const r = await aiFetch(req.url, {
+          method: "POST",
+          headers: Object.fromEntries(req.headers),
+          body: await req.text(),
+        });
+        return new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } });
+      },
+    }),
+  });
+}
+
 export interface CompleteInput {
   system?: string;
   user: string;
@@ -393,41 +420,67 @@ export async function complete(workspaceId: string, action: string, input: Compl
   await assertUnderCap(workspaceId, p.capCents);
 
   const maxTokens = Math.min(Math.max(1, Math.floor(input.maxTokens ?? DEFAULT_MAX_TOKENS)), MAX_TOKENS_CEILING);
-  const headers: Record<string, string> = { "content-type": "application/json" };
-  if (p.apiKey) headers.authorization = `Bearer ${p.apiKey}`;
-  if (p.kind === "openrouter") {
-    headers["http-referer"] = config_.apiBaseUrl;
-    headers["x-title"] = "tallyline";
-  }
   const chain = modelChain(p);
-  const body = JSON.stringify({
-    model: p.model,
-    // OpenRouter's native fallback routing: tried in order on outage/rate limit
-    ...(chain ? { models: chain } : {}),
-    max_tokens: maxTokens,
-    temperature: input.temperature ?? 0.2,
-    messages: [
-      ...(input.system ? [{ role: "system", content: input.system }] : []),
-      { role: "user", content: input.user },
-    ],
-    // OpenRouter reports the real cost of the call when asked
-    ...(p.kind === "openrouter" ? { usage: { include: true } } : {}),
-  });
+  const messages = [
+    ...(input.system ? [{ role: "system" as const, content: input.system }] : []),
+    { role: "user" as const, content: input.user },
+  ];
 
   let res: { status: number; body: string };
-  try {
-    res = await fetchImpl(`${p.baseUrl}/chat/completions`, { method: "POST", headers, body });
-  } catch (e) {
-    await ledger(workspaceId, action, p.model, {}, "error");
-    const why = e instanceof Error ? p.apiKey ? e.message.replaceAll(p.apiKey, "***") : e.message : "network error";
-    throw new AiError(502, "AI_UNREACHABLE", `Couldn't reach ${p.label}: ${why}`);
-  }
-
   let parsed: ChatBody | null = null;
-  try {
-    parsed = JSON.parse(res.body) as ChatBody;
-  } catch {
-    parsed = null;
+  if (p.kind === "openrouter" && p.apiKey) {
+    // official SDK; `models` is OpenRouter's native fallback routing (tried in
+    // order on outage/rate limit). Cost comes back in usage.cost.
+    try {
+      const r = await openRouterClient(p.apiKey, p.baseUrl).chat.send({
+        chatRequest: {
+          model: p.model,
+          ...(chain ? { models: chain } : {}),
+          maxTokens,
+          temperature: input.temperature ?? 0.2,
+          messages,
+          stream: false,
+        },
+      });
+      parsed = {
+        model: r.model,
+        choices: r.choices.map((c) => ({ message: { content: c.message.content } })),
+        usage: {
+          prompt_tokens: r.usage?.promptTokens ?? 0,
+          completion_tokens: r.usage?.completionTokens ?? 0,
+          cost: r.usage?.cost ?? 0,
+        },
+      };
+      res = { status: 200, body: "" };
+    } catch (e) {
+      if (e instanceof OpenRouterError) {
+        res = { status: e.statusCode, body: "" };
+      } else {
+        await ledger(workspaceId, action, p.model, {}, "error");
+        const raw = e instanceof Error ? e.message : "network error";
+        const why = p.apiKey ? raw.replaceAll(p.apiKey, "***") : raw;
+        throw new AiError(502, "AI_UNREACHABLE", `Couldn't reach ${p.label}: ${why}`);
+      }
+    }
+  } else {
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    if (p.apiKey) headers.authorization = `Bearer ${p.apiKey}`;
+    try {
+      res = await fetchImpl(`${p.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ model: p.model, max_tokens: maxTokens, temperature: input.temperature ?? 0.2, messages }),
+      });
+    } catch (e) {
+      await ledger(workspaceId, action, p.model, {}, "error");
+      const why = e instanceof Error ? p.apiKey ? e.message.replaceAll(p.apiKey, "***") : e.message : "network error";
+      throw new AiError(502, "AI_UNREACHABLE", `Couldn't reach ${p.label}: ${why}`);
+    }
+    try {
+      parsed = JSON.parse(res.body) as ChatBody;
+    } catch {
+      parsed = null;
+    }
   }
   const tokensIn = Math.max(0, Math.floor(parsed?.usage?.prompt_tokens ?? 0));
   const tokensOut = Math.max(0, Math.floor(parsed?.usage?.completion_tokens ?? 0));
