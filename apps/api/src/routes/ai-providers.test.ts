@@ -97,8 +97,13 @@ const orBody = { kind: "openrouter", label: "My OpenRouter", model: "openai/gpt-
 
 const okReply = (over: Record<string, unknown> = {}) =>
   JSON.stringify({
-    choices: [{ message: { content: "ok" } }],
-    usage: { prompt_tokens: 12, completion_tokens: 3, cost: 0.0004 },
+    id: "gen-test",
+    object: "chat.completion",
+    created: 1,
+    model: "openai/gpt-4o-mini",
+    system_fingerprint: null,
+    choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: "ok" } }],
+    usage: { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15, cost: 0.0004 },
     ...over,
   });
 
@@ -234,7 +239,8 @@ describe("the test button and the ledger", () => {
     expect(seen[0]!.url).toBe("https://openrouter.ai/api/v1/chat/completions");
     expect(seen[0]!.headers.authorization).toBe(`Bearer ${KEY}`);
     expect(seen[0]!.body.model).toBe("openai/gpt-4o-mini");
-    expect(seen[0]!.body.usage).toEqual({ include: true });
+    // the SDK has no usage.include knob; OpenRouter reports usage.cost on every response
+    expect(seen[0]!.body.max_tokens).toBe(8);
     const u = await call(A, "/usage", { cookie: admin });
     expect(u.status).toBe(200);
     expect(u.body.calls).toBe(1);
@@ -303,7 +309,7 @@ describe("the test button and the ledger", () => {
 
   it("an empty answer counts as an error", async () => {
     await put(orBody);
-    fakeFetch({ status: 200, body: JSON.stringify({ choices: [{ message: { content: "  " } }] }) });
+    fakeFetch({ status: 200, body: okReply({ choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: "  " } }] }) });
     const r = await call(A, "/provider/test", { method: "POST", cookie: admin });
     expect(r.body).toMatchObject({ ok: false, code: "AI_UPSTREAM" });
   });

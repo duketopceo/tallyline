@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../db/client.js";
@@ -7,7 +8,7 @@ import { app } from "../index.js";
 import { MemoryRateStore } from "../lib/rate-limit.js";
 import { aiConnectLimiter } from "./ai-providers.js";
 import { __setAiFetchForTests, type AiFetch } from "../services/ai-providers.js";
-import { challengeFor, CONNECT_TTL_MS, OPENROUTER_KEYS_URL } from "../services/openrouter-connect.js";
+import { CONNECT_TTL_MS } from "../services/openrouter-connect.js";
 import { resetClock, setClock } from "../services/clock.js";
 import { newSession, seedTenant, type Tenant } from "../../test/tenants.js";
 
@@ -20,6 +21,9 @@ let B: Tenant;
 let admin: string;
 let admin2: string;
 let bAdmin: string;
+
+const challengeFor = (v: string) => createHash("sha256").update(v).digest("base64url");
+const OPENROUTER_KEYS_URL = "https://openrouter.ai/api/v1/auth/keys";
 
 const mutableConfig = config_ as unknown as { authSecretKey: string; webUrl: string };
 const savedSecret = mutableConfig.authSecretKey;
@@ -119,12 +123,13 @@ describe("finishing an OpenRouter connect", () => {
   it("exchanges the code with the matching verifier and stores a sealed key", async () => {
     const s = await call(A, "/openrouter/start", admin, { model: "openai/gpt-4o-mini", monthlyCapCents: 500 });
     const challenge = new URL(s.body.authUrl).searchParams.get("code_challenge");
-    const seen = fakeExchange({ status: 200, body: JSON.stringify({ key: KEY }) });
+    const seen = fakeExchange({ status: 200, body: JSON.stringify({ key: KEY, user_id: "user_test" }) });
     const r = await call(A, "/openrouter/complete", admin, { code: "abc123", state: s.body.state });
     expect(r.status).toBe(200);
     expect(seen).toHaveLength(1);
     expect(seen[0]!.url).toBe(OPENROUTER_KEYS_URL);
     expect(seen[0]!.body).toMatchObject({ code: "abc123", code_challenge_method: "S256" });
+    expect(seen[0]!.body.code_verifier).toMatch(/^[A-Za-z0-9_-]{43,128}$/);
     expect(challengeFor(seen[0]!.body.code_verifier)).toBe(challenge);
     expect(r.body.provider).toMatchObject({
       kind: "openrouter",
@@ -140,7 +145,7 @@ describe("finishing an OpenRouter connect", () => {
 
   it("will not finish for another workspace or another person", async () => {
     const s = await call(A, "/openrouter/start", admin, {});
-    const seen = fakeExchange({ status: 200, body: JSON.stringify({ key: KEY }) });
+    const seen = fakeExchange({ status: 200, body: JSON.stringify({ key: KEY, user_id: "user_test" }) });
     const other = await call(B, "/openrouter/complete", bAdmin, { code: "c", state: s.body.state });
     expect(other.status).toBe(400);
     expect(other.text).toContain("CONNECT_STATE_INVALID");

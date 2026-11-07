@@ -1,10 +1,11 @@
 import { config_ } from "../env.js";
+import { OpenRouterError } from "@openrouter/sdk/models/errors";
 import { HttpError } from "../lib/errors.js";
+import { modelChain, openRouterClient } from "./ai-providers.js";
 
 // ── LLM provider interface ────────────────────────────────────────────
 // The seam every model adapter implements. OpenRouter is the first-party
-// impl (OpenAI-compatible /chat/completions); other providers plug in the
-// same way — no vendor SDK lock-in, plain fetch.
+// impl (official @openrouter/sdk); other providers plug in the same way.
 
 export interface LLMCompleteOpts {
   system?: string;
@@ -23,7 +24,6 @@ export type FetchLike = (
 ) => Promise<Pick<Response, "ok" | "status" | "json" | "text">>;
 
 const DEFAULT_MAX_TOKENS = 512;
-const TIMEOUT_MS = 15_000;
 
 export function llmEnabled(): boolean {
   return config_.llmApiKey.length > 0;
@@ -39,45 +39,31 @@ export function requireLLM(): void {
   }
 }
 
-interface ChatResponse {
-  choices?: { message?: { content?: string } }[];
-  error?: { message?: string };
-}
-
-export function createOpenRouterProvider(fetchImpl?: FetchLike): LLMProvider {
-  const fetcher = fetchImpl ?? fetch;
+export function createOpenRouterProvider(): LLMProvider {
   return {
     async complete(opts) {
-      const res = await fetcher(`${config_.llmBaseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${config_.llmApiKey}`,
-          "http-referer": config_.apiBaseUrl,
-          "x-title": "tallyline",
-        },
-        body: JSON.stringify({
-          model: config_.llmModel,
-          max_tokens: opts.maxTokens ?? DEFAULT_MAX_TOKENS,
-          temperature: opts.temperature ?? 0.2,
-          messages: [
-            ...(opts.system
-              ? [{ role: "system" as const, content: opts.system }]
-              : []),
-            { role: "user" as const, content: opts.user },
-          ],
-        }),
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
-      const body = (await res.json().catch(() => null)) as ChatResponse | null;
-      if (!res.ok) {
-        throw new HttpError(
-          502,
-          "LLM_UPSTREAM",
-          `LLM request failed (${res.status}): ${body?.error?.message ?? "unknown"}`,
-        );
+      const chain = modelChain({ kind: "openrouter", model: config_.llmModel, fallbacks: config_.llmFallbacks });
+      let text: string | undefined;
+      try {
+        const r = await openRouterClient(config_.llmApiKey, config_.llmBaseUrl).chat.send({
+          chatRequest: {
+            model: config_.llmModel,
+            ...(chain ? { models: chain } : {}),
+            maxTokens: opts.maxTokens ?? DEFAULT_MAX_TOKENS,
+            temperature: opts.temperature ?? 0.2,
+            messages: [
+              ...(opts.system ? [{ role: "system" as const, content: opts.system }] : []),
+              { role: "user" as const, content: opts.user },
+            ],
+            stream: false,
+          },
+        });
+        const content = r.choices[0]?.message.content;
+        text = typeof content === "string" ? content.trim() : undefined;
+      } catch (e) {
+        const status = e instanceof OpenRouterError ? e.statusCode : 0;
+        throw new HttpError(502, "LLM_UPSTREAM", `LLM request failed (${status || "unreachable"})`);
       }
-      const text = body?.choices?.[0]?.message?.content?.trim();
       if (!text) {
         throw new HttpError(502, "LLM_UPSTREAM", "LLM returned no content");
       }
