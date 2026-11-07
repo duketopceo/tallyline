@@ -82,7 +82,7 @@
       "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
     },
     "apps/web/app/(auth)/login/page.tsx": {
-      "count": 17,
+      "count": 16,
       "tracking": "U4 migration (frontend polish plan)"
     },
     "apps/web/app/(auth)/oauth/consent/consent-form.tsx": {

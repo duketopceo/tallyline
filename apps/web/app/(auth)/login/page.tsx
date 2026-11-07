@@ -99,7 +99,7 @@ function LoginInner() {
 
   const apple = methods?.providers.find((p) => p.type === "apple") ?? null;
   const otherProviders = methods?.providers.filter((p) => p.type !== "apple") ?? [];
-  const input = "mt-1 block h-10 w-full rounded-sm border border-control bg-surface-2 px-3 text-[14px] text-ink placeholder:text-ink-subtle";
+  const input = "mt-1 block h-10 w-full rounded-sm border border-control bg-surface-2 px-3 text-sm text-ink placeholder:text-ink-subtle";
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(420px,520px)_1fr]">
       <main className="flex flex-col justify-center px-6 py-10 sm:px-12">
@@ -128,7 +128,7 @@ function LoginInner() {
             // ink on surface inverts with the theme, so it is the screen's one accent.
             <a
               href={providerUrl(apple)}
-              className="mt-6 flex h-10 w-full items-center justify-center gap-2 rounded-sm bg-ink text-[14px] font-medium text-surface-1 hover:opacity-90"
+              className="mt-6 flex h-10 w-full items-center justify-center gap-2 rounded-sm bg-ink text-sm font-medium text-surface-1 hover:opacity-90"
             >
               <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M16.37 1.43c0 1.14-.42 2.2-1.12 3-.76.88-2 1.56-3.02 1.48-.13-1.1.4-2.25 1.07-2.98.76-.84 2.05-1.46 3.07-1.5zM20.5 17.3c-.55 1.27-.82 1.84-1.53 2.96-1 1.56-2.4 3.5-4.14 3.52-1.55.02-1.95-1-4.05-.99-2.1.01-2.54 1.01-4.09.99-1.74-.02-3.07-1.77-4.07-3.33C-.19 16.1-.48 10.9 1.24 8.27c1.22-1.87 3.15-2.97 4.96-2.97 1.84 0 3 1.01 4.52 1.01 1.48 0 2.38-1.01 4.51-1.01 1.61 0 3.32.88 4.54 2.4-3.99 2.19-3.34 7.9.73 9.6z" />

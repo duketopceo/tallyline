@@ -52,7 +52,7 @@ export function LinkedIdentities() {
 
   return (
     <Panel title="Sign-in methods" hint="Providers you can sign in with. You always keep at least one.">
-      <ul className="mt-3 divide-y divide-lining text-[13px]">
+      <ul className="mt-3 divide-y divide-lining text-body">
         {hasPassword && (
           <li className="flex items-center justify-between py-2">
             <span className="text-ink">Email and password</span>
