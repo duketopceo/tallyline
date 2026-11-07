@@ -1,0 +1,4 @@
+self-hosted-runner:
+  labels:
+    - cluster2
+    - macos-26

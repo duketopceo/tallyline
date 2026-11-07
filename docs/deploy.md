@@ -255,6 +255,24 @@ Creating that user is an operator step on the host, not part of this repository.
 Tests: `bash ops/deploy.test.sh` runs the script against a throwaway repo with stub `docker` and `curl`
 (lock, ordering, dirty tree, health failure, rollback, label read-back).
 
+## Automatic deploys (merge to main)
+
+`.github/workflows/deploy.yml` runs `ops/deploy.sh` on cluster2 for every push to `main`
+(skipped when only `docs/`, `apps/ios/` or `*.md` changed). It can also be started by hand
+(Actions, deploy, Run workflow, optional `sha`). Only one deploy runs at a time
+(`deploy-prod` concurrency group, never cancelled). The job runs in the `production`
+environment: add required reviewers there if a merge should wait for approval.
+
+- Runner: a self-hosted runner on cluster2 with labels `self-hosted,cluster2`, as user `khan`
+  (member of the `docker` group). The server checkout defaults to `/home/khan/apps/tallyline`;
+  override with the repository variable `DEPLOY_APP_DIR`. No secrets are stored in GitHub;
+  `.env` stays on the host.
+- Provenance: the job summary shows the requested SHA, the running SHA, the api image revision
+  label and the tail of `deploy.log` (time, actor, from, to, result).
+- Failure: if backup, build or health checks fail, the job runs
+  `ops/deploy.sh --rollback --skip-backup <last healthy sha>` from `deploy.log`.
+  The same command works by hand on the host.
+
 ## Upgrading
 
 ```bash
