@@ -289,6 +289,17 @@ before the losers delete, but that is data surgery, not a rollback path.
    `.env` over: `AUTH_SECRET` is gone (dead var, nothing read it);
    `AUTH_SECRET_KEY` is the new provider-secret key.
 
+## Deploy ownership
+
+The owner fills this table. Any other automated session that deploys is listed by role, not by name. No credentials, key locations or host details here.
+
+| Surface | Who deploys | How a deploy is announced | How it is verified |
+| --- | --- | --- | --- |
+| API host | | | |
+| Web front end | | | |
+| Push relay | | | |
+| iOS (TestFlight) | | | |
+
 ## Backup & restore
 
 Everything durable lives in the `tallyline-postgres` volume.
