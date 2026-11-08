@@ -4,6 +4,7 @@ import { count, eq, sql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { agents, authProviders, issues, workspaceMembers } from "../db/schema.js";
 import { config_ } from "../env.js";
+import { appleWebReady } from "../auth/providers/apple.js";
 import { clock } from "./clock.js";
 import { AiError, resolveProvider, viewOf, type ProviderView } from "./ai-providers.js";
 
@@ -95,7 +96,7 @@ async function signInState(): Promise<SystemStatus["signIn"]> {
   const fromEnv: SystemStatus["signIn"]["providers"] = [];
   if (config_.githubClientId) fromEnv.push({ key: "github", type: "github", label: "GitHub", source: "env" });
   if (config_.googleClientId) fromEnv.push({ key: "google", type: "google", label: "Google", source: "env" });
-  // Web Apple stays off until form_post callback (appleWebReady); iOS SIWA is separate.
+  if (appleWebReady(config_)) fromEnv.push({ key: "apple", type: "apple", label: "Apple", source: "env" });
   if (config_.oidcIssuer && config_.oidcClientId) {
     fromEnv.push({ key: "oidc", type: "oidc", label: config_.oidcDisplayName || "SSO", source: "env" });
   }

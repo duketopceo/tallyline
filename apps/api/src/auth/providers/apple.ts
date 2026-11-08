@@ -38,17 +38,17 @@ export function mintAppleClientSecret(opts: {
 }
 
 /**
- * Web Apple OAuth is not registered yet: Apple requires response_mode=form_post
- * when requesting name/email, which breaks our GET cookie callback. iOS SIWA
- * (POST /v1/auth/apple) does not need this. Flip when C1c/W1 adds a POST callback.
+ * Web Apple OAuth needs the Services ID, team, key and .p8 all set. Apple
+ * requires response_mode=form_post when asking for name/email, so the redirect
+ * lands on POST /v1/auth/oauth/apple/callback, which bounces to the GET leg.
  */
-export function appleWebReady(_env: {
+export function appleWebReady(env: {
   appleClientId: string;
   appleTeamId: string;
   appleKeyId: string;
   applePrivateKey: string;
 }): boolean {
-  return false;
+  return Boolean(env.appleClientId && env.appleTeamId && env.appleKeyId && env.applePrivateKey);
 }
 
 export function appleProvider(opts: {
@@ -83,8 +83,8 @@ export function appleProvider(opts: {
       u.searchParams.set("client_id", opts.clientId);
       u.searchParams.set("redirect_uri", redirectUri);
       u.searchParams.set("response_type", "code");
-      // query works for our GET callback; form_post would need a POST route
-      u.searchParams.set("response_mode", "query");
+      // required by Apple whenever name/email scopes are requested
+      u.searchParams.set("response_mode", "form_post");
       u.searchParams.set("scope", "openid email name");
       u.searchParams.set("state", state);
       u.searchParams.set("nonce", nonce);

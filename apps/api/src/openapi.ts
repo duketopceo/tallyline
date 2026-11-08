@@ -842,6 +842,30 @@ const basePaths = {
         ],
         responses: { "302": { description: "Redirect to web origin" } },
       },
+      post: {
+        summary:
+          "OAuth leg 2 for form_post providers (Apple): the provider POSTs code and state cross-site; only those fields are forwarded as a 303 to the GET leg",
+        parameters: [{ name: "provider", in: "path", required: true, schema: { type: "string" } }],
+        responses: { "303": { description: "Redirect to the GET callback" } },
+      },
+    },
+    "/v1/me/identities": {
+      get: {
+        summary:
+          "Linked sign-in identities of the signed-in human: id, provider, email, relayEmail marker, linkedAt; plus hasPassword. Never the provider subject",
+        responses: { "200": { description: "{hasPassword, identities[]}" }, "401": { description: "UNAUTHENTICATED" } },
+      },
+    },
+    "/v1/me/identities/{id}": {
+      delete: {
+        summary: "Disconnect one linked identity. The last remaining sign-in method (password counts) is refused",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "{ok:true}" },
+          "404": { description: "NOT_FOUND" },
+          "409": { description: "LAST_SIGN_IN_METHOD" },
+        },
+      },
     },
     "/v1/auth/oauth/exchange": {
       post: {
