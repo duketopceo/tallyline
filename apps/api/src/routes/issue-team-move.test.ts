@@ -79,6 +79,26 @@ describe("issue team change (U4)", () => {
     expect(row!.key).toBe(r.body.key);
   });
 
+  it("a refused state change leaves the team move unapplied (409)", async () => {
+    const issue = await mkIssue(t, { state: "done" });
+    const r = await call("PATCH", `/issues/${issue.key}`, { teamId: team2.id, state: "in_review", title: "nope" });
+    expect(r.status).toBe(409);
+    const [row] = await db.select().from(issues).where(eq(issues.id, issue.id));
+    expect(row!.teamId).toBe(t.team.id);
+    expect(row!.key).toBe(issue.key);
+    expect(row!.title).not.toBe("nope");
+    expect(await moveEvents(issue.id)).toHaveLength(0);
+  });
+
+  it("an agent approving a review item with a team move is refused (403) and nothing moves", async () => {
+    const issue = await mkIssue(t, { state: "in_review" });
+    const r = await call("PATCH", `/issues/${issue.key}`, { teamId: team2.id, state: "done" }, t.agentKeys.write);
+    expect(r.status).toBe(403);
+    const [row] = await db.select().from(issues).where(eq(issues.id, issue.id));
+    expect(row!.teamId).toBe(t.team.id);
+    expect(row!.state).toBe("in_review");
+  });
+
   it("keeps the old key resolving, through every key-addressed read", async () => {
     const issue = await mkIssue(t);
     const moved = await call("PATCH", `/issues/${issue.key}`, { teamId: team2.id });
