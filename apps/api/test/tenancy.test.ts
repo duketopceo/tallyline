@@ -96,6 +96,29 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
       "POST /v1/workspaces/{ws}/glitchtip/rotate",
     ],
   },
+  glitchtip_connections: {
+    ops: [
+      "GET /v1/workspaces/{ws}/glitchtip/connection",
+      "PUT /v1/workspaces/{ws}/glitchtip/connection",
+      "DELETE /v1/workspaces/{ws}/glitchtip/connection",
+    ],
+  },
+  glitchtip_project_links: {
+    ops: [
+      "GET /v1/workspaces/{ws}/glitchtip/health",
+      "GET /v1/workspaces/{ws}/projects/{id}/glitchtip",
+      "PUT /v1/workspaces/{ws}/projects/{id}/glitchtip",
+      "DELETE /v1/workspaces/{ws}/projects/{id}/glitchtip",
+      "POST /v1/workspaces/{ws}/projects/{id}/glitchtip/sync",
+    ],
+  },
+  glitchtip_issues: {
+    ops: [
+      "GET /v1/workspaces/{ws}/projects/{id}/glitchtip/issues",
+      "GET /v1/workspaces/{ws}/projects/{id}/glitchtip/issues/{issueId}",
+      "POST /v1/workspaces/{ws}/projects/{id}/glitchtip/issues/{issueId}/ticket",
+    ],
+  },
   github_installations: { ops: ["POST /v1/workspaces/{ws}/github/setup", "GET /v1/workspaces/{ws}/github/install-url"] },
   github_issue_links: { ops: ["POST /v1/workspaces/{ws}/import/github", "GET /v1/workspaces/{ws}/issues/{key}"] },
   github_repos: {
@@ -387,7 +410,7 @@ describe("tenancy: static coverage", () => {
     const stale = Object.keys(TABLE_ENDPOINTS).filter((t) => !tenantTables.includes(t));
     expect(missing, "tenant-scoped tables with no entry in TABLE_ENDPOINTS").toEqual([]);
     expect(stale, "TABLE_ENDPOINTS entries for tables that no longer have workspace_id").toEqual([]);
-    expect(tenantTables.length).toBe(47);
+    expect(tenantTables.length).toBe(50);
   });
 
   it("the export/purge table list (src/services/tenant-tables.ts) is exactly the tenant tables", () => {
@@ -658,7 +681,8 @@ describe("tenancy: workspace export and hard delete", () => {
        union all select token_hash from invites where workspace_id = $1
        union all select token_hash from sessions where workspace_id = $1
        union all select secret from webhook_endpoints where workspace_id = $1
-       union all select token_hash from glitchtip_integrations where workspace_id = $1`,
+       union all select token_hash from glitchtip_integrations where workspace_id = $1
+       union all select token_enc from glitchtip_connections where workspace_id = $1`,
       [A.ws.id],
     );
     for (const { v } of secrets.rows) expect(r.text).not.toContain(v);

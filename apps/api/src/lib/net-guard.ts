@@ -292,7 +292,7 @@ export interface SafeFetchInit {
 export async function safeFetchText(
   rawUrl: string,
   init: SafeFetchInit,
-): Promise<{ status: number; body: string }> {
+): Promise<{ status: number; body: string; retryAfter: string | null }> {
   const url = new URL(rawUrl);
   const allowPrivate = webhookAllowPrivate();
   if (url.protocol !== "https:" && !(allowPrivate && url.protocol === "http:")) {
@@ -340,7 +340,13 @@ export async function safeFetchText(
           chunks.push(chunk);
         });
         res.on("end", () => {
-          if (!tooLarge) resolve({ status, body: Buffer.concat(chunks).toString("utf8") });
+          if (!tooLarge) {
+            resolve({
+              status,
+              body: Buffer.concat(chunks).toString("utf8"),
+              retryAfter: (res.headers["retry-after"] as string | undefined) ?? null,
+            });
+          }
         });
         res.on("error", reject);
       },

@@ -794,6 +794,95 @@ export const extraPaths: Record<string, PathItem> = {
       responses: { "200": { description: "Rotated (includes token and webhookUrl)" }, "404": { description: "Not set up" } },
     },
   },
+  "/v1/workspaces/{ws}/glitchtip/connection": {
+    get: {
+      summary: "GlitchTip pull connection (owner/admin only): base URL, last 4 of the token and the last check; the token is never returned",
+      parameters: [wsParam],
+      responses: { "200": { description: "Connection or null" } },
+    },
+    put: {
+      summary:
+        "Connect GlitchTip, or change the base URL / token (owner/admin only). The token is sealed at rest; omit it to keep the saved one. A token GlitchTip rejects is refused; an unreachable server is saved with status unreachable",
+      parameters: [wsParam],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["baseUrl"],
+        properties: { baseUrl: { type: "string", format: "uri" }, token: { type: "string" } },
+      }),
+      responses: {
+        "200": { description: "Connection" },
+        "422": { description: "BAD_BASE_URL, BASE_URL_NOT_HTTPS, BASE_URL_NOT_ALLOWED, TOKEN_REQUIRED or GLITCHTIP_AUTH_FAILED" },
+        "503": { description: "SECRETS_KEY_MISSING" },
+      },
+    },
+    delete: {
+      summary: "Disconnect GlitchTip (owner/admin only); project mappings are kept but stop syncing",
+      parameters: [wsParam],
+      responses: { "200": { description: "Disconnected" }, "404": { description: "Not connected" } },
+    },
+  },
+  "/v1/workspaces/{ws}/glitchtip/health": {
+    get: {
+      summary: "Error health of every GlitchTip-mapped project in the workspace (open count, status, staleness), from the cache",
+      parameters: [wsParam],
+      responses: { "200": { description: "Per-project error health" } },
+    },
+  },
+  "/v1/workspaces/{ws}/projects/{id}/glitchtip": {
+    get: {
+      summary: "A project's error health from the cache: open count, recent unresolved errors, links to GlitchTip, last sync and status. Never calls GlitchTip",
+      parameters: [wsParam, idParam],
+      responses: { "200": { description: "Error health" }, "404": { description: "Project not found" } },
+    },
+    put: {
+      summary: "Map the project to a GlitchTip organization and project slug (owner/admin only) and run a first sync",
+      parameters: [wsParam, idParam],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["orgSlug", "projectSlug"],
+        properties: { orgSlug: { type: "string" }, projectSlug: { type: "string" } },
+      }),
+      responses: {
+        "200": { description: "Error health after the first sync" },
+        "409": { description: "NOT_CONNECTED" },
+        "422": { description: "BAD_SLUG" },
+      },
+    },
+    delete: {
+      summary: "Remove the project's GlitchTip mapping and its cached errors (owner/admin only)",
+      parameters: [wsParam, idParam],
+      responses: { "200": { description: "Unmapped" }, "404": { description: "Not mapped" } },
+    },
+  },
+  "/v1/workspaces/{ws}/projects/{id}/glitchtip/sync": {
+    post: {
+      summary:
+        "Pull the project's errors from GlitchTip now (member or higher). A GlitchTip failure is reported in `sync`, not as an HTTP error; a stored Retry-After is honored",
+      parameters: [wsParam, idParam],
+      responses: { "200": { description: "sync status and error health" }, "404": { description: "Not mapped" }, "429": { description: "Too many manual syncs" } },
+    },
+  },
+  "/v1/workspaces/{ws}/projects/{id}/glitchtip/issues": {
+    get: {
+      summary: "List the project's cached GlitchTip errors, newest first (status unresolved|resolved|all)",
+      parameters: [wsParam, idParam],
+      responses: { "200": { description: "Errors" } },
+    },
+  },
+  "/v1/workspaces/{ws}/projects/{id}/glitchtip/issues/{issueId}": {
+    get: {
+      summary: "One GlitchTip error with its latest event (exception, top stack frames, tags; no user or request data). Refreshes the event when old and serves the cache if GlitchTip can't answer",
+      parameters: [wsParam, idParam, { name: "issueId", in: "path", required: true, schema: { type: "string" } }],
+      responses: { "200": { description: "Error detail" }, "404": { description: "Not found" } },
+    },
+  },
+  "/v1/workspaces/{ws}/projects/{id}/glitchtip/issues/{issueId}/ticket": {
+    post: {
+      summary: "File a Tallyline ticket (in triage) from a GlitchTip error (member or higher); idempotent: a second call returns the same ticket",
+      parameters: [wsParam, idParam, { name: "issueId", in: "path", required: true, schema: { type: "string" } }],
+      responses: { "201": { description: "Ticket created" }, "200": { description: "Already filed" }, "404": { description: "Not found" } },
+    },
+  },
   "/v1/workspaces/{ws}/webhook-endpoints": {
     get: {
       summary: "List outbound webhook endpoints (owner/admin only; secrets masked to last 4)",

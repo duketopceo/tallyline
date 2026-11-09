@@ -330,6 +330,13 @@
       "when": 1793905343464,
       "tag": "0046_issue_key_aliases",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1794216824652,
+      "tag": "0047_glitchtip_pull_sync",
+      "breakpoints": true
     }
   ]
 }

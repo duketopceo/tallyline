@@ -176,3 +176,53 @@ python3 ops/glitchtip-onboard.py --self-test  # offline checks, no network
   backticks, angle brackets and `@` stripped from payload values, and links are
   accepted only when they are `https` on the GlitchTip host seen in the first
   accepted alert.
+
+## Error feed (pull)
+
+The alert webhook above pushes new alerts onto the board. The error feed is the
+other direction: Tallyline pulls each mapped project's open errors from
+GlitchTip's Sentry-compatible API so the project page can show its production
+error health (open count, recent errors, links back to GlitchTip). The two are
+independent; you can use either or both.
+
+1. **Connect** (owner or admin): `PUT /v1/workspaces/:ws/glitchtip/connection`
+   with the GlitchTip base URL and an API token (Settings → Integrations). The
+   token is sealed with `AUTH_SECRET_KEY` (the server needs one) and never
+   returned, logged or put in an event; only its last four characters show.
+   A token GlitchTip rejects is refused; an unreachable server is saved with
+   status `unreachable` so a temporary outage doesn't block setup.
+2. **Map a project** (owner or admin): `PUT /v1/workspaces/:ws/projects/:id/glitchtip`
+   with `{ orgSlug, projectSlug }` (project page → Errors). One mapping per
+   project. The first sync runs at once.
+3. **Read**: `GET .../projects/:id/glitchtip` (health plus recent errors),
+   `GET .../projects/:id/glitchtip/issues`, `GET .../issues/:issueId` (with the
+   latest event), `GET /v1/workspaces/:ws/glitchtip/health` (every mapped
+   project, the input for a portfolio view), and the MCP tools
+   `list_project_errors` and `get_project_error`.
+4. **Ticket from an error**: `POST .../issues/:issueId/ticket` files a triage
+   issue linking the error; repeating it returns the same ticket.
+
+### How it stays safe
+
+- Reads never call GlitchTip. They serve a cache that a background tick
+  refreshes every 5 minutes (links one at a time), plus a manual
+  `POST .../glitchtip/sync` (rate limited to 6 a minute per workspace).
+- A `429` is honored: the `Retry-After` value (default 60 s, capped at 15 min)
+  is stored on the link and nothing calls GlitchTip for that project until it
+  passes. Other failures (`unreachable`, `auth_failed`, `not_found`,
+  `bad_response`) are recorded as the link's and connection's status; the last
+  good cache keeps being served and is flagged `stale` after 15 minutes.
+- Requests use the same SSRF guard as outbound webhooks (no private addresses,
+  no redirects, 8 s timeout, 2 MB cap). Plain `http` works only on servers set
+  up for private networks.
+- Cached events keep the exception type and message, up to 8 stack frames and
+  tags. User, request and context data are dropped before storage.
+- Open count is read from one page of 100; a full page shows as "100+" and
+  skips marking missing errors resolved.
+- Connecting, changing or removing the connection, and mapping or unmapping a
+  project, each write an event (`glitchtip_connected`, `glitchtip_connection_changed`,
+  `glitchtip_disconnected`, `glitchtip_project_linked`,
+  `glitchtip_project_link_changed`, `glitchtip_project_unlinked`) with no secret
+  in it. Disconnecting keeps project mappings but they stop syncing.
+- If `AUTH_SECRET_KEY` changes, the saved token can't be read; the status shows
+  `token_unreadable` and an admin enters it again.

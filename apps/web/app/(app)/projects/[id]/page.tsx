@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/app/page-header";
+import { ProjectErrors } from "@/components/project-errors";
 import { ProjectUpdateComposer } from "@/components/project-updates";
 import { EmptyState, ErrorState, RelativeTime, Sparkle } from "@/components/primitives";
 import type { RoadmapProject } from "@/components/roadmap-client";
 import { getActorDirectory } from "@/lib/actors";
 import { api, type Me } from "@/lib/api";
 import { Markdown } from "@/lib/markdown";
+import type { ErrorHealth } from "@/lib/glitchtip-errors";
 import { HEALTH_META, updateAuthor, type ProjectUpdate } from "@/lib/project-updates";
 
 // A project's status feed (U14): dated health notes, newest first, with a
@@ -15,9 +17,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const me = await api<Me>("/v1/auth/me");
   if (!me.data) return <main className="p-8 text-sm text-ink-subtle">Not signed in.</main>;
   const base = `/v1/workspaces/${me.data.workspaceSlug}`;
-  const [projectsRes, updatesRes, directory] = await Promise.all([
+  const role = me.data.memberships.find((m) => m.workspaceSlug === me.data!.workspaceSlug)?.role;
+  const canAdmin = role === "owner" || role === "admin";
+  const [projectsRes, updatesRes, errorsRes, directory] = await Promise.all([
     api<{ projects?: RoadmapProject[] }>(`${base}/projects`),
     api<{ updates?: ProjectUpdate[] }>(`${base}/projects/${encodeURIComponent(id)}/updates?limit=50`),
+    api<{ errors?: ErrorHealth }>(`${base}/projects/${encodeURIComponent(id)}/glitchtip`),
     getActorDirectory(me.data.workspaceSlug),
   ]);
   if (!projectsRes.ok) {
@@ -46,6 +51,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         <Link href="/projects" className="text-[12px] text-ink-muted hover:text-ink hover:underline">All projects</Link>
       </PageHeader>
       <div className="flex min-h-0 flex-col gap-4 overflow-y-auto p-4">
+        <ProjectErrors projectId={project.id} health={errorsRes.data?.errors ?? null} canAdmin={canAdmin} />
         <ProjectUpdateComposer projectId={project.id} />
         <section aria-labelledby="updates-heading" className="flex flex-col gap-3">
           <h2 id="updates-heading" className="text-[11px] uppercase text-ink-tertiary">Status updates</h2>

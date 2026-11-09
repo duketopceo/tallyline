@@ -890,6 +890,45 @@ export const toolDefs: ToolDef[] = [
   }),
 
   defineTool({
+    name: "list_project_errors",
+    description:
+      "A project's production errors from its mapped GlitchTip project: open count, sync status (ok, rate_limited, unreachable, ...), whether the cache is stale, and the errors themselves (title, level, event count, people affected, last seen, GlitchTip link). Read from Tallyline's cache, so it is fast and still works when GlitchTip is down; `mapped: false` means the project has no GlitchTip mapping. status defaults to unresolved.",
+    inputSchema: {
+      projectId: uuid,
+      status: z.enum(["unresolved", "resolved", "all"]).optional(),
+      limit: z.number().int().min(1).max(100).optional(),
+    },
+    readOnly: true,
+    handler: async (args, client) => {
+      const id = encodeURIComponent(args.projectId);
+      const { errors } = await client.apiGet<{ errors: Record<string, unknown> & { recent?: unknown } }>(
+        `/projects/${id}/glitchtip`,
+      );
+      const { recent: _recent, ...health } = errors;
+      if (!errors.mapped) return { ...health, issues: [] };
+      const q = new URLSearchParams();
+      q.set("status", args.status ?? "unresolved");
+      if (args.limit !== undefined) q.set("limit", String(args.limit));
+      const { issues } = await client.apiGet<{ issues: unknown[] }>(`/projects/${id}/glitchtip/issues?${q}`);
+      return { ...health, issues };
+    },
+  }),
+
+  defineTool({
+    name: "get_project_error",
+    description:
+      "One production error of a project: counts, level, culprit, GlitchTip link, the ticket filed from it if any, and its latest event (exception type and message, top stack frames, tags; user and request data are never included). errorId is the GlitchTip issue id or the id from list_project_errors. If GlitchTip is unreachable the last cached event is returned with eventStatus saying why.",
+    inputSchema: { projectId: uuid, errorId: z.string().min(1).max(64) },
+    readOnly: true,
+    handler: async (args, client) => {
+      const { issue } = await client.apiGet<{ issue: Record<string, unknown> }>(
+        `/projects/${encodeURIComponent(args.projectId)}/glitchtip/issues/${encodeURIComponent(args.errorId)}`,
+      );
+      return issue;
+    },
+  }),
+
+  defineTool({
     name: "post_project_update",
     description:
       "Post a dated status update on a project: health (on_track, at_risk, off_track) and a markdown body. The update is recorded as authored by your credential. Needs write scope.",

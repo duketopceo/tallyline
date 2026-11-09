@@ -8,6 +8,10 @@ import {
   type GlitchtipStatus,
   type TeamOption,
 } from "@/components/glitchtip-integration";
+import {
+  GlitchtipConnectionPanel,
+  type GlitchtipConnectionStatus,
+} from "@/components/glitchtip-connection";
 import { SettingsHeader } from "@/components/settings/settings-header";
 
 interface ReposResponse {
@@ -34,7 +38,7 @@ export default async function IntegrationsPage() {
     );
   }
 
-  const [reposRes, installRes, projectsRes, glitchtipRes, teamsRes] = await Promise.all([
+  const [reposRes, installRes, projectsRes, glitchtipRes, glitchtipFeedRes, teamsRes] = await Promise.all([
     api<ReposResponse>(`/v1/workspaces/${me.data.workspaceSlug}/github/repos`),
     api<InstallUrlResponse>(
       `/v1/workspaces/${me.data.workspaceSlug}/github/install-url`,
@@ -44,6 +48,9 @@ export default async function IntegrationsPage() {
     ),
     api<{ integration: GlitchtipStatus | null }>(
       `/v1/workspaces/${me.data.workspaceSlug}/glitchtip`,
+    ),
+    api<{ connection: GlitchtipConnectionStatus | null }>(
+      `/v1/workspaces/${me.data.workspaceSlug}/glitchtip/connection`,
     ),
     api<{ teams?: TeamOption[] }>(
       `/v1/workspaces/${me.data.workspaceSlug}/teams`,
@@ -76,6 +83,7 @@ export default async function IntegrationsPage() {
         installUrl={installRes.data?.installUrl ?? null}
         projects={projectsRes.data?.projects ?? []}
       />
+      <GlitchtipConnectionPanel connection={glitchtipFeedRes.data?.connection ?? null} />
       <GlitchtipPanel
         status={glitchtipRes.data?.integration ?? null}
         teams={teamsRes.data?.teams ?? []}

@@ -1062,6 +1062,85 @@ export const glitchtipIntegrations = pgTable("glitchtip_integrations", {
   lastReceivedAt: timestamp("last_received_at", { withTimezone: true }),
 });
 
+// Pull side of GlitchTip: one connection per workspace (base URL + sealed API
+// token), one mapping per project, and a cache of the mapped project's issues.
+// The token is sealed with AUTH_SECRET_KEY like ai_providers.api_key_enc and is
+// never returned, logged or put in an event.
+export const glitchtipConnections = pgTable("glitchtip_connections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .unique()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  baseUrl: text("base_url").notNull(),
+  tokenEnc: text("token_enc").notNull(),
+  tokenLast4: text("token_last4").notNull(),
+  /** ok | auth_failed | unreachable | rate_limited | token_unreadable | null (never checked) */
+  lastStatus: text("last_status"),
+  lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const glitchtipProjectLinks = pgTable(
+  "glitchtip_project_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .unique()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    orgSlug: text("org_slug").notNull(),
+    projectSlug: text("project_slug").notNull(),
+    lastStatus: text("last_status"),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    /** set from Retry-After on a 429; the sync skips the link until then */
+    backoffUntil: timestamp("backoff_until", { withTimezone: true }),
+    openCount: integer("open_count").notNull().default(0),
+    openCapped: boolean("open_capped").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [index().on(t.workspaceId)],
+);
+
+export const glitchtipIssues = pgTable(
+  "glitchtip_issues",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    glitchtipId: text("glitchtip_id").notNull(),
+    shortId: text("short_id"),
+    title: text("title").notNull(),
+    culprit: text("culprit"),
+    level: text("level").notNull().default("error"),
+    /** unresolved | resolved | ignored */
+    status: text("status").notNull().default("unresolved"),
+    count: integer("count").notNull().default(0),
+    userCount: integer("user_count").notNull().default(0),
+    firstSeen: timestamp("first_seen", { withTimezone: true }),
+    lastSeen: timestamp("last_seen", { withTimezone: true }),
+    link: text("link").notNull(),
+    /** trimmed latest event (no user/request data); fetched on demand */
+    latestEvent: jsonb("latest_event").$type<Record<string, unknown>>(),
+    latestEventAt: timestamp("latest_event_at", { withTimezone: true }),
+    ticketIssueId: uuid("ticket_issue_id").references(() => issues.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    unique().on(t.projectId, t.glitchtipId),
+    index().on(t.workspaceId, t.projectId, t.lastSeen),
+  ],
+);
+
 // outbound webhook endpoints — consumers subscribe to issue.*/dispatch.* actions
 export const webhookEndpoints = pgTable(
   "webhook_endpoints",

@@ -12,6 +12,7 @@ import { openApiDoc } from "./openapi.js";
 import { sweepExpiredCycles } from "./services/cycles.js";
 import { tickCycleSchedule } from "./services/cycle-schedule.js";
 import { sweepDeliveries } from "./services/outbound.js";
+import { SYNC_INTERVAL_MS as GLITCHTIP_SYNC_MS, syncDueLinks } from "./services/glitchtip-sync.js";
 import { sweepStaleDispatches } from "./services/dispatch.js";
 import { sweepWebhookEvents } from "./services/retention.js";
 import { mailer } from "./services/mailer.js";
@@ -29,6 +30,7 @@ import { eventRoutes } from "./routes/events.js";
 import { githubPublicRoutes, githubRoutes } from "./routes/github.js";
 import { importRoutes } from "./routes/import.js";
 import { glitchtipRoutes } from "./routes/glitchtip.js";
+import { glitchtipFeedRoutes } from "./routes/glitchtip-feed.js";
 import { glitchtipWebhookRoutes } from "./routes/glitchtip-webhook.js";
 import { intakeRoutes } from "./routes/intake.js";
 import { appleAuthRoutes } from "./routes/apple-auth.js";
@@ -139,6 +141,7 @@ export const app = new Hono()
   .route("/v1", intakeRoutes)
   .route("/v1", supportRoutes)
   .route("/v1", glitchtipRoutes)
+  .route("/v1", glitchtipFeedRoutes)
   .route("/v1", agentRoutes)
   .route("/v1", resourceRoutes)
   .route("/v1", projectUpdateRoutes)
@@ -225,6 +228,19 @@ if (process.env.NODE_ENV !== "test") {
       .catch((err) => console.error("cycle sweep failed", err));
   setInterval(() => void cycleTick(), 60_000).unref();
   void cycleTick();
+  // GlitchTip error feed: pull mapped projects' issues into the cache. One
+  // tick at a time, links one after another, so a slow server is never hit in
+  // parallel and the sweep never overlaps itself.
+  let glitchtipSyncing = false;
+  setInterval(() => {
+    if (glitchtipSyncing) return;
+    glitchtipSyncing = true;
+    void syncDueLinks()
+      .catch((err) => console.error("glitchtip sync failed", err instanceof Error ? err.name : "error"))
+      .finally(() => {
+        glitchtipSyncing = false;
+      });
+  }, GLITCHTIP_SYNC_MS).unref();
   // webhook event retention: clear old payloads, delete old rows (daily)
   setInterval(() => {
     void sweepWebhookEvents().catch((err) =>
