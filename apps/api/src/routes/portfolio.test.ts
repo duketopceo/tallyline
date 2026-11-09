@@ -161,7 +161,9 @@ describe("portfolio", () => {
     const manyView = (await portfolio(A, member)).json.projects!.find((x) => x.id === many.id)!;
     expect(manyView.milestones).toMatchObject({ total: MILESTONE_LIMIT + 3, completed: 1 });
     expect(manyView.milestones.items).toHaveLength(MILESTONE_LIMIT);
-    expect(manyView.milestones.items[0]!.title).toBe("Phase 0");
+    // Phase 0 is done, so the open ones lead and the next milestone is never cut off
+    expect(manyView.milestones.items[0]!.title).toBe("Phase 1");
+    expect(manyView.milestones.items.map((m) => m.title)).not.toContain("Phase 0");
   });
 
   it("lists bound repos for a project", async () => {

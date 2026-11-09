@@ -35,9 +35,9 @@ const MILESTONE_TONE: Record<string, string> = {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex flex-col items-center rounded-sm border border-lining-faint px-3 py-1.5">
-      <span className="text-headline font-semibold tabular-nums leading-tight">{value}</span>
-      <span className="text-micro text-ink-subtle">{label}</span>
+    <div className="flex flex-col-reverse items-center rounded-sm border border-lining-faint px-3 py-1.5">
+      <dt className="text-micro text-ink-subtle">{label}</dt>
+      <dd className="text-headline font-semibold tabular-nums leading-tight">{value}</dd>
     </div>
   );
 }
@@ -81,6 +81,7 @@ export function PortfolioOverview({ projects, now }: { projects: PortfolioProjec
                   rows.current[idx] = el;
                 }}
                 href={`/projects/${p.id}`}
+                aria-label={`${p.name}, ${p.progress.percent}% done, ${openCount(p.counts)} open tickets. Open project`}
                 className="grid gap-x-6 gap-y-2 px-4 py-3 outline-none hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.2fr)]"
               >
                 <div className="min-w-0">

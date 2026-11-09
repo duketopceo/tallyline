@@ -97,7 +97,7 @@ export function Shell({
   }, [toggleCollapsed]);
 
   const work: Item[] = [
-    { href: "/overview", label: "Overview", hint: "g o", icon: "roadmap" },
+    { href: "/overview", label: "Overview", hint: "g o", icon: "overview" },
     { href: "/triage", label: "Triage", hint: "g t", icon: "triage", count: meta.counts.triage },
     { href: "/review", label: "Review", hint: "g r", icon: "review", count: meta.counts.review },
     { href: "/board", label: "Board", hint: "g b", icon: "board" },
@@ -278,7 +278,7 @@ export function Shell({
       </div>
       {peek}
       <nav aria-label="Quick actions" className="fixed inset-x-0 bottom-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-bottom))] items-stretch justify-around border-t border-lining bg-surface-1 pb-[env(safe-area-inset-bottom)] sm:hidden">
-        {[["/my-issues", "My issues", "my-issues"], ["/board", "Board", "board"], ["/review", "Review", "review"]].map(([href, label, icon]) => (
+        {[["/overview", "Overview", "overview"], ["/my-issues", "My issues", "my-issues"], ["/board", "Board", "board"], ["/review", "Review", "review"]].map(([href, label, icon]) => (
           <Link key={href} href={href!} className={`flex min-w-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] ${pathname.startsWith(href!) ? "text-ink" : "text-ink-subtle"}`}>
             <NavIcon name={icon!} size={18} />{label}
           </Link>

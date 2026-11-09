@@ -177,7 +177,9 @@ export async function portfolioForWorkspace(workspaceId: string): Promise<{ proj
         milestones: {
           total: ms.length,
           completed: ms.filter((m) => m.done).length,
-          items: ms.slice(0, MILESTONE_LIMIT),
+          // unfinished first (stable, so sort order is kept inside each group): the
+          // capped list must still hold the next milestone when early ones are done
+          items: [...ms.filter((m) => !m.done), ...ms.filter((m) => m.done)].slice(0, MILESTONE_LIMIT),
         },
         repos: reposBy.get(p.id) ?? [],
         recent,
