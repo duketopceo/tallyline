@@ -10,7 +10,8 @@ Tallyline is dual-tier: the self-hosted app is copyleft, and the pieces you embe
 | `tools/cli/` | [MIT](./tools/cli/LICENSE) | `@tallyline/cli` |
 | `integrations/n8n/` | [MIT](./integrations/n8n/LICENSE) | `n8n-nodes-tallyline` |
 | `integrations/composio/` | [MIT](./integrations/composio/LICENSE) | `@tallyline/composio` |
-| `plugins/tallyline/` | [MIT](./plugins/tallyline/LICENSE) | Claude Code plugin |
+| `plugins/tallyline/` | [MIT](./plugins/tallyline/LICENSE) | Agent plugin (Claude Code, Codex, Devin, Cursor, Factory) and session hooks |
+| `gemini-extension.json`, `.agents/plugins/marketplace.json` | MIT | Plugin pointers at the repo root; they hold no code |
 
 **AGPL-3.0 in short:** free to use and modify, including privately. If you host or distribute a modified version, you must publish your source under the same license.
 
