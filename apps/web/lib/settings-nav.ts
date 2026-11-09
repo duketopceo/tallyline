@@ -21,7 +21,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: "account",
     label: "Account",
     items: [
-      { href: "/settings/account", label: "Account", description: "Profile, email, your data and account deletion" },
+      { href: "/settings/account", label: "Account", description: "Profile, password, sign-in methods, your data and account deletion" },
       { href: "/settings/appearance", label: "Appearance", description: "Theme, contrast and density" },
       { href: "/settings/devices", label: "Devices", description: "Pair the iPhone app with this account" },
       { href: "/settings/tokens", label: "Tokens", description: "Personal access tokens for scripts and the CLI" },
@@ -32,7 +32,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     id: "workspace",
     label: "Workspace",
     items: [
-      { href: "/settings/workspace", label: "Workspace", description: "Name, export and workspace deletion" },
+      { href: "/settings/workspace", label: "Workspace", description: "Name, slug, export, leaving and deletion" },
       { href: "/settings/members", label: "Members", description: "Who is in this workspace and their roles" },
       { href: "/settings/invites", label: "Invites", description: "Invite people and manage open invites" },
       { href: "/settings/usage", label: "Usage", description: "Plan, limits and activity this month" },

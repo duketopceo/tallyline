@@ -1,0 +1,12 @@
+{
+  "name": "tallyline",
+  "version": "0.2.0",
+  "description": "Work the Tallyline issue board from your coding agent: MCP tools, an agent skill, and session hooks that claim and update the ticket you are working on",
+  "author": { "name": "duketopceo", "url": "https://github.com/duketopceo" },
+  "homepage": "https://github.com/duketopceo/tallyline",
+  "repository": "https://github.com/duketopceo/tallyline",
+  "license": "MIT",
+  "keywords": ["issues", "mcp", "agents", "project-management"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}

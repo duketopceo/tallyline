@@ -100,16 +100,17 @@ const basePaths = {
     "/v1/workspaces/{ws}": {
       patch: {
         summary:
-          "Update workspace settings (admin+) — name and allowedDomains (email-domain JIT allowlist)",
+          "Update workspace settings (admin+) — name and allowedDomains (email-domain JIT allowlist); changing the slug is owner-only (409 SLUG_TAKEN). Every update writes a workspace_updated event.",
         parameters: [wsParam],
         requestBody: jsonBody({
           type: "object",
           properties: {
             name: { type: "string" },
+            slug: { type: "string", pattern: "^[a-z0-9-]+$", minLength: 2, maxLength: 48 },
             allowedDomains: { type: "array", items: { type: "string" } },
           },
         }),
-        responses: { "200": { description: "Updated workspace" } },
+        responses: { "200": { description: "Updated workspace" }, "409": { description: "SLUG_TAKEN" } },
       },
     },
     "/v1/workspaces/{ws}/teams": {
