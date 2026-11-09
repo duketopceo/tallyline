@@ -9,6 +9,7 @@ import {
   setWorkspaceCookie,
 } from "@/lib/session";
 import { LOGIN_NONCE_COOKIE } from "@/app/api/auth/methods/route";
+import { DEFAULT_LANDING } from "@/lib/landing";
 
 interface Exchange {
   purpose: "login" | "pending-bootstrap" | "pending-link";
@@ -58,7 +59,7 @@ export async function GET(req: Request) {
   // multi-membership: the session's bound workspace may not match tly_ws —
   // send the user through the chooser when there's a real choice to make
   const memberships = data.memberships ?? [];
-  if (memberships.length > 1 && destination === "/my-issues") {
+  if (memberships.length > 1 && destination === DEFAULT_LANDING) {
     return redirectTo("/workspaces");
   }
   return redirectTo(destination);

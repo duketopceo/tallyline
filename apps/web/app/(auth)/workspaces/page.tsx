@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { api, type Me } from "@/lib/api";
 import { WorkspaceChooser } from "@/components/workspace-chooser";
+import { DEFAULT_LANDING } from "@/lib/landing";
 
 // session-gated workspace picker — lives under (auth), not (app): the app
 // shell renders Sidebar/CommandPalette bound to a workspaceSlug, which is
@@ -15,7 +16,7 @@ export default async function WorkspacesPage() {
   if (memberships.length === 1) {
     // nothing to choose — rebind + land; the API session may still point at
     // the only workspace anyway
-    redirect("/my-issues");
+    redirect(DEFAULT_LANDING);
   }
   return (
     <main className="flex min-h-screen items-center justify-center px-6">

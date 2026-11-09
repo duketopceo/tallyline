@@ -97,6 +97,7 @@ export function Shell({
   }, [toggleCollapsed]);
 
   const work: Item[] = [
+    { href: "/overview", label: "Overview", hint: "g o", icon: "overview" },
     { href: "/triage", label: "Triage", hint: "g t", icon: "triage", count: meta.counts.triage },
     { href: "/review", label: "Review", hint: "g r", icon: "review", count: meta.counts.review },
     { href: "/board", label: "Board", hint: "g b", icon: "board" },
@@ -104,7 +105,6 @@ export function Shell({
     { href: "/support", label: "Support", hint: "g u", icon: "inbox" },
     { href: "/cycle", label: "Cycles", hint: "g c", icon: "cycle" },
     { href: "/roadmap", label: "Roadmap", hint: "g p", icon: "roadmap" },
-    { href: "/projects", label: "Projects", hint: "g o", icon: "roadmap" },
   ];
   const more: Item[] = [
     { href: "/activity", label: "Activity", hint: "g e", icon: "activity" },
@@ -118,7 +118,7 @@ export function Shell({
   const views = meta.views.map((v) => ({ ...v, q: filtersToQuery(filtersFromObject(v.filters)) }));
   const activeView = pathname === "/issues" ? views.find((v) => v.q === curQuery) : undefined;
   const isActive = (it: Item) =>
-    it.href === "/issues" ? (pathname === "/issues" && !activeView) || pathname.startsWith("/issues/") : pathname.startsWith(it.href.split("/").slice(0, 2).join("/"));
+    it.href === "/overview" ? pathname.startsWith("/overview") || pathname.startsWith("/projects") : it.href === "/issues" ? (pathname === "/issues" && !activeView) || pathname.startsWith("/issues/") : pathname.startsWith(it.href.split("/").slice(0, 2).join("/"));
 
   const rail = collapsed;
   const link = (it: Item) => (
@@ -278,7 +278,7 @@ export function Shell({
       </div>
       {peek}
       <nav aria-label="Quick actions" className="fixed inset-x-0 bottom-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-bottom))] items-stretch justify-around border-t border-lining bg-surface-1 pb-[env(safe-area-inset-bottom)] sm:hidden">
-        {[["/my-issues", "My issues", "my-issues"], ["/board", "Board", "board"], ["/review", "Review", "review"]].map(([href, label, icon]) => (
+        {[["/overview", "Overview", "overview"], ["/my-issues", "My issues", "my-issues"], ["/board", "Board", "board"], ["/review", "Review", "review"]].map(([href, label, icon]) => (
           <Link key={href} href={href!} className={`flex min-w-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] ${pathname.startsWith(href!) ? "text-ink" : "text-ink-subtle"}`}>
             <NavIcon name={icon!} size={18} />{label}
           </Link>

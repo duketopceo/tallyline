@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { LegalLinks } from "@/components/legal-links";
 import { TallyMark } from "@/components/tally-mark";
+import { DEFAULT_LANDING } from "@/lib/landing";
 
 interface Provider {
   key: string;
@@ -44,7 +45,7 @@ function LoginInner() {
     unavailable: boolean;
   } | null>(null);
 
-  const returnTo = params.get("return_to") ?? params.get("next") ?? "/my-issues";
+  const returnTo = params.get("return_to") ?? params.get("next") ?? DEFAULT_LANDING;
 
   useEffect(() => {
     const code = params.get("error");
@@ -87,7 +88,7 @@ function LoginInner() {
     setPending(false);
     if (res.ok) {
       const d = (await res.json()) as { returnTo?: string };
-      router.replace(d.returnTo ?? "/my-issues");
+      router.replace(d.returnTo ?? DEFAULT_LANDING);
       router.refresh();
     } else {
       const data = (await res.json().catch(() => null)) as {

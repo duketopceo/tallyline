@@ -12,7 +12,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Tallyline",
     short_name: "Tallyline",
     description: "Agent-native issue tracker",
-    start_url: "/my-issues",
+    start_url: "/overview",
     scope: "/",
     display: "standalone",
     background_color: CANVAS,

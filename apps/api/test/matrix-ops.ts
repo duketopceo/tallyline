@@ -733,6 +733,7 @@ export const OPERATIONS: Record<string, Builder> = {
   }),
   "DELETE /v1/workspaces/{ws}/glitchtip/connection": simple("DELETE", (t) => `${base(t)}/glitchtip/connection`),
   "GET /v1/workspaces/{ws}/glitchtip/health": get((t) => `${base(t)}/glitchtip/health`),
+  "GET /v1/workspaces/{ws}/portfolio": get((t) => `${base(t)}/portfolio`),
   "GET /v1/workspaces/{ws}/projects/{id}/glitchtip": projectOp("GET", "/glitchtip"),
   "PUT /v1/workspaces/{ws}/projects/{id}/glitchtip": projectOp("PUT", "/glitchtip", { orgSlug: "acme", projectSlug: "api" }),
   "DELETE /v1/workspaces/{ws}/projects/{id}/glitchtip": projectOp("DELETE", "/glitchtip"),

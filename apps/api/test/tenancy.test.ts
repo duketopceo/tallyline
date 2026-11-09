@@ -222,6 +222,7 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
   projects: {
     ops: [
       "GET /v1/workspaces/{ws}/projects",
+      "GET /v1/workspaces/{ws}/portfolio",
       "POST /v1/workspaces/{ws}/projects",
       "PATCH /v1/workspaces/{ws}/projects/{id}",
       "DELETE /v1/workspaces/{ws}/projects/{id}",

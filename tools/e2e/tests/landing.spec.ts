@@ -58,7 +58,7 @@ test.describe("logged out", () => {
     await page.getByLabel("Email").fill(EMAIL);
     await page.getByLabel("Password").fill(PASSWORD);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page).toHaveURL(/\/my-issues/);
+    await expect(page).toHaveURL(/\/(overview|my-issues)/);
   });
 
   test.describe("390", () => {
@@ -79,6 +79,6 @@ test.describe("logged in", () => {
     const open = page.getByRole("link", { name: "Open app" }).first();
     await expect(open).toHaveAttribute("href", "/workspaces");
     await open.click();
-    await expect(page).toHaveURL(/\/(workspaces|my-issues)/);
+    await expect(page).toHaveURL(/\/(workspaces|overview|my-issues)/);
   });
 });

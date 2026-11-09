@@ -13,6 +13,8 @@ Every open item sits in exactly one of three lists: buildable by an agent, needs
 
 ## Open: buildable by an agent
 
+Portfolio overview (`/overview`, `GET /v1/workspaces/:ws/portfolio`) is built on top of the GlitchTip error feed PR; see [docs/portfolio.md](./docs/portfolio.md).
+
 Nothing new beyond the cloud beta units listed under "In review" below, which are built and waiting on review and merge. Unit specs: the cloud beta roadmap plan above. Skipped by owner decision for now: U2 (needs a device), U6 (web Apple sign-in, not built), U10 (owner-only), U11 (environment gate), U12 (board sync). The cloud beta has no Stripe.
 
 ## In review (cloud beta, 2026-11-05)

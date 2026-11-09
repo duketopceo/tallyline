@@ -39,7 +39,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       <main className="flex min-h-0 flex-1 flex-col">
         <PageHeader title="Project not found" />
         <EmptyState title="No such project" detail="It may have been deleted, or it belongs to another workspace." />
-        <p className="px-4 text-[13px]"><Link href="/projects" className="text-accent hover:underline">Back to projects</Link></p>
+        <p className="px-4 text-[13px]"><Link href="/overview" className="text-accent hover:underline">Back to the overview</Link></p>
       </main>
     );
   }
@@ -48,7 +48,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   return (
     <main className="flex min-h-0 flex-1 flex-col">
       <PageHeader title={project.name}>
-        <Link href="/projects" className="text-[12px] text-ink-muted hover:text-ink hover:underline">All projects</Link>
+        <Link href="/overview" className="text-[12px] text-ink-muted hover:text-ink hover:underline">Overview</Link>
       </PageHeader>
       <div className="flex min-h-0 flex-col gap-4 overflow-y-auto p-4">
         <ProjectErrors projectId={project.id} health={errorsRes.data?.errors ?? null} canAdmin={canAdmin} />
