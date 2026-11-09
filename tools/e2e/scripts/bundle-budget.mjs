@@ -7,7 +7,10 @@ import path from "node:path";
 // build's rootMainFiles (shared first-load chunks) — not placeholders.
 const NEXT_DIR = path.resolve(import.meta.dirname, "../../../apps/web/.next");
 const INITIAL_BUDGET = 200 * 1024;
-const TOTAL_BUDGET = 600 * 1024;
+// Total across every chunk, lazy ones included. 750 = the old 600 plus the landing
+// hero's three.js chunk (about 125kb gz, fetched after idle and only on "/", never in
+// the app). The initial budget above is unchanged.
+const TOTAL_BUDGET = 750 * 1024;
 
 const manifest = JSON.parse(
   readFileSync(path.join(NEXT_DIR, "build-manifest.json"), "utf8"),
@@ -36,7 +39,7 @@ if (existsSync(chunksDir)) {
 
 const kb = (n) => (n / 1024).toFixed(1);
 console.log(
-  `bundle budget: initial=${kb(initial)}kb (limit 200) · all chunks=${kb(total)}kb (limit 600)`,
+  `bundle budget: initial=${kb(initial)}kb (limit 200) · all chunks=${kb(total)}kb (limit 750)`,
 );
 if (initial > INITIAL_BUDGET || total > TOTAL_BUDGET) {
   console.error("BUDGET EXCEEDED");
