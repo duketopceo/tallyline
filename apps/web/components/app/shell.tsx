@@ -4,15 +4,14 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { Appearance } from "@tallyline/silver-lining";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { filtersFromObject, filtersToQuery } from "@/lib/filters";
+import { allItems, buildSidebarNav, type NavItem } from "@/lib/sidebar-nav";
 import { TallyMark } from "../tally-mark";
 import { useRegisterActions } from "./actions";
 import { NavIcon } from "./nav-icons";
+import { ProjectSwitcher } from "./project-switcher";
 import { useMeta } from "./providers";
 import { Kbd } from "./ui";
 import { ThemeToggle } from "./theme-toggle";
-
-interface Item { href: string; label: string; hint: string; icon: string; count?: number }
 
 const MIN_W = 200, MAX_W = 320, RAIL_W = 56;
 
@@ -96,48 +95,37 @@ export function Shell({
     return () => document.removeEventListener("keydown", onKey);
   }, [toggleCollapsed]);
 
-  const work: Item[] = [
-    { href: "/overview", label: "Overview", hint: "g o", icon: "overview" },
-    { href: "/triage", label: "Triage", hint: "g t", icon: "triage", count: meta.counts.triage },
-    { href: "/review", label: "Review", hint: "g r", icon: "review", count: meta.counts.review },
-    { href: "/board", label: "Board", hint: "g b", icon: "board" },
-    { href: "/issues", label: "Issues", hint: "g a", icon: "issues" },
-    { href: "/support", label: "Support", hint: "g u", icon: "inbox" },
-    { href: "/cycle", label: "Cycles", hint: "g c", icon: "cycle" },
-    { href: "/roadmap", label: "Roadmap", hint: "g p", icon: "roadmap" },
-  ];
-  const more: Item[] = [
-    { href: "/activity", label: "Activity", hint: "g e", icon: "activity" },
-    { href: "/insights", label: "Insights", hint: "g s", icon: "insights" },
-    ...(meta.role === "owner" || meta.role === "admin" ? [{ href: "/settings", label: "Settings", hint: "g ,", icon: "settings" }] : []),
-  ];
-  const mine: Item = { href: "/my-issues", label: "My issues", hint: "g i", icon: "my-issues" };
-  const inbox: Item = { href: "/notifications", label: "Inbox", hint: "g n", icon: "inbox", count: meta.counts.unread };
-
   const curQuery = search.toString();
-  const views = meta.views.map((v) => ({ ...v, q: filtersToQuery(filtersFromObject(v.filters)) }));
-  const activeView = pathname === "/issues" ? views.find((v) => v.q === curQuery) : undefined;
-  const isActive = (it: Item) =>
-    it.href === "/overview" ? pathname.startsWith("/overview") || pathname.startsWith("/projects") : it.href === "/issues" ? (pathname === "/issues" && !activeView) || pathname.startsWith("/issues/") : pathname.startsWith(it.href.split("/").slice(0, 2).join("/"));
+  const sections = buildSidebarNav({
+    role: meta.role,
+    counts: meta.counts,
+    projects: meta.projects,
+    views: meta.views,
+    pathname,
+    search: curQuery,
+  });
+  const currentLabel = allItems(sections).find((i) => i.current)?.label ?? "tallyline";
+  const projectMatch = /^\/projects\/([^/]+)/.exec(pathname);
 
-  const rail = collapsed;
-  const link = (it: Item) => (
-    <li key={it.href}>
+  // the phone drawer is always full width, whatever rail state a desktop saved
+  const rail = collapsed && !drawer;
+  const link = (it: NavItem) => (
+    <li key={it.id}>
       <Link
         href={it.href}
-        title={rail ? `${it.label} (${it.hint})` : undefined}
-        aria-current={isActive(it) ? "page" : undefined}
-        className={`group flex h-8 items-center gap-2.5 rounded-sm px-2 text-[13px] ${isActive(it) ? "bg-surface-3 text-ink" : "text-ink-muted hover:bg-surface-2 hover:text-ink"} ${rail ? "justify-center" : ""}`}
+        title={rail ? `${it.label}${it.hint ? ` (${it.hint})` : ""}` : undefined}
+        aria-current={it.current ? "page" : undefined}
+        className={`group flex h-8 items-center gap-2.5 rounded-sm px-2 text-body ${it.current ? "bg-surface-3 text-ink" : "text-ink-muted hover:bg-surface-2 hover:text-ink"} ${rail ? "justify-center" : ""}`}
       >
         <NavIcon name={it.icon} />
         {!rail && (
           <>
             <span className="truncate">{it.label}</span>
             {it.count ? (
-              <span className="ml-auto rounded-full bg-surface-3 px-1.5 text-[11px] tabular-nums text-ink-muted" aria-label={`${it.count} waiting`}>{it.count > 99 ? "99+" : it.count}</span>
-            ) : (
-              <kbd className="ml-auto hidden font-mono text-[11px] text-ink-subtle group-hover:inline">{it.hint}</kbd>
-            )}
+              <span className="ml-auto rounded-full bg-surface-3 px-1.5 text-micro tabular-nums text-ink-muted" aria-label={`${it.count} waiting`}>{it.count > 99 ? "99+" : it.count}</span>
+            ) : it.hint ? (
+              <kbd className="ml-auto hidden font-mono text-micro text-ink-subtle group-hover:inline">{it.hint}</kbd>
+            ) : null}
           </>
         )}
         {rail && it.count ? <span className="sr-only">{it.count} waiting</span> : null}
@@ -169,10 +157,13 @@ export function Shell({
         <TallyMark size={16} />
         {!rail && (
           <>
-            <span className="text-[14px] font-semibold tracking-tight">tallyline</span>
-            <span className="ml-auto truncate rounded-xs border border-lining px-1.5 font-mono text-[11px] text-ink-subtle" title={`Workspace ${meta.workspace}`}>{meta.workspace}</span>
+            <span className="text-sm font-semibold tracking-tight">tallyline</span>
+            <span className="ml-auto truncate rounded-xs border border-lining px-1.5 font-mono text-micro text-ink-subtle" title={`Workspace ${meta.workspace}`}>{meta.workspace}</span>
           </>
         )}
+      </div>
+      <div className={`px-2 pt-2 ${rail ? "flex justify-center" : ""}`}>
+        <ProjectSwitcher projects={meta.projects} currentId={projectMatch?.[1] ?? null} rail={rail} onChoose={() => setDrawer(false)} />
       </div>
       <div className={`flex gap-1 p-2 ${rail ? "flex-col" : ""}`}>
         <button
@@ -180,7 +171,7 @@ export function Shell({
           onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
           title="Search and commands"
           {...(rail ? { "aria-label": "Search and commands" } : {})}
-          className={`flex h-8 flex-1 items-center gap-2 rounded-sm border border-control px-2 text-[13px] text-ink-subtle hover:bg-surface-2 hover:text-ink ${rail ? "justify-center" : ""}`}
+          className={`flex h-8 flex-1 items-center gap-2 rounded-sm border border-control px-2 text-body text-ink-subtle hover:bg-surface-2 hover:text-ink ${rail ? "justify-center" : ""}`}
         >
           <NavIcon name="search" />
           {!rail && (<><span>Search</span><span className="ml-auto"><Kbd>⌘K</Kbd></span></>)}
@@ -196,38 +187,33 @@ export function Shell({
         </button>
       </div>
       <nav aria-label="Primary" className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        <ul>{[mine, inbox].map(link)}</ul>
-        {!rail && <p className="px-2 pb-1 pt-4 text-[11px] font-medium uppercase tracking-[0.4px] text-ink-subtle">Work</p>}
-        {rail && <hr className="my-2 border-lining-faint" />}
-        <ul>{work.map(link)}</ul>
-        {views.length > 0 && !rail && (
-          <>
-            <p className="px-2 pb-1 pt-4 text-[11px] font-medium uppercase tracking-[0.4px] text-ink-subtle">Views</p>
-            <ul>
-              {views.map((v) => (
-                <li key={v.id}>
-                  <Link
-                    href={`/issues?${v.q}`}
-                    aria-current={activeView?.id === v.id ? "page" : undefined}
-                    className={`flex h-8 items-center gap-2.5 rounded-sm px-2 text-[13px] ${activeView?.id === v.id ? "bg-surface-3 text-ink" : "text-ink-muted hover:bg-surface-2 hover:text-ink"}`}
-                  >
-                    <NavIcon name="view" />
-                    <span className="truncate">{v.name}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-        {rail ? <hr className="my-2 border-lining-faint" /> : <p className="px-2 pb-1 pt-4 text-[11px] font-medium uppercase tracking-[0.4px] text-ink-subtle">Workspace</p>}
-        <ul>{more.map(link)}</ul>
+        {sections.map((sec, i) => {
+          const hid = `nav-group-${sec.id}`;
+          return (
+            <div key={sec.id} role="group" aria-labelledby={hid}>
+              {rail ? (
+                <>
+                  {i > 0 && <hr className="my-2 border-lining-faint" />}
+                  <span id={hid} className="sr-only">{sec.label}</span>
+                </>
+              ) : (
+                <p id={hid} className="px-2 pb-1 pt-4 text-micro font-medium uppercase text-ink-subtle first:pt-2">{sec.label}</p>
+              )}
+              <ul>{sec.items.map(link)}</ul>
+              {!rail && sec.empty && <p className="px-2 py-1 text-xs text-ink-subtle">{sec.empty}</p>}
+              {!rail && sec.more && (
+                <Link href={sec.more.href} className="flex h-8 items-center px-2 text-xs text-ink-subtle hover:text-ink">{sec.more.label}</Link>
+              )}
+            </div>
+          );
+        })}
       </nav>
       <div className={`flex shrink-0 gap-1 border-t border-lining-faint p-2 ${rail ? "flex-col items-center" : "flex-col"}`}>
-        {!rail && <p className="truncate px-2 text-[12px] text-ink-muted" title={meta.userName}>{meta.userName}</p>}
+        {!rail && <p className="truncate px-2 text-xs text-ink-muted" title={meta.userName}>{meta.userName}</p>}
         <div className={`flex items-center gap-1 ${rail ? "flex-col" : ""}`}>
         <ThemeToggle initial={appearance} rail={rail} />
         <form action="/api/logout" method="post" className={rail ? "" : "ml-auto"}>
-          <button type="submit" className="h-8 whitespace-nowrap rounded-sm px-2 text-[12px] text-ink-subtle hover:bg-surface-2 hover:text-ink">{rail ? "Out" : "Sign out"}</button>
+          <button type="submit" className="h-8 whitespace-nowrap rounded-sm px-2 text-xs text-ink-subtle hover:bg-surface-2 hover:text-ink">{rail ? "Out" : "Sign out"}</button>
         </form>
         <button
           type="button"
@@ -271,7 +257,7 @@ export function Shell({
         <div className="flex h-[calc(2.75rem+env(safe-area-inset-top))] shrink-0 items-center gap-2 border-b border-lining-faint px-2 pt-[env(safe-area-inset-top)] lg:hidden">
           <button type="button" onClick={() => setDrawer(true)} aria-label="Open menu" className="flex h-9 w-9 items-center justify-center rounded-sm text-ink-muted hover:bg-surface-2"><NavIcon name="menu" size={18} /></button>
           <TallyMark size={16} />
-          <span className="text-[14px] font-semibold tracking-tight">tallyline</span>
+          <span className="truncate text-sm font-semibold tracking-tight">{currentLabel}</span>
           <button type="button" onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))} aria-label="Search and commands" className="ml-auto flex h-9 w-9 items-center justify-center rounded-sm text-ink-muted hover:bg-surface-2"><NavIcon name="search" size={18} /></button>
         </div>
         <div className="flex min-h-0 flex-1 flex-col max-sm:pb-[calc(3.5rem+env(safe-area-inset-bottom))]">{children}</div>
@@ -279,11 +265,11 @@ export function Shell({
       {peek}
       <nav aria-label="Quick actions" className="fixed inset-x-0 bottom-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-bottom))] items-stretch justify-around border-t border-lining bg-surface-1 pb-[env(safe-area-inset-bottom)] sm:hidden">
         {[["/overview", "Overview", "overview"], ["/my-issues", "My issues", "my-issues"], ["/board", "Board", "board"], ["/review", "Review", "review"]].map(([href, label, icon]) => (
-          <Link key={href} href={href!} className={`flex min-w-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] ${pathname.startsWith(href!) ? "text-ink" : "text-ink-subtle"}`}>
+          <Link key={href} href={href!} className={`flex min-w-14 flex-1 flex-col items-center justify-center gap-0.5 text-micro ${pathname.startsWith(href!) ? "text-ink" : "text-ink-subtle"}`}>
             <NavIcon name={icon!} size={18} />{label}
           </Link>
         ))}
-        <button type="button" onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }))} className="flex min-w-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] text-accent">
+        <button type="button" onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }))} className="flex min-w-14 flex-1 flex-col items-center justify-center gap-0.5 text-micro text-accent">
           <NavIcon name="plus" size={18} />New
         </button>
       </nav>

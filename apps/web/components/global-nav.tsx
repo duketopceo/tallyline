@@ -2,25 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { GOTO } from "@/lib/goto-map";
 
-// g-sequences — `g i` my issues, `g n` inbox, `g t` triage, `g r` review,
-// `g b` board, `g c` cycle, `g a` all issues, `g e` activity, `g p` roadmap, `g o` overview.
-// Mirrors the sidebar hints.
-const GOTO: Record<string, string> = {
-  i: "/my-issues",
-  n: "/notifications",
-  t: "/triage",
-  r: "/review",
-  b: "/board",
-  c: "/cycle",
-  a: "/issues",
-  u: "/support",
-  s: "/insights",
-  e: "/activity",
-  p: "/roadmap",
-  o: "/overview",
-  ",": "/settings",
-};
+// g-sequences: the map lives in lib/goto-map.ts, shared with the sidebar hints.
 
 const SEQUENCE_TIMEOUT_MS = 800;
 

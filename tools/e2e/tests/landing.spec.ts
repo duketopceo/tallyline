@@ -9,8 +9,8 @@ test.describe("logged out", () => {
   test("landing explains humans and agents on one board with real product screenshots", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: /One board for humans and agents/ })).toBeVisible();
-    // hero is a DOM-rendered board loop, not a bitmap
-    await expect(page.getByRole("img", { name: /Demo board/ })).toBeVisible();
+    // the hero is the tally mark: static markup first, a lazy canvas after
+    await expect(page.locator("[data-hero]")).toBeVisible();
     for (const alt of [/issue list with the peek panel/, /review queue/, /activity log showing who changed the state/]) {
       const img = page.getByRole("img", { name: alt });
       await expect(img).toHaveCount(1);
@@ -22,7 +22,39 @@ test.describe("logged out", () => {
     expect(await page.locator('picture source[media="(prefers-color-scheme: light)"]').count()).toBeGreaterThanOrEqual(3);
     await expect(page.getByRole("link", { name: "Sign in" }).first()).toHaveAttribute("href", "/login");
     await expect(page.getByRole("link", { name: "AGPL-3.0 license" })).toBeVisible();
-    await expect(page.locator("canvas")).toHaveCount(0); // no WebGL hero
+  });
+
+  test("hero: lazy three.js scene when motion is allowed, static mark otherwise", async ({ browser }) => {
+    const errors: string[] = [];
+    const baseURL = test.info().project.use.baseURL;
+    const run = async (reducedMotion: "reduce" | "no-preference") => {
+      const ctx = await browser.newContext({ ...(baseURL ? { baseURL } : {}), reducedMotion, storageState: { cookies: [], origins: [] } });
+      const page = await ctx.newPage();
+      page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+      page.on("pageerror", (e) => errors.push(String(e)));
+      const res = await page.goto("/");
+      // server-rendered and indexable: the copy and title are in the HTML itself
+      const html = (await res!.text());
+      expect(html).toContain("One board for humans");
+      expect(html).toMatch(/<title>[^<]*issue tracker[^<]*<\/title>/);
+      expect(html).toContain('data-hero="static"');
+      await page.waitForLoadState("networkidle");
+      const hero = page.locator("[data-hero]");
+      if (reducedMotion === "reduce") await page.waitForTimeout(2200); // idle callback timeout is 1.5s: nothing may start
+      else await expect(hero).toHaveAttribute("data-hero", /^(live|fallback)$/, { timeout: 20_000 });
+      const state = await hero.getAttribute("data-hero");
+      const canvases = await page.locator("canvas").count();
+      await ctx.close();
+      return { state, canvases };
+    };
+    const reduced = await run("reduce");
+    expect(reduced).toEqual({ state: "static", canvases: 0 });
+    const moving = await run("no-preference");
+    // headless CI may have no WebGL: then the static mark stays and says so
+    expect(["live", "fallback"]).toContain(moving.state);
+    expect(moving.canvases).toBe(moving.state === "live" ? 1 : 0);
+    // a headless browser without WebGL logs its own context error on the fallback path; anything else is a bug
+    expect(errors.filter((e) => !/webgl|gpu|context/i.test(e))).toEqual([]);
   });
 
   test("@hydration landing and login log no hydration warnings", async ({ page }) => {

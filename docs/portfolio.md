@@ -16,7 +16,7 @@ project in the workspace; a project is a repo's worth of tickets and roadmap.
 | Recent activity | the last 5 issue events per project in the last 30 days: the action, who did it, the issue key |
 | Error health | the cached GlitchTip count from [glitchtip.md](./glitchtip.md): open errors, or "last known" when the cache is stale or GlitchTip is failing |
 
-Keyboard: `j`/`k` or the arrow keys move between rows, `Home`/`End` jump, `Enter`
+Reach it from the sidebar (Workspace > Overview, or the project switcher's "All projects"). Keyboard: `j`/`k` or the arrow keys move between rows, `Home`/`End` jump, `Enter`
 opens the project. The totals strip above the list sums every project.
 
 ## API

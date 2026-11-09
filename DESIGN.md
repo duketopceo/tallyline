@@ -516,6 +516,7 @@ Terse, technical, declarative. The UI is written by an engineer for an operator.
 - **The product is the imagery.** Docs, README, and marketing surfaces show real product UI — the board, the inbox, an agent-run trace — framed in `card-panel` chrome on `{colors.canvas}`.
 - **Empty-state illustration:** a single piece of linework — four tally strokes in `{colors.lining}` with one `{colors.lining-bright}` strike — never characters, never stock art.
 - **No photography, no textures, no gradient meshes.** The palette is flat dark + metal + one azure.
+- **One exception: the public landing hero.** The logged-out `/` page may show one three.js scene of the brand mark itself (four tally strokes, one azure strike) as lit boxes with slow drift and pointer lean. It uses only token colors read from CSS variables at runtime (`--color-ink`, `--color-accent`), never loads inside the app, is fetched after first paint, never starts under `prefers-reduced-motion`, and always has the static mark as its fallback. It is not a license for other 3D, textures or decoration.
 - **Avatars:** 20/24/32px circles (`{rounded.full}`). Agent avatars carry the 12px glint badge; human avatars never do — provenance is visual from across the room.
 
 ## Components

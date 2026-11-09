@@ -39,7 +39,8 @@ test("project page: an empty body cannot be posted, a draft loads, projects list
   await expect(page.getByRole("status")).not.toBeEmpty();
 
   await page.goto("/projects");
-  await page.getByRole("link", { name: `${NAME} b` }).click();
+  // the overview row (the sidebar lists the project too, so scope to the page body)
+  await page.getByRole("main").getByRole("link", { name: `${NAME} b` }).click();
   await expect(page).toHaveURL(new RegExp(`/projects/${project.id}$`));
 });
 

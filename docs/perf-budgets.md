@@ -64,7 +64,9 @@ a pass.
 ## Bundle (R10: initial JS < 200kb gzipped)
 
 CI gate `tools/e2e/scripts/bundle-budget.mjs`: **128.9kb** shared initial
-(limit 200), **346.4kb** all chunks (limit 600).
+(limit 200), **724.0kb** all chunks (limit 750; was 600). The landing hero's
+three.js chunk is the difference: it loads after idle on `/` only, is skipped
+under reduced motion, and is not part of any app route or the initial budget.
 
 Per-route script payload measured from served HTML: every route ≤196.4kb
 gzipped. Before this audit, `/insights` shipped 302kb (recharts) and

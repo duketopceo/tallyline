@@ -145,10 +145,6 @@
       "count": 2,
       "tracking": "U4 migration (frontend polish plan)"
     },
-    "apps/web/components/app/page-header.tsx": {
-      "count": 2,
-      "tracking": "U4 migration (frontend polish plan)"
-    },
     "apps/web/components/app/peek-body.tsx": {
       "count": 15,
       "tracking": "U4 migration (frontend polish plan)"
@@ -159,10 +155,6 @@
     },
     "apps/web/components/app/session-badge.tsx": {
       "count": 1,
-      "tracking": "U4 migration (frontend polish plan)"
-    },
-    "apps/web/components/app/shell.tsx": {
-      "count": 15,
       "tracking": "U4 migration (frontend polish plan)"
     },
     "apps/web/components/app/skeletons.tsx": {
@@ -235,14 +227,6 @@
     },
     "apps/web/components/labels-settings.tsx": {
       "count": 9,
-      "tracking": "U4 migration (frontend polish plan)"
-    },
-    "apps/web/components/landing/board-loop.tsx": {
-      "count": 9,
-      "tracking": "U4 migration (frontend polish plan)"
-    },
-    "apps/web/components/landing/landing.tsx": {
-      "count": 36,
       "tracking": "U4 migration (frontend polish plan)"
     },
     "apps/web/components/legal-doc.tsx": {
