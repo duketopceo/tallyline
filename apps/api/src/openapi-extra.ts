@@ -775,6 +775,14 @@ export const extraPaths: Record<string, PathItem> = {
       responses: { "200": { description: "Disconnected" }, "404": { description: "Not connected" } },
     },
   },
+  "/v1/workspaces/{ws}/portfolio": {
+    get: {
+      summary:
+        "Client overview: every project with ticket counts by state, progress, milestone progress, repos, recent issue activity and cached GlitchTip error health, aggregated in a fixed number of queries. Same visibility as the project list",
+      parameters: [wsParam],
+      responses: { "200": { description: "Per-project overview" } },
+    },
+  },
   "/v1/workspaces/{ws}/glitchtip/health": {
     get: {
       summary: "Error health of every GlitchTip-mapped project in the workspace (open count, status, staleness), from the cache",

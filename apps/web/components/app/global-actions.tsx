@@ -5,6 +5,7 @@ import { useRegisterActions } from "./actions";
 import { applyTheme } from "./theme-toggle";
 
 const NAV: [string, string, string, string][] = [
+  ["nav-overview", "Overview", "/overview", "g o"],
   ["nav-my", "My issues", "/my-issues", "g i"],
   ["nav-inbox", "Inbox", "/notifications", "g n"],
   ["nav-triage", "Triage", "/triage", "g t"],
@@ -14,7 +15,6 @@ const NAV: [string, string, string, string][] = [
   ["nav-issues", "All issues", "/issues", "g a"],
   ["nav-insights", "Insights", "/insights", "g s"],
   ["nav-roadmap", "Roadmap", "/roadmap", "g p"],
-  ["nav-projects", "Projects", "/projects", "g o"],
   ["nav-activity", "Activity", "/activity", "g e"],
   ["nav-settings", "Settings", "/settings", "g ,"],
 ];

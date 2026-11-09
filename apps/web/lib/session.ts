@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
 import { upstreamFetch } from "@/lib/upstream";
+import { DEFAULT_LANDING } from "./landing";
 
 export const WORKSPACE_COOKIE = "tly_ws";
 
@@ -74,5 +75,5 @@ export async function setWorkspaceCookie(
 
 // only `/`-relative paths survive — open-redirect guard for return_to
 export function safeReturnTo(v: string | null | undefined): string {
-  return v && v.startsWith("/") && !v.startsWith("//") ? v : "/my-issues";
+  return v && v.startsWith("/") && !v.startsWith("//") ? v : DEFAULT_LANDING;
 }

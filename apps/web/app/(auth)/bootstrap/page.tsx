@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { TallyMark } from "@/components/tally-mark";
+import { DEFAULT_LANDING } from "@/lib/landing";
 
 export default function BootstrapPage() {
   return (
@@ -42,7 +43,7 @@ function BootstrapInner() {
     setPending(false);
     if (res.ok) {
       const d = (await res.json()) as { returnTo?: string };
-      router.replace(d.returnTo ?? "/my-issues");
+      router.replace(d.returnTo ?? DEFAULT_LANDING);
       router.refresh();
     } else {
       const data = (await res.json().catch(() => null)) as {
@@ -71,7 +72,7 @@ function BootstrapInner() {
     });
     setPending(false);
     if (res.ok) {
-      router.replace("/my-issues");
+      router.replace(DEFAULT_LANDING);
       router.refresh();
     } else {
       const data = (await res.json().catch(() => null)) as {

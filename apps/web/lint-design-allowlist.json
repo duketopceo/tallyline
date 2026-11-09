@@ -29,10 +29,6 @@
       "count": 6,
       "tracking": "U4 migration (frontend polish plan)"
     },
-    "apps/web/app/(app)/projects/page.tsx": {
-      "count": 11,
-      "tracking": "U4 migration (frontend polish plan)"
-    },
     "apps/web/app/(app)/settings/cycles/page.tsx": {
       "count": 1,
       "tracking": "U4 migration (frontend polish plan)"

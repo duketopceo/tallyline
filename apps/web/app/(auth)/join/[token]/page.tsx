@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
+import { DEFAULT_LANDING } from "@/lib/landing";
 
 // invite landing — authed users accept in place; unauthed users either log
 // in (return_to round-trips this page) or claim with {name, password} on
@@ -59,7 +60,7 @@ export default function JoinPage({
     setPending(false);
     if (res.ok) {
       setState("done");
-      router.replace("/my-issues");
+      router.replace(DEFAULT_LANDING);
       router.refresh();
     } else if (res.status === 410) {
       setState("gone");
@@ -85,7 +86,7 @@ export default function JoinPage({
     });
     setPending(false);
     if (res.ok) {
-      router.replace("/my-issues");
+      router.replace(DEFAULT_LANDING);
       router.refresh();
     } else if (res.status === 410) {
       setState("gone");

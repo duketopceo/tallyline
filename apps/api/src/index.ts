@@ -31,6 +31,7 @@ import { githubPublicRoutes, githubRoutes } from "./routes/github.js";
 import { importRoutes } from "./routes/import.js";
 import { glitchtipRoutes } from "./routes/glitchtip.js";
 import { glitchtipFeedRoutes } from "./routes/glitchtip-feed.js";
+import { portfolioRoutes } from "./routes/portfolio.js";
 import { glitchtipWebhookRoutes } from "./routes/glitchtip-webhook.js";
 import { intakeRoutes } from "./routes/intake.js";
 import { appleAuthRoutes } from "./routes/apple-auth.js";
@@ -142,6 +143,7 @@ export const app = new Hono()
   .route("/v1", supportRoutes)
   .route("/v1", glitchtipRoutes)
   .route("/v1", glitchtipFeedRoutes)
+  .route("/v1", portfolioRoutes)
   .route("/v1", agentRoutes)
   .route("/v1", resourceRoutes)
   .route("/v1", projectUpdateRoutes)

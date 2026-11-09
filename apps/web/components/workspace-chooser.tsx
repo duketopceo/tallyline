@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { DEFAULT_LANDING } from "@/lib/landing";
 
 interface Membership {
   workspaceId: string;
@@ -27,7 +28,7 @@ export function WorkspaceChooser({
       body: JSON.stringify({ workspaceSlug: slug }),
     });
     if (res.ok) {
-      router.replace("/my-issues");
+      router.replace(DEFAULT_LANDING);
       router.refresh();
     } else {
       setPending(null);
