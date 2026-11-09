@@ -17,7 +17,10 @@ import {
   dispatches,
   events,
   githubInstallations,
+  glitchtipConnections,
   glitchtipIntegrations,
+  glitchtipIssues,
+  glitchtipProjectLinks,
   githubIssueLinks,
   githubRepos,
   invites,
@@ -744,6 +747,25 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
     tokenHash: `gt-hash-${t.sentinel}-0123456789abcdef`,
     tokenLast4: "abcd",
     projectMap: {},
+  });
+  await db.insert(glitchtipConnections).values({
+    workspaceId: t.ws.id,
+    baseUrl: `https://glitchtip.${t.sentinel}.example`,
+    tokenEnc: `v1:enc-${t.sentinel}-0123456789abcdef`,
+    tokenLast4: "cdef",
+  });
+  await db.insert(glitchtipProjectLinks).values({
+    workspaceId: t.ws.id,
+    projectId: project.id,
+    orgSlug: "acme",
+    projectSlug: "api",
+  });
+  await db.insert(glitchtipIssues).values({
+    workspaceId: t.ws.id,
+    projectId: project.id,
+    glitchtipId: "101",
+    title: `Error ${t.sentinel}`,
+    link: `https://glitchtip.${t.sentinel}.example/acme/issues/101`,
   });
   await db
     .insert(intakeEvents)

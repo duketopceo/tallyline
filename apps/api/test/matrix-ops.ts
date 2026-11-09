@@ -724,6 +724,22 @@ export const OPERATIONS: Record<string, Builder> = {
   }),
   "DELETE /v1/workspaces/{ws}/glitchtip": simple("DELETE", (t) => `${base(t)}/glitchtip`),
   "POST /v1/workspaces/{ws}/glitchtip/rotate": simple("POST", (t) => `${base(t)}/glitchtip/rotate`),
+  "GET /v1/workspaces/{ws}/glitchtip/connection": get((t) => `${base(t)}/glitchtip/connection`),
+  "PUT /v1/workspaces/{ws}/glitchtip/connection": async (t) => ({
+    method: "PUT",
+    path: `${base(t)}/glitchtip/connection`,
+    // rejected as a bad address before any network call, so nothing is stored
+    body: { baseUrl: "not a url", token: "matrix-token-0000" },
+  }),
+  "DELETE /v1/workspaces/{ws}/glitchtip/connection": simple("DELETE", (t) => `${base(t)}/glitchtip/connection`),
+  "GET /v1/workspaces/{ws}/glitchtip/health": get((t) => `${base(t)}/glitchtip/health`),
+  "GET /v1/workspaces/{ws}/projects/{id}/glitchtip": projectOp("GET", "/glitchtip"),
+  "PUT /v1/workspaces/{ws}/projects/{id}/glitchtip": projectOp("PUT", "/glitchtip", { orgSlug: "acme", projectSlug: "api" }),
+  "DELETE /v1/workspaces/{ws}/projects/{id}/glitchtip": projectOp("DELETE", "/glitchtip"),
+  "POST /v1/workspaces/{ws}/projects/{id}/glitchtip/sync": projectOp("POST", "/glitchtip/sync"),
+  "GET /v1/workspaces/{ws}/projects/{id}/glitchtip/issues": projectOp("GET", "/glitchtip/issues"),
+  "GET /v1/workspaces/{ws}/projects/{id}/glitchtip/issues/{issueId}": projectOp("GET", "/glitchtip/issues/101"),
+  "POST /v1/workspaces/{ws}/projects/{id}/glitchtip/issues/{issueId}/ticket": projectOp("POST", "/glitchtip/issues/101/ticket"),
   "POST /webhooks/glitchtip/{token}": async () => ({
     method: "POST",
     path: "/webhooks/glitchtip/tly_gt_not-a-real-token",
