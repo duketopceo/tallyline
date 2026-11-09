@@ -149,6 +149,7 @@ export function mountHeroScene(host: HTMLElement): HeroHandle | null {
       strokeMat.dispose();
       strikeMat.dispose();
       renderer.dispose();
+      renderer.forceContextLoss(); // release the GL context now, not at GC (HMR and back-navigation remount)
       canvas.remove();
     },
   };

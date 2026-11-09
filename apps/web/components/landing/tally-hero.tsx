@@ -23,7 +23,7 @@ export function TallyHero() {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (mq.matches) return; // motion is not wanted: never fetch the scene
 
-    let cancelled = false;
+    let cancelled = false; // unmounted, or reduced motion switched on: never mount a late scene
     let dispose: (() => void) | undefined;
     let refresh: (() => void) | undefined;
 
@@ -56,6 +56,7 @@ export function TallyHero() {
     // if the visitor turns reduced motion on mid-visit, drop back to the static mark
     const onMotion = () => {
       if (!mq.matches) return;
+      cancelled = true;
       dispose?.();
       dispose = undefined;
       setState("static");

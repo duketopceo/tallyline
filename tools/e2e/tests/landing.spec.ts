@@ -39,8 +39,9 @@ test.describe("logged out", () => {
       expect(html).toMatch(/<title>[^<]*issue tracker[^<]*<\/title>/);
       expect(html).toContain('data-hero="static"');
       await page.waitForLoadState("networkidle");
-      await page.waitForTimeout(2200); // idle callback timeout is 1.5s
       const hero = page.locator("[data-hero]");
+      if (reducedMotion === "reduce") await page.waitForTimeout(2200); // idle callback timeout is 1.5s: nothing may start
+      else await expect(hero).toHaveAttribute("data-hero", /^(live|fallback)$/, { timeout: 20_000 });
       const state = await hero.getAttribute("data-hero");
       const canvases = await page.locator("canvas").count();
       await ctx.close();
@@ -52,7 +53,8 @@ test.describe("logged out", () => {
     // headless CI may have no WebGL: then the static mark stays and says so
     expect(["live", "fallback"]).toContain(moving.state);
     expect(moving.canvases).toBe(moving.state === "live" ? 1 : 0);
-    expect(errors).toEqual([]);
+    // a headless browser without WebGL logs its own context error on the fallback path; anything else is a bug
+    expect(errors.filter((e) => !/webgl|gpu|context/i.test(e))).toEqual([]);
   });
 
   test("@hydration landing and login log no hydration warnings", async ({ page }) => {

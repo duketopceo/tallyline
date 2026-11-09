@@ -107,7 +107,8 @@ export function Shell({
   const currentLabel = allItems(sections).find((i) => i.current)?.label ?? "tallyline";
   const projectMatch = /^\/projects\/([^/]+)/.exec(pathname);
 
-  const rail = collapsed;
+  // the phone drawer is always full width, whatever rail state a desktop saved
+  const rail = collapsed && !drawer;
   const link = (it: NavItem) => (
     <li key={it.id}>
       <Link
@@ -162,7 +163,7 @@ export function Shell({
         )}
       </div>
       <div className={`px-2 pt-2 ${rail ? "flex justify-center" : ""}`}>
-        <ProjectSwitcher projects={meta.projects} currentId={projectMatch?.[1] ?? null} rail={rail} />
+        <ProjectSwitcher projects={meta.projects} currentId={projectMatch?.[1] ?? null} rail={rail} onChoose={() => setDrawer(false)} />
       </div>
       <div className={`flex gap-1 p-2 ${rail ? "flex-col" : ""}`}>
         <button

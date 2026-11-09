@@ -10,7 +10,7 @@ interface Project { id: string; name: string }
 // overview. The popover is `fixed` so the scrolling sidebar cannot clip it, and
 // it follows the picker popover's keyboard contract: type to filter, arrows to
 // move, Enter to go, Escape to close and give focus back to the button.
-export function ProjectSwitcher({ projects, currentId, rail }: { projects: Project[]; currentId: string | null; rail: boolean }) {
+export function ProjectSwitcher({ projects, currentId, rail, onChoose }: { projects: Project[]; currentId: string | null; rail: boolean; onChoose?: () => void }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -45,6 +45,13 @@ export function ProjectSwitcher({ projects, currentId, rail }: { projects: Proje
     setPos({ left: Math.max(8, Math.min(left, window.innerWidth - w - 8)), top });
   }, [open, rail, projects.length]);
 
+  // keep the highlighted option in view when the list scrolls
+  useEffect(() => {
+    if (!open) return;
+    const id = options[activeIdx]?.id || "all";
+    document.getElementById(`${listId}-${id}`)?.scrollIntoView({ block: "nearest" });
+  }, [open, activeIdx, options, listId]);
+
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -59,6 +66,7 @@ export function ProjectSwitcher({ projects, currentId, rail }: { projects: Proje
   const choose = (id: string | undefined) => {
     if (id === undefined) return;
     close(false);
+    onChoose?.();
     router.push(id ? `/projects/${id}` : "/overview");
   };
 
@@ -89,10 +97,13 @@ export function ProjectSwitcher({ projects, currentId, rail }: { projects: Proje
           ref={boxRef}
           role="dialog"
           aria-label="Switch project"
+          tabIndex={-1}
           style={{ top: pos?.top ?? -999, left: pos?.left ?? -999 }}
           className="fixed z-[70] w-[248px] overflow-hidden rounded-md border border-lining-strong bg-surface-3"
           onKeyDown={(e) => {
-            if (e.key === "Escape") {
+            if (e.key === "Tab") {
+              close(false);
+            } else if (e.key === "Escape") {
               e.preventDefault();
               e.stopPropagation();
               close();
@@ -123,8 +134,8 @@ export function ProjectSwitcher({ projects, currentId, rail }: { projects: Proje
             placeholder="Find a project"
             className="h-9 w-full border-b border-lining bg-transparent px-3 text-body text-ink placeholder:text-ink-subtle focus:outline-none"
           />
-          <ul id={listId} role="listbox" aria-label="Projects" className="max-h-[320px] overflow-y-auto p-1">
-            {options.length === 0 && <li className="px-2 py-3 text-center text-xs text-ink-subtle">No matches</li>}
+          {options.length === 0 && <p className="px-2 py-3 text-center text-xs text-ink-subtle">No matches</p>}
+          <ul id={listId} role="listbox" aria-label="Projects" onMouseDown={(e) => e.preventDefault()} className="max-h-[320px] overflow-y-auto p-1">
             {options.map((o, i) => (
               <li
                 key={o.id || "all"}
