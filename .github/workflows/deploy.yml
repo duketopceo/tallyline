@@ -1,7 +1,7 @@
 name: deploy
 
-# Deploys tallyline.app when a PR merges to main. Runs on a self-hosted runner ON
-# cluster2 (labels: self-hosted, cluster2) and calls ops/deploy.sh in the server's
+# Deploys tallyline.app when a PR merges to main. Runs on a self-hosted runner on
+# the production host (labels: self-hosted, tallyline-deploy) and calls ops/deploy.sh in the server's
 # checkout (backup, build, up, health checks, revision-label check, deploy log).
 # If the deploy fails, the job redeploys the last healthy commit (ops/deploy.sh --rollback).
 # The runner is not given secrets: .env stays on the host and is never printed.
@@ -30,13 +30,13 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: [self-hosted, cluster2]
+    runs-on: [self-hosted, tallyline-deploy]
     timeout-minutes: 45
     environment:
       name: production
       url: https://tallyline.app
     env:
-      DEPLOY_APP_DIR: ${{ vars.DEPLOY_APP_DIR || '/home/khan/apps/tallyline' }}
+      DEPLOY_APP_DIR: ${{ vars.DEPLOY_APP_DIR }}
       TARGET_SHA: ${{ inputs.sha || github.sha }}
     steps:
       - name: Deploy
@@ -44,6 +44,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           # The server checkout is the only thing deployed; this job needs no repo checkout.
+          [ -n "$DEPLOY_APP_DIR" ] || { echo "::error::set the DEPLOY_APP_DIR repository variable"; exit 1; }
           cd "$DEPLOY_APP_DIR"
           case "$TARGET_SHA" in *[!0-9a-fA-F]*|"") echo "::error::bad sha"; exit 1 ;; esac
           echo "from=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
