@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
+import { invalidateMeta } from "@/lib/meta";
 import { WORKSPACE_COOKIE } from "@/lib/session";
 import { upstreamFetch } from "@/lib/upstream";
 
@@ -29,6 +30,8 @@ async function proxy(
       ...(method === "PATCH" ? { body: await req.text() } : {}),
     },
   );
+  // the sidebar and its project switcher read the cached workspace meta
+  if (upstream.ok) invalidateMeta(session);
   const data = (await upstream.json().catch(() => null)) as unknown;
   return NextResponse.json(data, { status: upstream.status });
 }
