@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { LinkedIdentities } from "@/components/account/linked-identities";
+import { PasswordForm, ProfileForm } from "@/components/account/profile-forms";
 import {
   dangerBtn,
   errorMessage,
@@ -14,12 +15,16 @@ import {
 
 export function AccountSettings({
   name,
+  avatarUrl,
+  hasPassword,
   email,
   emailVerified,
   isInstanceAdmin,
   ownedWorkspaces,
 }: {
   name: string;
+  avatarUrl: string | null;
+  hasPassword: boolean;
   email: string;
   emailVerified: boolean;
   isInstanceAdmin: boolean;
@@ -106,7 +111,11 @@ export function AccountSettings({
         )}
       </Panel>
 
+      <ProfileForm name={name} avatarUrl={avatarUrl} />
+
       <LinkedIdentities />
+
+      <PasswordForm hasPassword={hasPassword} />
 
       <Panel
         title="Your data"
@@ -157,7 +166,7 @@ export function AccountSettings({
           <p>This deletes your account immediately and cannot be undone.</p>
           <p>
             Want a copy first?{" "}
-            <a href="/api/account/export" download className="text-accent hover:underline">
+            <a href="/api/account/export" download className="text-accent underline underline-offset-2">
               Download my data
             </a>
           </p>

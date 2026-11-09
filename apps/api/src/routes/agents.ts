@@ -186,6 +186,15 @@ export const agentRoutes = new Hono()
         body.scopes,
         expiresAt,
       );
+      await db.insert(events).values({
+        workspaceId: ws.id,
+        entityType: "agent_key",
+        entityId: id,
+        action: "agent_key_created",
+        actorType: "human",
+        actorId: c.get("session")!.userId,
+        after: { agentId: agent.id, name: body.name, scopes: body.scopes },
+      });
       // plaintext shown once — only the hash is stored
       return c.json({ id, key, scopes: body.scopes, expiresAt: expiresAt ?? null }, 201);
     },

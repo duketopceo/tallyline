@@ -65,6 +65,7 @@ jobs:
           claude plugin validate . --strict
           claude plugin validate ./plugins/tallyline --strict
           cmp SKILL.md plugins/tallyline/skills/tallyline/SKILL.md
+          node --test plugins/tallyline/tests/*.test.mjs
       - name: Package contents (npm pack dry run)
         run: |
           for d in apps/mcp-server tools/cli; do

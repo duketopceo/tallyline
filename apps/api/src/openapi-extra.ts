@@ -93,6 +93,52 @@ export const extraPaths: Record<string, PathItem> = {
       responses: { "200": { description: "tallyline-personal-export JSON" } },
     },
   },
+  "/v1/me": {
+    patch: {
+      summary: "Edit your profile: name and/or avatarUrl (https URL or null). Cookie session only.",
+      requestBody: jsonBody({
+        type: "object",
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 120 },
+          avatarUrl: { type: ["string", "null"], format: "uri", maxLength: 2048 },
+        },
+      }),
+      responses: { "200": { description: "Updated profile" }, "400": { description: "Invalid name or avatar URL" } },
+    },
+  },
+  "/v1/me/password": {
+    post: {
+      summary:
+        "Change your password while signed in (cookie session only). Other sessions are signed out; personal access tokens stay valid.",
+      requestBody: jsonBody({
+        type: "object",
+        required: ["currentPassword", "newPassword"],
+        properties: {
+          currentPassword: { type: "string" },
+          newPassword: { type: "string", minLength: 10, maxLength: 256 },
+        },
+      }),
+      responses: {
+        "200": { description: "Password changed" },
+        "400": { description: "CURRENT_PASSWORD_INVALID or SAME_PASSWORD" },
+        "403": { description: "PASSWORD_DISABLED" },
+        "409": { description: "NO_PASSWORD" },
+      },
+    },
+  },
+  "/v1/workspaces/{ws}/leave": {
+    post: {
+      summary:
+        "Leave a workspace (any member, cookie session only). Body confirm must equal the workspace slug. Refused with 409 LAST_OWNER for the only owner and 409 LAST_WORKSPACE for your only workspace.",
+      parameters: [wsParam],
+      requestBody: jsonBody({ type: "object", required: ["confirm"], properties: { confirm: { type: "string" } } }),
+      responses: {
+        "200": { description: "Left; nextWorkspaceSlug is where your session now points" },
+        "400": { description: "CONFIRM_MISMATCH" },
+        "409": { description: "LAST_OWNER or LAST_WORKSPACE" },
+      },
+    },
+  },
   "/v1/me/deletion": {
     post: {
       summary:
