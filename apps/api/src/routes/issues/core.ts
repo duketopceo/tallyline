@@ -3,7 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { and, asc, desc, eq, exists, gt, ilike, inArray, lt, not, notInArray, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Hono } from "hono";
-import type { IssueState } from "@tallyline/types";
+import { canTransition, InvalidTransitionError, type IssueState } from "@tallyline/types";
 import { db } from "../../db/client.js";
 import { comments, events, issueExternalRefs, issueLabels, issueRelations, issues, labels, projects, teams } from "../../db/schema.js";
 import { actorFromHeaders } from "../../lib/actor.js";
@@ -526,6 +526,21 @@ export const coreIssueRoutes = new Hono()
           body.projectId !== issue.projectId
         ) {
           clearMilestone = true;
+        }
+      }
+      // a state change is validated before the team move too: a refused
+      // transition (409) or human-only review decision (403) must not leave
+      // the issue moved but not transitioned
+      if (body.state !== undefined) {
+        if (!canTransition(original.state, body.state as IssueState)) {
+          throw new InvalidTransitionError(original.state, body.state as IssueState);
+        }
+        if (
+          c.get("agentAuth") &&
+          original.state === "in_review" &&
+          (body.state === "done" || body.state === "in_progress")
+        ) {
+          requireHumanReviewer(c);
         }
       }
       // the move itself: new key, old key kept as an alias, one event. It runs

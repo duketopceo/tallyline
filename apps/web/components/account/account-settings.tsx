@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
+import { LinkedIdentities } from "@/components/account/linked-identities";
 import {
   dangerBtn,
   errorMessage,
@@ -104,6 +105,8 @@ export function AccountSettings({
           </div>
         )}
       </Panel>
+
+      <LinkedIdentities />
 
       <Panel
         title="Your data"
