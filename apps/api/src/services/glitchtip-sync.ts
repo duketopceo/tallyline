@@ -145,6 +145,11 @@ export async function saveConnection(
   const existing = await getConnection(workspaceId);
   const token = input.token?.trim() || undefined;
   if (!existing && !token) throw new HttpError(422, "TOKEN_REQUIRED", "a GlitchTip API token is required");
+  // the saved token is never revealed, so it must not be re-sent to a new
+  // address: pointing the connection elsewhere means entering the token again
+  if (existing && !token && existing.baseUrl !== baseUrl) {
+    throw new HttpError(422, "TOKEN_REQUIRED", "enter the API token again when you change the address");
+  }
   const plain = token ?? (existing ? openToken(existing) : null);
   if (!plain) throw new HttpError(409, "TOKEN_UNREADABLE", "the saved token can't be read; enter it again");
 
@@ -432,6 +437,10 @@ export function issueView(r: CachedIssue) {
 
 export type ErrorHealth = Awaited<ReturnType<typeof projectErrorHealth>>;
 
+function isStale(lastSyncedAt: Date | null): boolean {
+  return !lastSyncedAt || clock.ms() - lastSyncedAt.getTime() > STALE_AFTER_MS;
+}
+
 /** The shape the project page, the MCP tools and the portfolio overview share. */
 export async function projectErrorHealth(workspaceId: string, projectId: string) {
   const conn = await getConnection(workspaceId);
@@ -452,7 +461,7 @@ export async function projectErrorHealth(workspaceId: string, projectId: string)
     .orderBy(desc(glitchtipIssues.lastSeen))
     .limit(RECENT_LIMIT);
   const now = clock.ms();
-  const stale = !link.lastSyncedAt || now - link.lastSyncedAt.getTime() > STALE_AFTER_MS;
+  const stale = isStale(link.lastSyncedAt);
   return {
     connected: true,
     mapped: true,
@@ -471,20 +480,25 @@ export async function projectErrorHealth(workspaceId: string, projectId: string)
   };
 }
 
-/** Health for every mapped project in the workspace (portfolio overview input). */
+/** Health for every mapped project in the workspace (portfolio overview input). One query, no per-project reads. */
 export async function workspaceErrorHealth(workspaceId: string) {
+  const conn = await getConnection(workspaceId);
   const rows = await db
-    .select({ projectId: glitchtipProjectLinks.projectId, name: projects.name })
+    .select({ link: glitchtipProjectLinks, name: projects.name })
     .from(glitchtipProjectLinks)
     .innerJoin(projects, and(eq(projects.id, glitchtipProjectLinks.projectId), eq(projects.workspaceId, workspaceId)))
     .where(eq(glitchtipProjectLinks.workspaceId, workspaceId))
     .orderBy(projects.name);
-  const out = [];
-  for (const r of rows) {
-    const h = await projectErrorHealth(workspaceId, r.projectId);
-    out.push({ projectId: r.projectId, projectName: r.name, status: h.status, openCount: h.openCount, openCapped: h.openCapped, stale: h.stale, lastSyncedAt: h.lastSyncedAt });
-  }
-  return out;
+  return rows.map(({ link, name }) => ({
+    projectId: link.projectId,
+    projectName: name,
+    // without a connection nothing syncs, so the cached counts are not reported
+    status: conn ? link.lastStatus : null,
+    openCount: conn ? link.openCount : 0,
+    openCapped: conn ? link.openCapped : false,
+    stale: conn ? isStale(link.lastSyncedAt) : false,
+    lastSyncedAt: conn ? link.lastSyncedAt : null,
+  }));
 }
 
 export async function listIssues(
@@ -528,7 +542,11 @@ export async function getIssueDetail(workspaceId: string, projectId: string, ref
   let row = await findCached(workspaceId, projectId, ref);
   let eventStatus: ConnectionStatus | "cached" = "cached";
   const fresh = row.latestEventAt && clock.ms() - row.latestEventAt.getTime() < EVENT_TTL_MS;
-  if (!fresh) {
+  // a stored Retry-After also covers this call: serve the cached event until it passes
+  const link = await getLink(workspaceId, projectId);
+  const backingOff = !!link?.backoffUntil && link.backoffUntil.getTime() > clock.ms();
+  if (!fresh && backingOff) eventStatus = "rate_limited";
+  if (!fresh && !backingOff) {
     const conn = await getConnection(workspaceId);
     const token = conn ? openToken(conn) : null;
     if (conn && token) {

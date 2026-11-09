@@ -205,6 +205,16 @@ describe("connection", () => {
     expect(evs).toHaveLength(1);
   });
 
+  it("never re-sends the saved token to a new address", async () => {
+    await connect();
+    seen = [];
+    const r = await call(admin, "PUT", `${ws(A)}/glitchtip/connection`, { baseUrl: "http://localhost:1" });
+    expect(r.status).toBe(422);
+    expect(r.json.error.code).toBe("TOKEN_REQUIRED");
+    expect(seen).toHaveLength(0);
+    expect((await getConnection(A.ws.id))!.baseUrl).toBe(baseUrl);
+  });
+
   it("refuses a token GlitchTip rejects and stores nothing", async () => {
     handler = (_req, res) => {
       res.writeHead(401).end("{}");
@@ -490,6 +500,20 @@ describe("error detail", () => {
     expect(r.json.issue.eventStatus).toBe("unreachable");
     expect(r.json.issue.latestEvent.exception.type).toBe("TypeError");
     expect((await call(member, "GET", `${ws(A)}/projects/${projectId}/glitchtip/issues/9999`)).status).toBe(404);
+  });
+
+  it("does not call GlitchTip for an event while a Retry-After is in force", async () => {
+    await connect();
+    await map();
+    handler = (_req, res) => {
+      res.writeHead(429, { "retry-after": "300" }).end("{}");
+    };
+    await sync();
+    seen = [];
+    const r = await call(member, "GET", `${ws(A)}/projects/${projectId}/glitchtip/issues/101`);
+    expect(r.status).toBe(200);
+    expect(r.json.issue.eventStatus).toBe("rate_limited");
+    expect(seen).toHaveLength(0);
   });
 
   it("does not show another workspace's error", async () => {
