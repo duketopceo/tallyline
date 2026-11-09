@@ -1,0 +1,30 @@
+{
+  "name": "tallyline",
+  "version": "0.2.0",
+  "description": "Work the Tallyline issue board from Gemini CLI: MCP tools plus the Tallyline agent skill",
+  "contextFileName": "SKILL.md",
+  "mcpServers": {
+    "tallyline": {
+      "command": "npx",
+      "args": ["-y", "@tallyline/mcp-server"]
+    }
+  },
+  "settings": [
+    {
+      "name": "Tallyline API URL",
+      "description": "Base URL of your Tallyline API, e.g. https://api.tallyline.app",
+      "envVar": "TALLYLINE_API_URL"
+    },
+    {
+      "name": "Workspace slug",
+      "description": "Your workspace slug, e.g. acme",
+      "envVar": "TALLYLINE_WORKSPACE"
+    },
+    {
+      "name": "Agent key",
+      "description": "A tly_agt_* agent key (or tly_pat_* personal token)",
+      "envVar": "TALLYLINE_TOKEN",
+      "sensitive": true
+    }
+  ]
+}
