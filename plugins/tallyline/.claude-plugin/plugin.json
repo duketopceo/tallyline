@@ -1,8 +1,8 @@
 {
   "name": "tallyline",
   "displayName": "Tallyline",
-  "version": "0.1.0",
-  "description": "Work the Tallyline issue board from Claude Code: MCP tools plus an agent skill for claiming, commenting on and closing issues",
+  "version": "0.2.0",
+  "description": "Work the Tallyline issue board from Claude Code: MCP tools, an agent skill, and session hooks that claim and update the ticket you are working on",
   "author": { "name": "duketopceo", "url": "https://github.com/duketopceo" },
   "homepage": "https://github.com/duketopceo/tallyline",
   "repository": "https://github.com/duketopceo/tallyline",
