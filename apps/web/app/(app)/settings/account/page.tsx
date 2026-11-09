@@ -5,6 +5,7 @@ import { api, type Me } from "@/lib/api";
 export default async function AccountPage() {
   const me = await api<Me>("/v1/auth/me");
   if (!me.data) return <main className="p-8 text-sm text-ink-subtle">Not signed in.</main>;
+  const ids = await api<{ hasPassword: boolean }>("/v1/me/identities");
   const owned = me.data.memberships
     .filter((m) => m.role === "owner" && !m.deletedAt)
     .map((m) => m.workspaceSlug);
@@ -13,6 +14,8 @@ export default async function AccountPage() {
       <SettingsHeader title="Account" />
       <AccountSettings
         name={me.data.name}
+        avatarUrl={me.data.avatarUrl ?? null}
+        hasPassword={ids.data?.hasPassword ?? false}
         email={me.data.email}
         emailVerified={me.data.emailVerified !== false}
         isInstanceAdmin={me.data.isInstanceAdmin}

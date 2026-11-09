@@ -15,7 +15,10 @@ import {
   requestPasswordReset,
   resetPassword,
   sendVerificationEmail,
+  changePassword,
+  PASSWORD_MIN_LENGTH,
   SoleOwnerError,
+  updateProfile,
   verifyEmail,
 } from "../services/account.js";
 import { SESSION_COOKIE } from "../services/auth.js";
@@ -29,10 +32,28 @@ import {
   streamPersonalExport,
   streamWorkspaceExport,
 } from "../services/workspace-lifecycle.js";
+import { leaveWorkspace } from "../services/workspace-membership.js";
 import { isCookieSession } from "./auth.js";
 import { requireWorkspace } from "./workspaces.js";
 
 const tokenField = z.string().min(16).max(256);
+const profileSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    // https only: the value is rendered in <img src> and mail clients
+    avatarUrl: z
+      .url({ protocol: /^https$/ })
+      .max(2048)
+      .nullable()
+      .optional(),
+  })
+  .refine((v) => v.name !== undefined || v.avatarUrl !== undefined, {
+    message: "send name or avatarUrl",
+  });
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1).max(256),
+  newPassword: z.string().min(PASSWORD_MIN_LENGTH).max(256),
+});
 const confirmField = z.object({ confirm: z.string().min(1).max(320) });
 
 function humanOnly(c: Context, what: string) {
@@ -148,6 +169,39 @@ export const accountRoutes = new Hono()
     await audit("identity_unlinked", { userId });
     return c.json({ ok: true });
   })
+  // Settings > Account: name and avatar. Cookie session only.
+  .patch("/me", zValidator("json", profileSchema), async (c) => {
+    const denied = humanOnly(c, "editing your profile");
+    if (denied) return denied;
+    const row = await updateProfile(c.get("session")!.userId, c.req.valid("json"));
+    if (!row) return apiError(c, 404, "NOT_FOUND", "account not found");
+    return c.json(row);
+  })
+  // Settings > Account: change password while signed in. Wrong current
+  // password is a 400 (never 401, so the web client does not sign you out).
+  .post("/me/password", zValidator("json", passwordSchema), async (c) => {
+    const denied = humanOnly(c, "changing your password");
+    if (denied) return denied;
+    if (config_.authDisablePassword) {
+      return apiError(c, 403, "PASSWORD_DISABLED", "password auth is disabled on this instance");
+    }
+    const session = c.get("session")!;
+    const body = c.req.valid("json");
+    const out = await changePassword(session.userId, session.sessionId, body.currentPassword, body.newPassword);
+    if (out.ok) return c.json({ ok: true, sessionsRevoked: out.sessionsRevoked });
+    if (out.reason === "no_password") {
+      return apiError(
+        c,
+        409,
+        "NO_PASSWORD",
+        "this account signs in without a password; use \"Forgot your password?\" on the sign-in page to set one",
+      );
+    }
+    if (out.reason === "same_password") {
+      return apiError(c, 400, "SAME_PASSWORD", "choose a password different from the current one");
+    }
+    return apiError(c, 400, "CURRENT_PASSWORD_INVALID", "the current password is not correct");
+  })
   .post("/me/verify-email/resend", async (c) => {
     const denied = humanOnly(c, "resending the confirmation email");
     if (denied) return denied;
@@ -227,6 +281,24 @@ export const accountRoutes = new Hono()
     }
     const out = await scheduleWorkspaceDeletion(ws.id, c.get("session")!.userId);
     return c.json({ slug: out.slug, deletedAt: out.deletedAt, purgeAfter: out.purgeAfter }, 202);
+  })
+  // A member leaves on their own. The slug is typed to confirm, like deletion.
+  .post("/workspaces/:ws/leave", zValidator("json", confirmField), async (c) => {
+    const denied = humanOnly(c, "leaving a workspace");
+    if (denied) return denied;
+    const ws = await requireWorkspace(c, { allowDeleted: true });
+    if (c.req.valid("json").confirm.trim() !== ws.slug) {
+      return apiError(c, 400, "CONFIRM_MISMATCH", `type the workspace slug '${ws.slug}' exactly to confirm`);
+    }
+    const out = await leaveWorkspace(c.get("session")!.userId, ws.id);
+    if (out.ok) return c.json({ ok: true, nextWorkspaceSlug: out.nextWorkspaceSlug });
+    if (out.reason === "last_owner") {
+      return apiError(c, 409, "LAST_OWNER", "you are the only owner; make someone else an owner or delete the workspace first");
+    }
+    if (out.reason === "last_workspace") {
+      return apiError(c, 409, "LAST_WORKSPACE", "this is your only workspace; delete your account instead, or join another workspace first");
+    }
+    return apiError(c, 404, "NOT_FOUND", "you are not a member of this workspace");
   })
   .post("/workspaces/:ws/restore", async (c) => {
     const denied = humanOnly(c, "workspace restore");

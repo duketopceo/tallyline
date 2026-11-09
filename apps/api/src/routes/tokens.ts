@@ -3,7 +3,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../db/client.js";
-import { userTokens } from "../db/schema.js";
+import { events, userTokens } from "../db/schema.js";
 import { apiError } from "../lib/errors.js";
 import { isCookieSession, requireVerifiedEmail } from "./auth.js";
 import { requireRole } from "../services/members.js";
@@ -48,6 +48,16 @@ export const tokenRoutes = new Hono()
         body.scopes,
         body.expiresAt ? new Date(body.expiresAt) : undefined,
       );
+      // name and scopes only: the secret is never written anywhere but the hash
+      await db.insert(events).values({
+        workspaceId: ws.id,
+        entityType: "user_token",
+        entityId: id,
+        action: "token_created",
+        actorType: "human",
+        actorId: session.userId,
+        after: { name: body.name, scopes: body.scopes },
+      });
       return c.json({ id, token, scopes: body.scopes }, 201);
     },
   )
@@ -88,5 +98,13 @@ export const tokenRoutes = new Hono()
       ws.id,
     );
     if (!revoked) return apiError(c, 404, "NOT_FOUND", "token not found");
+    await db.insert(events).values({
+      workspaceId: ws.id,
+      entityType: "user_token",
+      entityId: c.req.param("id"),
+      action: "token_revoked",
+      actorType: "human",
+      actorId: session.userId,
+    });
     return c.json({ ok: true });
   });

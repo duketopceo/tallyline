@@ -40,6 +40,7 @@ export interface Me {
   workspaceSlug: string;
   name: string;
   email: string;
+  avatarUrl?: string | null;
   emailVerified?: boolean;
   memberships: {
     workspaceId: string;

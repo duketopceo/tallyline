@@ -255,6 +255,7 @@ export const authRoutes = new Hono()
       userId: session.userId,
       name: session.name,
       email: session.email,
+      avatarUrl: session.avatarUrl,
       emailVerified: session.emailVerifiedAt !== null,
       workspaceSlug: session.workspaceSlug,
       memberships,

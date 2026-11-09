@@ -1,10 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type FormEvent } from "react";
+import { validateSlug } from "@/lib/account-forms";
 import {
   dangerBtn,
   errorMessage,
+  field,
+  labelCls,
   formatDate,
   ghostBtn,
   Notice,
@@ -24,6 +27,57 @@ export function WorkspaceSettings({ ws, role }: { ws: WorkspaceInfo; role: strin
   const router = useRouter();
   const isOwner = role === "owner";
   const canExport = role === "owner" || role === "admin";
+  const canEdit = canExport && !ws.deletedAt;
+  const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+  const [detailsSaved, setDetailsSaved] = useState(false);
+
+  const closeLeave = useCallback(() => {
+    setLeaving(false);
+    setLeaveError(null);
+  }, []);
+
+  async function saveDetails(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const name = String(fd.get("name") ?? "").trim();
+    const slug = isOwner ? String(fd.get("slug") ?? "").trim() : ws.slug;
+    setDetailsSaved(false);
+    if (name === "") return setDetailsError("Enter a workspace name.");
+    const badSlug = validateSlug(slug);
+    if (badSlug) return setDetailsError(badSlug);
+    setBusy(true);
+    setDetailsError(null);
+    const res = await fetch("/api/settings/workspace", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name, ...(slug !== ws.slug ? { slug } : {}) }),
+    });
+    setBusy(false);
+    if (res.ok) {
+      setDetailsSaved(true);
+      router.refresh();
+    } else {
+      setDetailsError(await errorMessage(res, "Could not save the workspace. Try again."));
+    }
+  }
+
+  async function leaveWorkspace(typed: string) {
+    setBusy(true);
+    setLeaveError(null);
+    const res = await fetch("/api/settings/workspace/leave", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ confirm: typed }),
+    });
+    if (res.ok) {
+      window.location.assign("/settings/workspace");
+      return;
+    }
+    setBusy(false);
+    setLeaveError(await errorMessage(res, "Could not leave the workspace. Try again."));
+  }
   const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +146,7 @@ export function WorkspaceSettings({ ws, role }: { ws: WorkspaceInfo; role: strin
       {restored && !ws.deletedAt && <Notice tone="healthy" title={`${ws.name} is restored`} />}
 
       <Panel title="Workspace">
-        <dl className="mt-3 grid grid-cols-[96px_1fr] gap-y-2 text-[13px]">
+        <dl className="mt-3 grid grid-cols-[96px_1fr] gap-y-2 text-body">
           <dt className="text-ink-subtle">Name</dt>
           <dd className="text-ink">{ws.name}</dd>
           <dt className="text-ink-subtle">Slug</dt>
@@ -102,6 +156,50 @@ export function WorkspaceSettings({ ws, role }: { ws: WorkspaceInfo; role: strin
         </dl>
       </Panel>
 
+      {canEdit && (
+        <Panel
+          title="Edit workspace"
+          hint={
+            isOwner
+              ? "Changing the slug changes every link to this workspace. Old links stop working."
+              : "Admins can rename the workspace. Only an owner can change the slug."
+          }
+        >
+          <form onSubmit={saveDetails} className="mt-1" noValidate>
+            <label htmlFor="ws-name" className={labelCls}>
+              Name
+            </label>
+            <input id="ws-name" name="name" defaultValue={ws.name} maxLength={120} className={field} />
+            <label htmlFor="ws-slug" className={labelCls}>
+              Slug
+            </label>
+            <input
+              id="ws-slug"
+              name="slug"
+              defaultValue={ws.slug}
+              maxLength={48}
+              readOnly={!isOwner}
+              autoComplete="off"
+              spellCheck={false}
+              className={`${field} font-mono`}
+            />
+            {detailsError && (
+              <p role="alert" className="mt-3 text-[13px] text-urgent">
+                {detailsError}
+              </p>
+            )}
+            {detailsSaved && !detailsError && (
+              <div className="mt-3">
+                <Notice tone="healthy" title="Workspace saved" />
+              </div>
+            )}
+            <button type="submit" disabled={busy} className={`${primaryBtn} mt-4`}>
+              {busy ? "Saving…" : "Save workspace"}
+            </button>
+          </form>
+        </Panel>
+      )}
+
       <Panel
         title="Export"
         hint="One JSON file with every issue, comment, project, cycle, view, agent, webhook and activity entry in this workspace, plus an attachments manifest. Secrets and token hashes are left out."
@@ -109,6 +207,20 @@ export function WorkspaceSettings({ ws, role }: { ws: WorkspaceInfo; role: strin
         <div className="mt-4">
           {canExport ? exportLink : <p className="text-[13px] text-ink-subtle">Admins and owners can export.</p>}
         </div>
+      </Panel>
+
+      <Panel
+        title="Leave workspace"
+        tone="danger"
+        hint={
+          isOwner
+            ? "You can leave once another person is an owner. You lose access to its issues and your personal access tokens for it stop working."
+            : "You lose access to its issues, and your personal access tokens for it stop working. An owner or admin can invite you back."
+        }
+      >
+        <button type="button" onClick={() => setLeaving(true)} className={`${dangerBtn} mt-4`}>
+          Leave workspace
+        </button>
       </Panel>
 
       {!ws.deletedAt && (
@@ -129,6 +241,22 @@ export function WorkspaceSettings({ ws, role }: { ws: WorkspaceInfo; role: strin
         </Panel>
       )}
 
+      {leaving && (
+        <TypeToConfirm
+          title={`Leave ${ws.name}`}
+          expected={ws.slug}
+          inputLabel={`Type ${ws.slug} to confirm`}
+          confirmLabel={`Leave ${ws.slug}`}
+          busy={busy}
+          error={leaveError}
+          onConfirm={leaveWorkspace}
+          onCancel={closeLeave}
+        >
+          <p>You lose access right away. Your issues and comments stay with the workspace.</p>
+          <p>If this is your only workspace, or you are its only owner, you cannot leave yet.</p>
+        </TypeToConfirm>
+      )}
+
       {deleting && (
         <TypeToConfirm
           title={`Delete ${ws.name}`}
@@ -144,7 +272,7 @@ export function WorkspaceSettings({ ws, role }: { ws: WorkspaceInfo; role: strin
           <p>You can restore it for 7 days. After that, it is permanently deleted and cannot be recovered.</p>
           <p>
             Want a copy first?{" "}
-            <a href="/api/settings/workspace/export" download className="text-accent hover:underline">
+            <a href="/api/settings/workspace/export" download className="text-accent underline underline-offset-2">
               Download workspace export
             </a>
           </p>

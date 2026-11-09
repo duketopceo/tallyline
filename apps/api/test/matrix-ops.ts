@@ -752,6 +752,18 @@ export const OPERATIONS: Record<string, Builder> = {
   "GET /v1/me/identities": get(() => "/v1/me/identities"),
   "DELETE /v1/me/identities/{id}": simple("DELETE", () => "/v1/me/identities/00000000-0000-4000-8000-000000000000"),
   "POST /v1/auth/oauth/{provider}/callback": simple("POST", () => "/v1/auth/oauth/nope/callback"),
+  "PATCH /v1/me": simple("PATCH", () => "/v1/me", { name: "Matrix Person" }),
+  // wrong current password (400) so every caller keeps its password and sessions
+  "POST /v1/me/password": simple("POST", () => "/v1/me/password", {
+    currentPassword: "not-the-current-password",
+    newPassword: "a-new-long-password",
+  }),
+  // mismatched slug (400) so no matrix caller actually leaves tenant A
+  "POST /v1/workspaces/{ws}/leave": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/leave`,
+    body: { confirm: `${t.ws.slug}-not-this-one` },
+  }),
   "POST /v1/me/deletion": simple("POST", () => "/v1/me/deletion", { confirm: "not-the-account-email@matrix.test" }),
   "GET /v1/dev/mail": get(() => "/v1/dev/mail"),
   "GET /v1/workspaces/{ws}/export": get((t) => `${base(t)}/export`),
