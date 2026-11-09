@@ -1,0 +1,81 @@
+name: deploy
+
+# Deploys tallyline.app when a PR merges to main. Runs on a self-hosted runner on
+# the production host (labels: self-hosted, tallyline-deploy) and calls ops/deploy.sh in the server's
+# checkout (backup, build, up, health checks, revision-label check, deploy log).
+# If the deploy fails, the job redeploys the last healthy commit (ops/deploy.sh --rollback).
+# The runner is not given secrets: .env stays on the host and is never printed.
+# Add required reviewers to the `production` environment (Settings -> Environments)
+# if merges should wait for approval.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "apps/ios/**"
+      - "**/*.md"
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit on main to deploy (default: the head of main)"
+        required: false
+
+permissions:
+  contents: read
+
+# Never two deploys at once; a newer merge queues behind the running one.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, tallyline-deploy]
+    timeout-minutes: 45
+    environment:
+      name: production
+      url: https://tallyline.app
+    env:
+      DEPLOY_APP_DIR: ${{ vars.DEPLOY_APP_DIR }}
+      TARGET_SHA: ${{ inputs.sha || github.sha }}
+    steps:
+      - name: Deploy
+        id: deploy
+        run: |
+          set -Eeuo pipefail
+          # The server checkout is the only thing deployed; this job needs no repo checkout.
+          [ -n "$DEPLOY_APP_DIR" ] || { echo "::error::set the DEPLOY_APP_DIR repository variable"; exit 1; }
+          cd "$DEPLOY_APP_DIR"
+          case "$TARGET_SHA" in *[!0-9a-fA-F]*|"") echo "::error::bad sha"; exit 1 ;; esac
+          echo "from=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git fetch --quiet origin main
+          # Run the script from origin/main's own copy so a new deploy.sh takes effect immediately.
+          git show "origin/main:ops/deploy.sh" > "$RUNNER_TEMP/deploy.sh"
+          chmod +x "$RUNNER_TEMP/deploy.sh"
+          DEPLOY_APP_DIR="$DEPLOY_APP_DIR" DEPLOY_NO_FETCH=1 "$RUNNER_TEMP/deploy.sh" "$TARGET_SHA"
+
+      - name: Roll back to the last healthy commit
+        if: failure() && steps.deploy.conclusion == 'failure'
+        run: |
+          set -Eeuo pipefail
+          cd "$DEPLOY_APP_DIR"
+          good="$(awk -F'\t' '$5=="ok"{sha=$4} END{if(sha)print sha}' deploy.log)"
+          if [ -z "$good" ]; then echo "::error::no healthy commit in deploy.log; manual recovery needed"; exit 1; fi
+          echo "::warning::rolling back to ${good:0:12}"
+          git show "origin/main:ops/deploy.sh" > "$RUNNER_TEMP/deploy.sh"
+          chmod +x "$RUNNER_TEMP/deploy.sh"
+          DEPLOY_APP_DIR="$DEPLOY_APP_DIR" DEPLOY_NO_FETCH=1 "$RUNNER_TEMP/deploy.sh" --rollback --skip-backup "$good"
+
+      - name: Provenance
+        if: always()
+        run: |
+          cd "$DEPLOY_APP_DIR"
+          {
+            echo "### Deploy"
+            echo "- requested: \`$TARGET_SHA\`"
+            echo "- running now: \`$(git rev-parse HEAD)\` (api image label: \`$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$(docker compose -f docker-compose.selfhost.yml --profile mcp ps -q api | head -n1)" 2>/dev/null || echo unknown)\`)"
+            echo "- result: ${{ job.status }}"
+            echo '```'
+            tail -n 5 deploy.log 2>/dev/null || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

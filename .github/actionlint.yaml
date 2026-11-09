@@ -1,0 +1,4 @@
+self-hosted-runner:
+  labels:
+    - tallyline-deploy
+    - macos-26
