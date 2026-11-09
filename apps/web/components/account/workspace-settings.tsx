@@ -146,7 +146,7 @@ export function WorkspaceSettings({ ws, role }: { ws: WorkspaceInfo; role: strin
       {restored && !ws.deletedAt && <Notice tone="healthy" title={`${ws.name} is restored`} />}
 
       <Panel title="Workspace">
-        <dl className="mt-3 grid grid-cols-[96px_1fr] gap-y-2 text-body">
+        <dl className="mt-3 grid grid-cols-[96px_1fr] gap-y-2 text-[13px]">
           <dt className="text-ink-subtle">Name</dt>
           <dd className="text-ink">{ws.name}</dd>
           <dt className="text-ink-subtle">Slug</dt>
@@ -179,12 +179,18 @@ export function WorkspaceSettings({ ws, role }: { ws: WorkspaceInfo; role: strin
               defaultValue={ws.slug}
               maxLength={48}
               readOnly={!isOwner}
+              aria-describedby={isOwner ? undefined : "ws-slug-note"}
               autoComplete="off"
               spellCheck={false}
               className={`${field} font-mono`}
             />
+            {!isOwner && (
+              <p id="ws-slug-note" className="mt-1 text-xs text-ink-subtle">
+                Only an owner can change the slug.
+              </p>
+            )}
             {detailsError && (
-              <p role="alert" className="mt-3 text-[13px] text-urgent">
+              <p role="alert" className="mt-3 text-body text-urgent">
                 {detailsError}
               </p>
             )}

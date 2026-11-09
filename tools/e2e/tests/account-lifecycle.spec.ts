@@ -234,7 +234,7 @@ test("profile and password: edit name, change password, other device signed out"
   const other = await signedInAs(browser, person.email, person.password);
   const p = mine.page;
   await p.goto("/settings/account");
-  await p.waitForLoadState("networkidle");
+  await expect(p.getByLabel("Name", { exact: true })).toBeVisible();
 
   const renamed = `Renamed ${uniq()}`;
   await p.getByLabel("Name", { exact: true }).fill(renamed);
@@ -255,7 +255,7 @@ test("profile and password: edit name, change password, other device signed out"
   await p.getByLabel("New password", { exact: true }).fill(fresh);
   await p.getByLabel("Confirm new password").fill(fresh);
   await p.getByRole("button", { name: "Change password" }).click();
-  await expect(p.getByText("Password changed", { exact: true })).toBeVisible();
+  await expect(p.getByRole("status").filter({ hasText: "Password changed" })).toBeVisible();
 
   await other.page.goto("/settings/account");
   await expect(other.page).toHaveURL(/\/login/);
@@ -269,7 +269,7 @@ test("leave workspace: refused for someone's only workspace, owner can rename", 
   const person = await invitedUser(page);
   const { ctx, page: p } = await signedInAs(browser, person.email, person.password);
   await p.goto("/settings/workspace");
-  await p.waitForLoadState("networkidle");
+  await expect(p.getByRole("button", { name: "Leave workspace" }).first()).toBeVisible();
   // members see no edit form, only the leave control
   await expect(p.getByRole("button", { name: "Save workspace" })).toHaveCount(0);
   await p.getByRole("button", { name: "Leave workspace" }).first().click();
@@ -280,7 +280,7 @@ test("leave workspace: refused for someone's only workspace, owner can rename", 
 
   // the e2e owner renames the workspace and puts it back
   await page.goto("/settings/workspace");
-  await page.waitForLoadState("networkidle");
+  await expect(page.getByLabel("Name", { exact: true })).toBeVisible();
   const name = page.getByLabel("Name", { exact: true });
   await name.fill("E2E renamed");
   await page.getByRole("button", { name: "Save workspace" }).click();

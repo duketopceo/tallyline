@@ -253,6 +253,27 @@ describe("workspace rename: PATCH /v1/workspaces/:ws", () => {
     expect(await wsEvents(t.ws.id, "workspace_updated")).toHaveLength(0);
   });
 
+  it("answers 409, not 500, when two renames race for the same slug", async () => {
+    const t = await seedTenant("rn6", "RNF");
+    const o = await seedTenant("rn6o", "RNG");
+    const want = `contested-${t.ws.slug}`;
+    const [r1, r2] = await Promise.all([
+      req(`/v1/workspaces/${t.ws.slug}`, { method: "PATCH", cookie: await newSession(t, "owner"), body: { slug: want } }),
+      req(`/v1/workspaces/${o.ws.slug}`, { method: "PATCH", cookie: await newSession(o, "owner"), body: { slug: want } }),
+    ]);
+    expect([r1.status, r2.status].sort()).toEqual([200, 409]);
+  });
+
+  it("keeps slug changes human-only: an owner's PAT can rename but not re-slug", async () => {
+    const t = await seedTenant("rn7", "RNH");
+    const name = await req(`/v1/workspaces/${t.ws.slug}`, { method: "PATCH", bearer: t.pats.write, body: { name: "Via PAT" } });
+    expect(name.status).toBe(200);
+    const slug = await req(`/v1/workspaces/${t.ws.slug}`, { method: "PATCH", bearer: t.pats.write, body: { slug: `pat-${t.ws.slug}` } });
+    expect(slug.status).toBe(403);
+    const [row] = await db.select().from(workspaces).where(eq(workspaces.id, t.ws.id));
+    expect(row!.slug).toBe(t.ws.slug);
+  });
+
   it("refuses members", async () => {
     const t = await seedTenant("rn5", "RNE");
     const member = await newSession(t, "member");
@@ -352,6 +373,29 @@ describe("leave: POST /v1/workspaces/:ws/leave", () => {
     expect(code(r)).toBe("FORBIDDEN_WORKSPACE");
     expect(await db.select().from(workspaceMembers).where(eq(workspaceMembers.workspaceId, t.ws.id))).toHaveLength(3);
     expect(await db.select().from(workspaceMembers).where(eq(workspaceMembers.userId, B.people.owner.id))).toHaveLength(1);
+  });
+
+  it("does not land a leaver in a workspace pending deletion", async () => {
+    const t = await seedTenant("lv6", "LVI");
+    const o = await seedTenant("lv6o", "LVJ");
+    const { userId, cookie } = await twoWorkspaceMember(t, o);
+    await db.update(workspaces).set({ deletedAt: new Date(), purgeAfter: new Date(Date.now() + 86_400_000) }).where(eq(workspaces.id, o.ws.id));
+    const r = await req(`/v1/workspaces/${t.ws.slug}/leave`, { method: "POST", cookie, body: { confirm: t.ws.slug } });
+    expect(r.status).toBe(409);
+    expect(code(r)).toBe("LAST_WORKSPACE");
+    expect(await db.select().from(workspaceMembers).where(eq(workspaceMembers.userId, userId))).toHaveLength(2);
+  });
+
+  it("serializes concurrent leaves: a person in two workspaces keeps one", async () => {
+    const t = await seedTenant("lv7", "LVK");
+    const o = await seedTenant("lv7o", "LVL");
+    const { userId, cookie } = await twoWorkspaceMember(t, o);
+    const [r1, r2] = await Promise.all([
+      req(`/v1/workspaces/${t.ws.slug}/leave`, { method: "POST", cookie, body: { confirm: t.ws.slug } }),
+      req(`/v1/workspaces/${o.ws.slug}/leave`, { method: "POST", cookie, body: { confirm: o.ws.slug } }),
+    ]);
+    expect([r1.status, r2.status].sort()).toEqual([200, 409]);
+    expect(await db.select().from(workspaceMembers).where(eq(workspaceMembers.userId, userId))).toHaveLength(1);
   });
 
   it("refuses anonymous callers, PATs and agent keys", async () => {

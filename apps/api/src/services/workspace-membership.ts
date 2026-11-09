@@ -1,4 +1,4 @@
-import { and, asc, eq, ne } from "drizzle-orm";
+import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { auditEvents, events, sessions, userTokens, workspaceMembers, workspaces } from "../db/schema.js";
 
@@ -16,6 +16,9 @@ export type LeaveOutcome =
  */
 export async function leaveWorkspace(userId: string, workspaceId: string): Promise<LeaveOutcome> {
   return db.transaction(async (tx): Promise<LeaveOutcome> => {
+    // one leave per person at a time: two concurrent leaves from two
+    // workspaces must not both pass the "keeps a workspace" check
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
     const owners = await tx
       .select({ id: workspaceMembers.id, userId: workspaceMembers.userId })
       .from(workspaceMembers)
@@ -36,7 +39,8 @@ export async function leaveWorkspace(userId: string, workspaceId: string): Promi
       .innerJoin(workspaces, eq(workspaces.id, workspaceMembers.workspaceId))
       .where(and(eq(workspaceMembers.userId, userId), ne(workspaceMembers.workspaceId, workspaceId)))
       .orderBy(asc(workspaceMembers.createdAt));
-    const next = others.find((o) => o.deletedAt === null) ?? others[0];
+    // a workspace pending deletion answers 410 to everything: not a landing place
+    const next = others.find((o) => o.deletedAt === null);
     if (!next) return { ok: false, reason: "last_workspace" };
     await tx.delete(workspaceMembers).where(eq(workspaceMembers.id, me.id));
     await tx

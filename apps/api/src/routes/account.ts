@@ -179,7 +179,7 @@ export const accountRoutes = new Hono()
   })
   // Settings > Account: change password while signed in. Wrong current
   // password is a 400 (never 401, so the web client does not sign you out).
-  .post("/me/password", zValidator("json", passwordSchema), async (c) => {
+  .post("/me/password", authLimiter, zValidator("json", passwordSchema), async (c) => {
     const denied = humanOnly(c, "changing your password");
     if (denied) return denied;
     if (config_.authDisablePassword) {

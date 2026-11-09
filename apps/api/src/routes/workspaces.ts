@@ -124,7 +124,13 @@ export const workspaceRoutes = new Hono()
       requireRole(c, "admin");
       const body = c.req.valid("json");
       const renaming = body.slug !== undefined && body.slug !== ws.slug;
-      if (renaming) requireRole(c, "owner");
+      if (renaming) {
+        requireRole(c, "owner");
+        // moving every URL is a human decision: PATs and OAuth JWTs cannot
+        if (!isCookieSession(c)) {
+          return apiError(c, 403, "FORBIDDEN", "changing the slug requires a human session");
+        }
+      }
       if (renaming) {
         const [taken] = await db
           .select({ id: workspaces.id })
@@ -145,7 +151,9 @@ export const workspaceRoutes = new Hono()
         [updated] = await db.update(workspaces).set(set).where(eq(workspaces.id, ws.id)).returning();
       } catch (err) {
         // lost the race for the slug between the check and the update
-        if ((err as { code?: string }).code === "23505") {
+        // drizzle wraps the driver error: the Postgres code is on .cause
+        const e = err as { code?: string; cause?: { code?: string } };
+        if ((e.code ?? e.cause?.code) === "23505") {
           return apiError(c, 409, "SLUG_TAKEN", `workspace '${body.slug}' exists`);
         }
         throw err;
