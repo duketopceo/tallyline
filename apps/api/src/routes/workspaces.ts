@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { db } from "../db/client.js";
-import { teams, users, workspaceMembers, workspaces } from "../db/schema.js";
+import { events, teams, users, workspaceMembers, workspaces } from "../db/schema.js";
 import { apiError, HttpError } from "../lib/errors.js";
 import { isInstanceAdmin, memberOf, requireRole } from "../services/members.js";
 import { isValidTimezone } from "../services/cycle-schedule.js";
@@ -11,12 +11,14 @@ import { config_ } from "../env.js";
 import { isCookieSession } from "./auth.js";
 import { assertWithinLimit } from "../services/entitlements.js";
 
+const slugField = z
+  .string()
+  .min(2)
+  .max(48)
+  .regex(/^[a-z0-9-]+$/);
+
 const createWorkspaceSchema = z.object({
-  slug: z
-    .string()
-    .min(2)
-    .max(48)
-    .regex(/^[a-z0-9-]+$/),
+  slug: slugField,
   name: z.string().min(1).max(120),
 });
 
@@ -111,7 +113,9 @@ export const workspaceRoutes = new Hono()
     zValidator(
       "json",
       z.object({
-        name: z.string().min(1).max(120).optional(),
+        name: z.string().trim().min(1).max(120).optional(),
+        // renaming the slug moves every URL: owners only (checked below)
+        slug: slugField.optional(),
         allowedDomains: z.array(z.string().min(1).max(253)).optional(),
       }),
     ),
@@ -119,16 +123,51 @@ export const workspaceRoutes = new Hono()
       const ws = await requireWorkspace(c);
       requireRole(c, "admin");
       const body = c.req.valid("json");
-      const [updated] = await db
-        .update(workspaces)
-        .set({
-          ...(body.name !== undefined ? { name: body.name } : {}),
-          ...(body.allowedDomains !== undefined
-            ? { allowedDomains: body.allowedDomains.map((d) => d.trim().toLowerCase()) }
-            : {}),
-        })
-        .where(eq(workspaces.id, ws.id))
-        .returning();
+      const renaming = body.slug !== undefined && body.slug !== ws.slug;
+      if (renaming) {
+        requireRole(c, "owner");
+        // moving every URL is a human decision: PATs and OAuth JWTs cannot
+        if (!isCookieSession(c)) {
+          return apiError(c, 403, "FORBIDDEN", "changing the slug requires a human session");
+        }
+      }
+      if (renaming) {
+        const [taken] = await db
+          .select({ id: workspaces.id })
+          .from(workspaces)
+          .where(eq(workspaces.slug, body.slug!));
+        if (taken) return apiError(c, 409, "SLUG_TAKEN", `workspace '${body.slug}' exists`);
+      }
+      const set = {
+        ...(body.name !== undefined ? { name: body.name } : {}),
+        ...(renaming ? { slug: body.slug! } : {}),
+        ...(body.allowedDomains !== undefined
+          ? { allowedDomains: body.allowedDomains.map((d) => d.trim().toLowerCase()) }
+          : {}),
+      };
+      if (Object.keys(set).length === 0) return c.json(ws);
+      let updated: typeof ws | undefined;
+      try {
+        [updated] = await db.update(workspaces).set(set).where(eq(workspaces.id, ws.id)).returning();
+      } catch (err) {
+        // lost the race for the slug between the check and the update
+        // drizzle wraps the driver error: the Postgres code is on .cause
+        const e = err as { code?: string; cause?: { code?: string } };
+        if ((e.code ?? e.cause?.code) === "23505") {
+          return apiError(c, 409, "SLUG_TAKEN", `workspace '${body.slug}' exists`);
+        }
+        throw err;
+      }
+      await db.insert(events).values({
+        workspaceId: ws.id,
+        actorType: "human",
+        actorId: c.get("session")?.userId ?? null,
+        action: "workspace_updated",
+        entityType: "workspace",
+        entityId: ws.id,
+        before: { name: ws.name, slug: ws.slug },
+        after: { fields: Object.keys(set), name: updated!.name, slug: updated!.slug },
+      });
       return c.json(updated);
     },
   )

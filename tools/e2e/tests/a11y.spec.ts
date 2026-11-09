@@ -20,6 +20,7 @@ const APP_PAGES = [
   "/projects/:project",
   "/activity",
   "/settings",
+  "/settings/tokens",
   "/settings/members",
   "/settings/invites",
   "/settings/providers",

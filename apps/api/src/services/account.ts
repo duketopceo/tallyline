@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import {
   accountTokens,
@@ -9,7 +9,7 @@ import {
   users,
 } from "../db/schema.js";
 import { config_ } from "../env.js";
-import { hashPassword } from "./auth.js";
+import { hashPassword, verifyPassword } from "./auth.js";
 import { clock } from "./clock.js";
 import { mailer } from "./mailer.js";
 
@@ -375,4 +375,75 @@ export async function deleteAccount(userId: string): Promise<void> {
     await tx.delete(users).where(eq(users.id, userId));
   });
   await audit("account_deleted", { userId, actorUserId: userId });
+}
+
+// ── profile and password (signed in) ─────────────────────────────────────────
+
+export const PASSWORD_MIN_LENGTH = 10;
+
+export async function updateProfile(
+  userId: string,
+  patch: { name?: string | undefined; avatarUrl?: string | null | undefined },
+): Promise<{ name: string; avatarUrl: string | null } | null> {
+  const [row] = await db
+    .update(users)
+    .set({
+      ...(patch.name !== undefined ? { name: patch.name } : {}),
+      ...(patch.avatarUrl !== undefined ? { avatarUrl: patch.avatarUrl } : {}),
+    })
+    .where(eq(users.id, userId))
+    .returning({ name: users.name, avatarUrl: users.avatarUrl });
+  if (!row) return null;
+  // field names only: the values are personal data and stay out of the log
+  await audit("profile_updated", { userId, meta: { fields: Object.keys(patch) } });
+  return row;
+}
+
+export type ChangePasswordOutcome =
+  | { ok: true; sessionsRevoked: number }
+  | { ok: false; reason: "no_password" | "wrong_current" | "same_password" };
+
+/**
+ * Changes the password of a signed-in person. The current password must match,
+ * every session except `keepSessionId` is signed out, and personal access
+ * tokens stay valid (same rule as a reset). The mail goes to the address on
+ * file so a hijacked session cannot change the password unnoticed.
+ */
+export async function changePassword(
+  userId: string,
+  keepSessionId: string,
+  current: string,
+  next: string,
+): Promise<ChangePasswordOutcome> {
+  const [u] = await db
+    .select({ email: users.email, passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, userId));
+  if (!u?.passwordHash) return { ok: false, reason: "no_password" };
+  if (!verifyPassword(current, u.passwordHash)) {
+    await audit("password_change_refused", { userId });
+    return { ok: false, reason: "wrong_current" };
+  }
+  if (current === next) return { ok: false, reason: "same_password" };
+  const revoked = await db.transaction(async (tx) => {
+    await tx.update(users).set({ passwordHash: hashPassword(next) }).where(eq(users.id, userId));
+    return tx
+      .delete(sessions)
+      .where(and(eq(sessions.userId, userId), ne(sessions.id, keepSessionId)))
+      .returning({ id: sessions.id });
+  });
+  await audit("password_changed", { userId, meta: { sessionsRevoked: revoked.length } });
+  await mailer().send({
+    kind: "password_changed",
+    to: u.email,
+    subject: "Your Tallyline password was changed",
+    text: [
+      `The password for ${u.email} on Tallyline was just changed from Settings,`,
+      "and your other signed-in sessions were signed out.",
+      "",
+      "If this was not you, reset your password and revoke your personal",
+      "access tokens in Settings > Account.",
+    ].join("\n"),
+  });
+  return { ok: true, sessionsRevoked: revoked.length };
 }

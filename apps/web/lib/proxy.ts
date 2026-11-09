@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
-import { WORKSPACE_COOKIE } from "@/lib/session";
+import { setWorkspaceCookie, WORKSPACE_COOKIE } from "@/lib/session";
 import { checkBridgeRequest } from "@/lib/csrf";
 import { upstreamFetch } from "@/lib/upstream";
 
@@ -27,29 +27,46 @@ export async function proxy(
       { status: 401, headers: NO_STORE },
     );
   }
-  let path = upstreamPath;
+  let ws: string | undefined;
   if (init?.workspace !== false) {
-    const ws = jar.get(WORKSPACE_COOKIE)?.value;
+    ws = jar.get(WORKSPACE_COOKIE)?.value;
     if (!ws) {
       return NextResponse.json(
         { error: { code: "NO_WORKSPACE", message: "no active workspace" } },
         { status: 400, headers: NO_STORE },
       );
     }
-    path = `/v1/workspaces/${ws}${upstreamPath}`;
   }
   const method = init?.method ?? req.method;
   const body = ["GET", "HEAD", "DELETE"].includes(method)
     ? undefined
     : await req.text();
-  const upstream = await upstreamFetch(`${API_URL}${path}`, {
-    method,
-    headers: {
-      "content-type": "application/json",
-      cookie: `${SESSION_COOKIE}=${session}`,
-    },
-    ...(body !== undefined ? { body } : {}),
-  });
+  const send = (slug: string | undefined) =>
+    upstreamFetch(`${API_URL}${slug ? `/v1/workspaces/${slug}${upstreamPath}` : upstreamPath}`, {
+      method,
+      headers: {
+        "content-type": "application/json",
+        cookie: `${SESSION_COOKIE}=${session}`,
+      },
+      ...(body !== undefined ? { body } : {}),
+    });
+  let upstream = await send(ws);
+  if (ws && upstream.status === 404) {
+    // the workspace slug was renamed (or the person left it) from another
+    // browser: the cookie is stale. Follow the session's own workspace once.
+    const message = ((await upstream.clone().json().catch(() => null)) as { error?: { message?: string } } | null)
+      ?.error?.message;
+    if (message === "workspace not found") {
+      const me = await upstreamFetch(`${API_URL}/v1/auth/me`, {
+        headers: { cookie: `${SESSION_COOKIE}=${session}` },
+      });
+      const current = ((await me.json().catch(() => null)) as { workspaceSlug?: string } | null)?.workspaceSlug;
+      if (me.ok && current && current !== ws) {
+        upstream = await send(current);
+        await setWorkspaceCookie(current, req);
+      }
+    }
+  }
   const data = (await upstream.json().catch(() => null)) as unknown;
   return NextResponse.json(data, { status: upstream.status, headers: NO_STORE });
 }
