@@ -17,6 +17,9 @@ import {
   cycles,
   dispatches,
   events,
+  glitchtipConnections,
+  glitchtipIssues,
+  glitchtipProjectLinks,
   invites,
   issueLabels,
   issueRelations,
@@ -57,6 +60,9 @@ const WIPE_ORDER = [
   dispatches,
   comments,
   events,
+  glitchtipConnections,
+  glitchtipIssues,
+  glitchtipProjectLinks,
   issueRelations,
   issueSuggestions,
   workflowDefinitions,
@@ -448,6 +454,57 @@ describe("tool surface over the real API", () => {
     expect(posted.res.isError).toBeFalsy();
     expect(posted.data.authorType).toBe("agent");
     expect(posted.data.health).toBe("at_risk");
+  });
+
+  it("list_project_errors and get_project_error read the cached GlitchTip feed", async () => {
+    const proj = await call("create_project", { name: "glitchtip-tool-project" });
+    const projectId = proj.data.id as string;
+
+    const unmapped = await call("list_project_errors", { projectId });
+    expect(unmapped.res.isError).toBeFalsy();
+    expect(unmapped.data).toMatchObject({ mapped: false, issues: [] });
+
+    // GlitchTip itself is not reachable from here; the tools only read the cache
+    await db.insert(glitchtipConnections).values({
+      workspaceId: wsId,
+      baseUrl: "https://glitchtip.example.com",
+      tokenEnc: "v1:unused",
+      tokenLast4: "0000",
+    });
+    await db.insert(glitchtipProjectLinks).values({
+      workspaceId: wsId,
+      projectId,
+      orgSlug: "acme",
+      projectSlug: "api",
+      lastStatus: "ok",
+      lastSyncedAt: new Date(),
+      openCount: 1,
+    });
+    await db.insert(glitchtipIssues).values({
+      workspaceId: wsId,
+      projectId,
+      glitchtipId: "55",
+      title: "ReferenceError: nope",
+      link: "https://glitchtip.example.com/acme/issues/55",
+      latestEvent: { exception: { type: "ReferenceError", value: "nope is not defined", frames: [] } },
+      latestEventAt: new Date(),
+    });
+
+    const listed = await call("list_project_errors", { projectId }, roClient);
+    expect(listed.res.isError).toBeFalsy();
+    expect(listed.data).toMatchObject({ mapped: true, openCount: 1, status: "ok" });
+    const items = listed.data.issues as { title: string; link: string }[];
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ title: "ReferenceError: nope", link: "https://glitchtip.example.com/acme/issues/55" });
+
+    const detail = await call("get_project_error", { projectId, errorId: "55" }, roClient);
+    expect(detail.res.isError).toBeFalsy();
+    expect(detail.data).toMatchObject({ glitchtipId: "55", latestEvent: { exception: { type: "ReferenceError" } } });
+
+    const missing = await call("get_project_error", { projectId, errorId: "999" });
+    expect(missing.res.isError).toBe(true);
+    const foreign = await call("list_project_errors", { projectId: "00000000-0000-4000-8000-000000000000" });
+    expect(foreign.res.isError).toBe(true);
   });
 
   it("create_cycle and assign_cycle schedule work; a foreign-workspace cycle is refused", async () => {
@@ -862,6 +919,8 @@ describe("MCP protocol end-to-end (InMemoryTransport)", () => {
       "create_project",
       "update_project",
       "draft_project_update",
+      "list_project_errors",
+      "get_project_error",
       "post_project_update",
       "import_plan",
       "suggest_sub_issues",
