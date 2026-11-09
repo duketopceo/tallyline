@@ -66,6 +66,8 @@ import {
   XCircle,
   CheckCircle,
   CaretLeft,
+  CaretRight,
+  GitBranch,
 } from "@phosphor-icons/react";
 import type { IssueState } from "@tallyline/types";
 
@@ -88,6 +90,8 @@ export const NAV_ICONS = {
   menu: List,
   collapse: CaretLeft,
   view: FunnelSimple,
+  project: GitBranch,
+  chevron: CaretRight,
 } as const;
 
 // Issue-state vocabulary: ring family, filled progressively.
