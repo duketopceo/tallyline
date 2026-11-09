@@ -229,14 +229,6 @@
       "count": 9,
       "tracking": "U4 migration (frontend polish plan)"
     },
-    "apps/web/components/landing/board-loop.tsx": {
-      "count": 9,
-      "tracking": "U4 migration (frontend polish plan)"
-    },
-    "apps/web/components/landing/landing.tsx": {
-      "count": 36,
-      "tracking": "U4 migration (frontend polish plan)"
-    },
     "apps/web/components/legal-doc.tsx": {
       "count": 6,
       "tracking": "U4 migration (frontend polish plan)"

@@ -5,10 +5,13 @@ import { useId } from "react";
 // Geometry matches assets/brand/mark-small.svg (16px optimized variant).
 export function TallyMark({
   size = 16,
+  fluid = false,
   quiet = false,
   label,
 }: {
   size?: number;
+  /** fill the parent box (keeps the 1:1 aspect) instead of a fixed pixel size */
+  fluid?: boolean;
   quiet?: boolean;
   label?: string;
 }) {
@@ -17,8 +20,8 @@ export function TallyMark({
   const strike = quiet ? "var(--color-lining-bright)" : "var(--color-accent)";
   return (
     <svg
-      width={size}
-      height={size}
+      width={fluid ? "100%" : size}
+      height={fluid ? "100%" : size}
       viewBox="0 0 16 16"
       fill="none"
       className="shrink-0"

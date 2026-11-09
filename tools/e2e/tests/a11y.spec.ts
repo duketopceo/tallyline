@@ -58,6 +58,14 @@ async function issueKey(page: Page): Promise<string> {
   return match![0];
 }
 
+// The landing hero loads after idle. Scan only once it has settled: mounted
+// (live), fell back (no WebGL) or, with reduced motion, never starts (static).
+async function heroSettled(page: Page) {
+  const motionOff = await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches);
+  if (motionOff) return;
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-hero", /^(live|fallback)$/, { timeout: 15_000 });
+}
+
 async function scan(page: Page) {
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   return results.violations.map(
@@ -108,12 +116,52 @@ test.describe("axe logged-out", () => {
     test(`@a11y ${path} ${theme}`, async ({ page }) => {
       await page.goto(path);
       await page.waitForLoadState("networkidle");
+      if (path === "/") await heroSettled(page);
       await forceTheme(page, theme);
       const violations = await scan(page);
       expect(violations, violations.join("\n")).toHaveLength(0);
     });
   }
 });
+
+// landing with the hero in each state: motion allowed (canvas or fallback) and reduced motion (static mark)
+for (const reducedMotion of ["no-preference", "reduce"] as const) {
+  for (const vp of VIEWPORTS) {
+    test.describe(`axe landing ${reducedMotion} @${vp.name}`, () => {
+      test.use({ storageState: { cookies: [], origins: [] }, reducedMotion, viewport: { width: vp.width, height: vp.height } });
+      test("@a11y /", async ({ page }) => {
+        await page.goto("/");
+        await page.waitForLoadState("networkidle");
+        await heroSettled(page);
+        const violations = await scan(page);
+        expect(violations, violations.join("\n")).toHaveLength(0);
+      });
+    });
+  }
+}
+
+// the grouped sidebar with the project switcher open, and the collapsed rail (both themes)
+for (const theme of THEMES) {
+  test.describe(`axe sidebar ${theme}`, () => {
+    test.use({ viewport: { width: 1280, height: 800 } });
+    test(`@a11y sidebar + switcher + rail`, async ({ page }) => {
+      await page.goto("/my-issues");
+      await page.waitForSelector("[data-qc-ready]", { timeout: 20_000 });
+      await forceTheme(page, theme);
+      let v = await scan(page);
+      expect(v, `sidebar: ${v.join("\n")}`).toHaveLength(0);
+      await page.getByRole("button", { name: /^Switch project, current:/ }).click();
+      await expect(page.getByRole("dialog", { name: "Switch project" })).toBeVisible();
+      v = await scan(page);
+      expect(v, `switcher: ${v.join("\n")}`).toHaveLength(0);
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "Collapse sidebar" }).click();
+      v = await scan(page);
+      expect(v, `rail: ${v.join("\n")}`).toHaveLength(0);
+      await page.getByRole("button", { name: "Expand sidebar" }).click();
+    });
+  });
+}
 
 // overlays: peek panel, picker popover, palette, bulk bar (both themes, both widths)
 for (const vp of VIEWPORTS) {
