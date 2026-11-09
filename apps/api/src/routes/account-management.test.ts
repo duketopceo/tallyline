@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { db } from "../db/client.js";
@@ -114,7 +115,8 @@ describe("profile: PATCH /v1/me", () => {
 });
 
 describe("password: POST /v1/me/password", () => {
-  const NEW = "a-brand-new-long-password";
+  const NEW = `pw-${randomBytes(12).toString("hex")}`;
+  const WRONG = `pw-${randomBytes(12).toString("hex")}`;
 
   it("changes the password, keeps this session, signs the others out, audits and mails", async () => {
     const t = await seedTenant("pw", "PWA");
@@ -155,7 +157,7 @@ describe("password: POST /v1/me/password", () => {
     const r = await req("/v1/me/password", {
       method: "POST",
       cookie,
-      body: { currentPassword: "definitely-not-it", newPassword: NEW },
+      body: { currentPassword: WRONG, newPassword: NEW },
     });
     expect(r.status).toBe(400);
     expect(code(r)).toBe("CURRENT_PASSWORD_INVALID");
@@ -183,7 +185,7 @@ describe("password: POST /v1/me/password", () => {
     const none = await req("/v1/me/password", {
       method: "POST",
       cookie: ssoCookie,
-      body: { currentPassword: "anything-at-all", newPassword: NEW },
+      body: { currentPassword: WRONG, newPassword: NEW },
     });
     expect(none.status).toBe(409);
     expect(code(none)).toBe("NO_PASSWORD");
