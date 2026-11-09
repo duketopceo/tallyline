@@ -106,7 +106,7 @@ export function ProjectErrors({
         <p className="text-body text-ink-subtle">
           GlitchTip is not connected to this workspace.{" "}
           {canAdmin ? (
-            <Link href="/settings/integrations" className="text-accent hover:underline">
+            <Link href="/settings/integrations" className="text-accent underline underline-offset-2">
               Connect it in Settings
             </Link>
           ) : (
