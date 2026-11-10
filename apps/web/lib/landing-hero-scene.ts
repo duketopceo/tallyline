@@ -11,6 +11,7 @@ import {
   WebGLRenderer,
 } from "three";
 import { readHeroColors, type HeroColors } from "./hero-colors";
+import { heroStep } from "./hero-motion";
 
 // The landing hero: the brand mark (four tally strokes, one strike) as lit
 // boxes that drift slowly and lean toward the pointer. Geometry follows
@@ -91,31 +92,34 @@ export function mountHeroScene(host: HTMLElement): HeroHandle | null {
     camera.bottom = -half / Math.min(1, aspect);
     camera.updateProjectionMatrix();
   };
-  const ro = new ResizeObserver(resize);
+  // resizing clears the canvas, so a resting scene needs one fresh frame
+  const ro = new ResizeObserver(() => {
+    resize();
+    kick();
+  });
   ro.observe(host);
   resize();
 
-  // pointer lean, eased; idle drift keeps it alive without anyone touching it
-  let tx = 0;
-  let ty = 0;
-  const onMove = (e: PointerEvent) => {
-    tx = (e.clientX / window.innerWidth - 0.5) * 2;
-    ty = (e.clientY / window.innerHeight - 0.5) * 2;
-  };
-  window.addEventListener("pointermove", onMove, { passive: true });
-
+  // pointer lean, eased; a short idle drift (see hero-motion.ts) that comes to rest
+  const pointer = { x: 0, y: 0 };
   let raf = 0;
   let visible = true;
   let tabShown = !document.hidden;
   const t0 = performance.now();
   const frame = (now: number) => {
     raf = 0;
-    const t = (now - t0) / 1000;
-    mark.rotation.y += (tx * 0.35 + Math.sin(t * 0.35) * 0.18 - mark.rotation.y) * 0.06;
-    mark.rotation.x += (ty * 0.2 + Math.cos(t * 0.27) * 0.06 - mark.rotation.x) * 0.06;
+    const step = heroStep((now - t0) / 1000, mark.rotation, pointer);
+    mark.rotation.x = step.rotation.x;
+    mark.rotation.y = step.rotation.y;
     renderer.render(scene, camera);
-    if (visible && tabShown) raf = requestAnimationFrame(frame);
+    if (step.animating && visible && tabShown) raf = requestAnimationFrame(frame);
   };
+  const onMove = (e: PointerEvent) => {
+    pointer.x = (e.clientX / window.innerWidth - 0.5) * 2;
+    pointer.y = (e.clientY / window.innerHeight - 0.5) * 2;
+    kick();
+  };
+  window.addEventListener("pointermove", onMove, { passive: true });
   const kick = () => {
     if (!raf && visible && tabShown) raf = requestAnimationFrame(frame);
   };
