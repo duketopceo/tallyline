@@ -51,7 +51,9 @@ jobs:
           git fetch --quiet origin main
           # Run the script from origin/main's own copy so a new deploy.sh takes effect immediately.
           git show "origin/main:ops/deploy.sh" > "$RUNNER_TEMP/deploy.sh"
-          chmod +x "$RUNNER_TEMP/deploy.sh"
+          # deploy.sh runs backup.sh from its own directory, so it must sit beside it.
+          git show "origin/main:ops/backup.sh" > "$RUNNER_TEMP/backup.sh"
+          chmod +x "$RUNNER_TEMP/deploy.sh" "$RUNNER_TEMP/backup.sh"
           DEPLOY_APP_DIR="$DEPLOY_APP_DIR" DEPLOY_NO_FETCH=1 "$RUNNER_TEMP/deploy.sh" "$TARGET_SHA"
 
       - name: Roll back to the last healthy commit
@@ -63,7 +65,9 @@ jobs:
           if [ -z "$good" ]; then echo "::error::no healthy commit in deploy.log; manual recovery needed"; exit 1; fi
           echo "::warning::rolling back to ${good:0:12}"
           git show "origin/main:ops/deploy.sh" > "$RUNNER_TEMP/deploy.sh"
-          chmod +x "$RUNNER_TEMP/deploy.sh"
+          # deploy.sh runs backup.sh from its own directory, so it must sit beside it.
+          git show "origin/main:ops/backup.sh" > "$RUNNER_TEMP/backup.sh"
+          chmod +x "$RUNNER_TEMP/deploy.sh" "$RUNNER_TEMP/backup.sh"
           DEPLOY_APP_DIR="$DEPLOY_APP_DIR" DEPLOY_NO_FETCH=1 "$RUNNER_TEMP/deploy.sh" --rollback --skip-backup "$good"
 
       - name: Provenance
