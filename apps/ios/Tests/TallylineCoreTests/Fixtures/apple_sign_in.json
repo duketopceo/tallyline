@@ -1,0 +1,15 @@
+{
+  "token": "tly_pat_REDACTED",
+  "tokenType": "Bearer",
+  "expiresAt": "2027-02-09T06:43:23.566Z",
+  "scopes": [
+    "read",
+    "write"
+  ],
+  "deviceId": "a800f47e-d69a-4c1f-aa4b-ff19b9b9c168",
+  "server": "http://localhost:4000",
+  "workspace": {
+    "slug": "tenant-ios-contract-ece77f30",
+    "name": "Tenant tlysentinelios-contractece77f30"
+  }
+}
