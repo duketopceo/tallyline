@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tallyline — Settle</title>
+  <style>
+    :root {
+      --bg: #0F1A12;
+      --fg: #F3E6D4;
+      --muted: #9AAB96;
+      --surface: #C4532F;
+      --life: #FFB627;
+      --glow1: rgba(196, 83, 47, 0.38);
+      --glow2: rgba(255, 182, 39, 0.28);
+      --glow3: rgba(34, 80, 48, 0.35);
+      --chip-bg: #15241A;
+      --chip-border: #2A3F30;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "Inter", "SF Pro Display", system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
+      transition: background 0.35s ease, color 0.35s ease;
+    }
+    #scroll-root { height: 400vh; position: relative; }
+    
+    /* Atmosphere: warm near-black + stacked radials + grain */
+    #atmosphere {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-color: var(--bg);
+      background-image:
+        radial-gradient(55% 65% at 78% 58%, var(--glow1), transparent 72%),
+        radial-gradient(36% 42% at 72% 42%, var(--glow2), transparent 74%),
+        radial-gradient(70% 55% at 12% 8%, var(--glow3), transparent 68%),
+        radial-gradient(120% 80% at 50% 120%, rgba(0,0,0,0.55), transparent 55%);
+      transition: background-color 0.4s ease;
+    }
+    #atmosphere::after {
+      content: "";
+      position: absolute; inset: 0;
+      opacity: 0.14;
+      mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+      background-size: 180px 180px;
+    }
+    #canvas-wrap { z-index: 1; }
+
+    #canvas-wrap { position: fixed; inset: 0; z-index: 1; }
+    canvas { display: block; width: 100%; height: 100%; background: transparent; }
+
+    .overlay {
+      position: fixed; inset: 0; z-index: 3; pointer-events: none;
+      display: grid;
+      grid-template-columns: minmax(220px, 30vw) 1fr;
+      grid-template-rows: auto 1fr auto;
+      padding: clamp(20px, 3vw, 40px);
+      gap: 0 20px;
+    }
+    .brand {
+      grid-column: 1; grid-row: 1;
+      font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--muted); font-weight: 560;
+    }
+    .brand span { color: var(--life); }
+    .scene-stack {
+      grid-column: 1; grid-row: 2;
+      align-self: center;
+      max-width: 300px;
+      padding-right: 8px;
+    }
+    .scene-copy { transition: opacity 0.4s ease, transform 0.4s ease; }
+    .scene-copy h1 {
+      font-size: clamp(26px, 3.8vw, 44px); font-weight: 620;
+      letter-spacing: -0.035em; line-height: 1.08; margin-bottom: 12px;
+      color: var(--fg);
+    }
+    .scene-copy p {
+      font-size: 14px; line-height: 1.55; color: var(--muted); max-width: 30ch;
+    }
+    .scene-copy .a1, .scene-copy .a2 { color: var(--life); }
+    .scene-copy.hidden {
+      opacity: 0; transform: translateY(10px); pointer-events: none; position: absolute;
+    }
+    .footer-hint {
+      grid-column: 1; grid-row: 3;
+      font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); opacity: 0.75;
+    }
+
+    /* Absolutely positioned; JS projects world column x → screen each frame */
+    .column-labels {
+      position: fixed; inset: 0; z-index: 3;
+      pointer-events: none; opacity: 0; transition: opacity 0.45s ease;
+    }
+    .column-labels.visible { opacity: 1; }
+    .column-labels .col-label {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      font-size: 10px; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--muted); font-weight: 560;
+      white-space: nowrap;
+      margin-top: -10px;
+    }
+    .column-labels .col-label.done { color: var(--life); }
+
+    .timeline-labels {
+      position: fixed; inset: 0; z-index: 3;
+      pointer-events: none; opacity: 0; transition: opacity 0.4s ease;
+    }
+    .timeline-labels.visible { opacity: 1; }
+    .timeline-labels .tick-label {
+      position: absolute;
+      transform: translate(-50%, 0);
+      font-size: 10px; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--muted); font-weight: 520;
+      white-space: nowrap;
+    }
+
+    .drag-hint {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+      z-index: 4; font-size: 11px; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--muted);
+      opacity: 0; transition: opacity 0.4s ease; pointer-events: none;
+    }
+    .drag-hint.visible { opacity: 0.85; }
+
+    #timeline-hit {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none; cursor: grab;
+    }
+    #timeline-hit.active { pointer-events: auto; }
+    #timeline-hit.dragging { cursor: grabbing; }
+
+    .palette-switcher {
+      position: fixed; top: 20px; right: 20px; z-index: 6;
+      display: flex; gap: 8px; align-items: center;
+      pointer-events: auto;
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      border: 1px solid var(--chip-border);
+      border-radius: 999px; padding: 6px 8px 6px 12px;
+      backdrop-filter: blur(8px);
+    }
+    .palette-switcher .lab {
+      font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--muted); margin-right: 2px;
+    }
+    .chip {
+      width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent;
+      cursor: pointer; padding: 0;
+      background: conic-gradient(var(--c1) 0 50%, var(--c2) 50% 100%);
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .chip:hover { transform: scale(1.08); }
+    .chip.active { border-color: var(--fg); }
+    .chip:focus-visible { outline: 2px solid var(--life); outline-offset: 2px; }
+
+    .reduced-banner {
+      display: none; position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%); z-index: 5; font-size: 12px; color: var(--muted);
+      background: var(--chip-bg); border: 1px solid var(--chip-border);
+      padding: 8px 14px; border-radius: 999px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .reduced-banner { display: block; }
+      .footer-hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="scroll-root" aria-hidden="true"></div>
+  <div id="atmosphere" aria-hidden="true"></div>
+  <div id="canvas-wrap"><canvas id="c"></canvas></div>
+  <div id="timeline-hit"></div>
+
+  <div class="palette-switcher" role="group" aria-label="Color palette">
+    <span class="lab">Palette</span>
+    <button class="chip active" data-p="0" style="--c1:#12261C;--c2:#FFB627" title="A Deep pine + terracotta / gold" aria-label="Palette A Deep pine"></button>
+    <button class="chip" data-p="1" style="--c1:#1C3B2A;--c2:#FF4F7B" title="B Forest + ember / hot pink" aria-label="Palette B Forest"></button>
+    <button class="chip" data-p="2" style="--c1:#0F1A12;--c2:#C6F432" title="C Moss-black + clay / lime" aria-label="Palette C Moss"></button>
+  </div>
+
+  <div class="overlay">
+    <div class="brand">Tallyline <span>· Settle</span></div>
+    <div class="scene-stack">
+      <div class="scene-copy" id="copy-0">
+        <h1>Chaos, meet <span class="a1">order.</span></h1>
+        <p>Noise finds its place. Enchanted pages gather, sort, and settle.</p>
+      </div>
+      <div class="scene-copy hidden" id="copy-1">
+        <h1>Four columns.<br /><span class="a2">One board.</span></h1>
+        <p>Triage · Todo · In progress · Done — counted like tally marks.</p>
+      </div>
+      <div class="scene-copy hidden" id="copy-2">
+        <h1>Pages take<br />flight.</h1>
+        <p>Light trails carry work across the board — toward Done.</p>
+      </div>
+      <div class="scene-copy hidden" id="copy-3">
+        <h1>Order across<br /><span class="a1">time.</span></h1>
+        <p>Drag the roadmap. See settled work stretch forward.</p>
+      </div>
+    </div>
+    <div class="footer-hint">Scroll to settle · Keys 1–3 for palettes</div>
+  </div>
+
+  <div class="column-labels" id="column-labels">
+    <span class="col-label" data-col="0">Triage</span>
+    <span class="col-label" data-col="1">Todo</span>
+    <span class="col-label" data-col="2">In progress</span>
+    <span class="col-label done" data-col="3">Done</span>
+  </div>
+  <div class="timeline-labels" id="timeline-labels">
+    <span class="tick-label" data-m="0">Jan</span>
+    <span class="tick-label" data-m="1">Mar</span>
+    <span class="tick-label" data-m="2">May</span>
+    <span class="tick-label" data-m="3">Jul</span>
+    <span class="tick-label" data-m="4">Sep</span>
+    <span class="tick-label" data-m="5">Nov</span>
+  </div>
+  <div class="drag-hint" id="drag-hint">Drag to explore →</div>
+  <div class="reduced-banner">Motion reduced — settled view</div>
+
+  <script type="module">
+import * as THREE from 'https://unpkg.com/three@0.170.0/build/three.module.js';
+
+const PALETTES = [
+  {
+    // A — Deep pine + burnt terracotta cards, sunset gold life
+    name: 'Deep pine + terracotta / gold',
+    bg: 0x12261C, bgCss: '#12261C',
+    surface: 0xC4532F, surfaceCss: '#C4532F',
+    fg: '#F3E6D4', muted: '#9AAB96',
+    life: 0xFFB627, lifeCss: '#FFB627',
+    card: 0xC4532F, cardLight: false,
+    glow1: 'rgba(196, 83, 47, 0.40)',
+    glow2: 'rgba(255, 182, 39, 0.30)',
+    glow3: 'rgba(28, 70, 42, 0.40)',
+    chipBg: '#15241A', chipBorder: '#2A3F30',
+    fogDensity: 0.018, light: false,
+  },
+  {
+    // B — Forest green + ember cards, hot pink-sunset life
+    name: 'Forest + ember / hot pink',
+    bg: 0x1C3B2A, bgCss: '#1C3B2A',
+    surface: 0xE2602B, surfaceCss: '#E2602B',
+    fg: '#F6E8D8', muted: '#A8BFA8',
+    life: 0xFF4F7B, lifeCss: '#FF4F7B',
+    card: 0xE2602B, cardLight: false,
+    glow1: 'rgba(226, 96, 43, 0.42)',
+    glow2: 'rgba(255, 79, 123, 0.26)',
+    glow3: 'rgba(40, 90, 55, 0.38)',
+    chipBg: '#173226', chipBorder: '#2F4A38',
+    fogDensity: 0.017, light: false,
+  },
+  {
+    // C — Moss-black + clay cards, acid lime life (evolution of terracotta+lime)
+    name: 'Moss-black + clay / lime',
+    bg: 0x0F1A12, bgCss: '#0F1A12',
+    surface: 0xB5543A, surfaceCss: '#B5543A',
+    fg: '#F1E3CC', muted: '#8FA08A',
+    life: 0xC6F432, lifeCss: '#C6F432',
+    card: 0xB5543A, cardLight: false,
+    glow1: 'rgba(181, 84, 58, 0.42)',
+    glow2: 'rgba(198, 244, 50, 0.18)',
+    glow3: 'rgba(24, 48, 30, 0.45)',
+    chipBg: '#121C14', chipBorder: '#263828',
+    fogDensity: 0.019, light: false,
+  },
+];
+
+let paletteIndex = 0;
+const CARD_COUNT = 96;
+const MAX_ROWS = 9;
+const COL_NAMES = ['Triage', 'Todo', 'In progress', 'Done'];
+const MONTHS = ['Jan', 'Mar', 'May', 'Jul', 'Sep', 'Nov'];
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({
+  canvas, antialias: true, alpha: true, powerPreference: 'high-performance',
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 120);
+camera.position.set(5.5, 0.2, 15);
+
+const amb = new THREE.AmbientLight(0xffffff, 0.8);
+scene.add(amb);
+const key = new THREE.DirectionalLight(0xfff6ea, 1.05);
+key.position.set(6, 10, 12);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+fill.position.set(-6, 2, 4);
+scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffffff, 0.25);
+rim.position.set(2, -4, -6);
+scene.add(rim);
+
+// --- Paper page texture (shared; regenerated per palette) ---
+const texCanvas = document.createElement('canvas');
+texCanvas.width = 128;
+texCanvas.height = 96;
+const texCtx = texCanvas.getContext('2d');
+const paperTex = new THREE.CanvasTexture(texCanvas);
+paperTex.colorSpace = THREE.SRGBColorSpace;
+paperTex.anisotropy = 4;
+
+function paintPaperTexture(cardHex, lightFace) {
+  const w = texCanvas.width, h = texCanvas.height;
+  const r = (cardHex >> 16) & 255;
+  const g = (cardHex >> 8) & 255;
+  const b = cardHex & 255;
+  // Soft vertical paper gradient — lift the face so pages aren't muddy slabs
+  const grad = texCtx.createLinearGradient(0, 0, w * 0.2, h);
+  grad.addColorStop(0, `rgb(${Math.min(255, r + 42)},${Math.min(255, g + 28)},${Math.min(255, b + 16)})`);
+  grad.addColorStop(0.55, `rgb(${r},${g},${b})`);
+  grad.addColorStop(1, `rgb(${Math.max(0, r - 22)},${Math.max(0, g - 18)},${Math.max(0, b - 12)})`);
+  texCtx.fillStyle = grad;
+  texCtx.fillRect(0, 0, w, h);
+
+  // Thin lighter edge (paper lip)
+  texCtx.strokeStyle = lightFace ? 'rgba(255,248,235,0.9)' : 'rgba(255,220,180,0.55)';
+  texCtx.lineWidth = 3.5;
+  texCtx.strokeRect(2.5, 2.5, w - 5, h - 5);
+
+  // Cream "ink" lines on warm pages
+  texCtx.strokeStyle = lightFace ? 'rgba(40,30,20,0.2)' : 'rgba(255,236,210,0.38)';
+  texCtx.lineWidth = 2;
+  const lineYs = [28, 44, 60];
+  const lineWs = [0.72, 0.55, 0.64];
+  for (let i = 0; i < 3; i++) {
+    const y = lineYs[i];
+    texCtx.beginPath();
+    texCtx.moveTo(16, y);
+    texCtx.lineTo(16 + w * lineWs[i], y);
+    texCtx.stroke();
+  }
+  texCtx.strokeStyle = lightFace ? 'rgba(40,30,20,0.32)' : 'rgba(255,240,210,0.5)';
+  texCtx.lineWidth = 2.5;
+  texCtx.beginPath();
+  texCtx.moveTo(16, 16);
+  texCtx.lineTo(16 + w * 0.42, 16);
+  texCtx.stroke();
+
+  paperTex.needsUpdate = true;
+}
+
+const cardGeo = new THREE.PlaneGeometry(0.62, 0.42, 6, 4);
+const basePositions = cardGeo.attributes.position.array.slice();
+const cardMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  map: paperTex,
+  roughness: 0.62,
+  metalness: 0.0,
+  side: THREE.DoubleSide,
+});
+const cards = new THREE.InstancedMesh(cardGeo, cardMat, CARD_COUNT);
+cards.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+const cardColors = new Float32Array(CARD_COUNT * 3);
+cards.instanceColor = new THREE.InstancedBufferAttribute(cardColors, 3);
+scene.add(cards);
+
+// --- Timeline axis (hidden until roadmap) ---
+const timelineGroup = new THREE.Group();
+timelineGroup.visible = false;
+scene.add(timelineGroup);
+
+const axisMat = new THREE.LineBasicMaterial({ color: 0x6E6256, transparent: true, opacity: 0.55 });
+const axisPts = [new THREE.Vector3(-6, -0.15, 0), new THREE.Vector3(16, -0.15, 0)];
+const axisLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(axisPts), axisMat);
+timelineGroup.add(axisLine);
+
+const tickMats = [];
+const tickMeshes = [];
+const MONTH_WORLD_X = []; // filled relative to timeline origin
+for (let m = 0; m < MONTHS.length; m++) {
+  const x = -4 + m * (18 / (MONTHS.length - 1));
+  MONTH_WORLD_X.push(x);
+  const tickGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(x, -0.15, 0),
+    new THREE.Vector3(x, -0.45, 0),
+  ]);
+  const tm = new THREE.LineBasicMaterial({ color: 0x6E6256, transparent: true, opacity: 0.5 });
+  tickMats.push(tm);
+  const tick = new THREE.Line(tickGeo, tm);
+  timelineGroup.add(tick);
+  tickMeshes.push(tick);
+}
+
+const dummy = new THREE.Object3D();
+const colorTmp = new THREE.Color();
+const lifeCol = new THREE.Color();
+const cardFace = new THREE.Color();
+const proj = new THREE.Vector3();
+
+function setInstanceColor(i, color) {
+  cardColors[i * 3] = color.r;
+  cardColors[i * 3 + 1] = color.g;
+  cardColors[i * 3 + 2] = color.b;
+}
+
+function hash(n) {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+function noise3(x, y, z) {
+  return hash(x * 1.31 + y * 7.17 + z * 13.91) * 2 - 1;
+}
+function smoothNoise(x, y, z) {
+  const x0 = Math.floor(x), y0 = Math.floor(y), z0 = Math.floor(z);
+  const fx = x - x0, fy = y - y0, fz = z - z0;
+  const u = fx * fx * (3 - 2 * fx);
+  const v = fy * fy * (3 - 2 * fy);
+  const w = fz * fz * (3 - 2 * fz);
+  const n = (ix, iy, iz) => noise3(x0 + ix, y0 + iy, z0 + iz);
+  const x00 = n(0,0,0) * (1 - u) + n(1,0,0) * u;
+  const x10 = n(0,1,0) * (1 - u) + n(1,1,0) * u;
+  const x01 = n(0,0,1) * (1 - u) + n(1,0,1) * u;
+  const x11 = n(0,1,1) * (1 - u) + n(1,1,1) * u;
+  return (x00 * (1 - v) + x10 * v) * (1 - w) + (x01 * (1 - v) + x11 * v) * w;
+}
+
+const cloudPos = new Float32Array(CARD_COUNT * 3);
+const cloudPhase = new Float32Array(CARD_COUNT);
+const cloudAmp = new Float32Array(CARD_COUNT);
+const boardCol = new Uint8Array(CARD_COUNT);
+const boardRowSeed = new Float32Array(CARD_COUNT);
+const currentPos = new Float32Array(CARD_COUNT * 3);
+const currentVel = new Float32Array(CARD_COUNT * 3);
+const currentRot = new Float32Array(CARD_COUNT * 3);
+const rotVel = new Float32Array(CARD_COUNT * 3);
+const targetPos = new Float32Array(CARD_COUNT * 3);
+const carried = new Uint8Array(CARD_COUNT);
+const scaleCur = new Float32Array(CARD_COUNT);
+const flutterSeed = new Float32Array(CARD_COUNT);
+
+// Board shifted RIGHT + slightly compact so left gutter stays clear at 1280 & 1440
+const colX = [3.2, 5.15, 7.1, 9.05];
+const boardYTop = 3.15;
+const rowPitch = 0.50; // small gap between neat rows
+const CARD_H = 0.42;
+
+for (let i = 0; i < CARD_COUNT; i++) {
+  const r = 1.8 + hash(i + 1) * 5.2;
+  const theta = hash(i + 2) * Math.PI * 2;
+  const phi = Math.acos(2 * hash(i + 3) - 1);
+  cloudPos[i * 3] = r * Math.sin(phi) * Math.cos(theta) * 0.7 + 6.0;
+  cloudPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) * 0.65;
+  cloudPos[i * 3 + 2] = r * Math.cos(phi) * 0.85;
+  cloudPhase[i] = hash(i + 4) * Math.PI * 2;
+  cloudAmp[i] = 0.22 + hash(i + 5) * 0.4;
+  flutterSeed[i] = hash(i + 15) * Math.PI * 2;
+
+  const h = hash(i + 6);
+  let col;
+  if (h < 0.30) col = 0;
+  else if (h < 0.55) col = 1;
+  else if (h < 0.78) col = 2;
+  else col = 3;
+  boardCol[i] = col;
+  boardRowSeed[i] = hash(i + 7);
+
+  currentPos[i * 3] = cloudPos[i * 3];
+  currentPos[i * 3 + 1] = cloudPos[i * 3 + 1];
+  currentPos[i * 3 + 2] = cloudPos[i * 3 + 2];
+  currentRot[i * 3] = (hash(i + 40) - 0.5) * Math.PI;
+  currentRot[i * 3 + 1] = (hash(i + 41) - 0.5) * Math.PI;
+  currentRot[i * 3 + 2] = (hash(i + 42) - 0.5) * Math.PI;
+  scaleCur[i] = 0.95 + hash(i + 9) * 0.12;
+}
+
+function packBoardTargets() {
+  const counts = [0, 0, 0, 0];
+  for (let i = 0; i < CARD_COUNT; i++) {
+    const col = carried[i] === 2 ? 3 : boardCol[i];
+    counts[col]++;
+  }
+  const cursors = [0, 0, 0, 0];
+  const order = Array.from({ length: CARD_COUNT }, (_, i) => i);
+  order.sort((a, b) => {
+    const ca = carried[a] === 2 ? 3 : boardCol[a];
+    const cb = carried[b] === 2 ? 3 : boardCol[b];
+    if (ca !== cb) return ca - cb;
+    return boardRowSeed[a] - boardRowSeed[b];
+  });
+  for (const i of order) {
+    const col = carried[i] === 2 ? 3 : boardCol[i];
+    const idx = cursors[col]++;
+    const row = idx % MAX_ROWS;
+    const layer = Math.floor(idx / MAX_ROWS);
+    // Neat stack with visible gap (rowPitch > card height * scale roughly)
+    targetPos[i * 3] = colX[col];
+    targetPos[i * 3 + 1] = boardYTop - row * rowPitch;
+    targetPos[i * 3 + 2] = -layer * 0.4;
+  }
+}
+packBoardTargets();
+
+// Agents
+const AGENT_COUNT = 4;
+const agents = [];
+const tmpV = new THREE.Vector3();
+const tmpA = new THREE.Vector3();
+
+for (let a = 0; a < AGENT_COUNT; a++) {
+  const light = new THREE.PointLight(0xFF5A1F, 0, 5, 2);
+  scene.add(light);
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(0.07, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0xFF5A1F, transparent: true, opacity: 0 })
+  );
+  scene.add(core);
+  const trailPts = 36;
+  const positions = new Float32Array(trailPts * 3);
+  const trailGeo = new THREE.BufferGeometry();
+  trailGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const trail = new THREE.Line(
+    trailGeo,
+    new THREE.LineBasicMaterial({
+      color: 0xFF5A1F, transparent: true, opacity: 0,
+      depthWrite: false,
+    })
+  );
+  scene.add(trail);
+  agents.push({
+    light, core, trail, trailPts, positions,
+    active: false, t: 0, cardIndex: -1,
+    from: new THREE.Vector3(), mid: new THREE.Vector3(), to: new THREE.Vector3(),
+  });
+}
+
+const carryCandidates = [];
+for (let i = 0; i < CARD_COUNT; i++) {
+  if (boardCol[i] < 3 && hash(i + 20) > 0.48) carryCandidates.push(i);
+}
+const carryList = carryCandidates.slice(0, 14);
+let agentAssignCursor = 0;
+let agentsStarted = false;
+
+// Roadmap: cards on 4 lanes above a timeline axis
+const roadmapPos = new Float32Array(CARD_COUNT * 3);
+const LANE_Y = [1.55, 0.95, 0.35, -0.25];
+for (let i = 0; i < CARD_COUNT; i++) {
+  const lane = boardCol[i];
+  const along = (boardRowSeed[i] * 0.55 + (i % 24) / 24 * 0.45);
+  roadmapPos[i * 3] = (along - 0.5) * 14 + 9.2; // keep clear of left headline gutter
+  roadmapPos[i * 3 + 1] = LANE_Y[lane];
+  roadmapPos[i * 3 + 2] = 0.05;
+}
+
+let scrollTarget = 0;
+let scrollSmooth = 0;
+let roadmapDrag = 0;
+let roadmapDragVel = 0;
+let isDragging = false;
+let dragLastX = 0;
+
+function getScrollProgress() {
+  const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+  return Math.min(1, Math.max(0, window.scrollY / max));
+}
+window.addEventListener('scroll', () => { scrollTarget = getScrollProgress(); }, { passive: true });
+
+const hit = document.getElementById('timeline-hit');
+hit.addEventListener('pointerdown', (e) => {
+  if (scrollSmooth < 0.72) return;
+  isDragging = true; dragLastX = e.clientX;
+  hit.classList.add('dragging');
+  hit.setPointerCapture(e.pointerId);
+});
+hit.addEventListener('pointermove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - dragLastX;
+  dragLastX = e.clientX;
+  roadmapDragVel = dx * 0.014;
+  roadmapDrag += roadmapDragVel;
+});
+const endDrag = () => { isDragging = false; hit.classList.remove('dragging'); };
+hit.addEventListener('pointerup', endDrag);
+hit.addEventListener('pointercancel', endDrag);
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+const copies = [0, 1, 2, 3].map((i) => document.getElementById(`copy-${i}`));
+const colLabelsEl = document.getElementById('column-labels');
+const colLabelNodes = [...colLabelsEl.querySelectorAll('.col-label')];
+const timelineLabelsEl = document.getElementById('timeline-labels');
+const tickLabelNodes = [...timelineLabelsEl.querySelectorAll('.tick-label')];
+const dragHint = document.getElementById('drag-hint');
+
+function setSceneCopy(active) {
+  copies.forEach((el, i) => el.classList.toggle('hidden', i !== active));
+}
+
+function spring(pos, vel, target, dt, stiffness, damping) {
+  const f = (target - pos) * stiffness;
+  vel = vel * damping + f * dt;
+  pos = pos + vel * dt * 60;
+  return [pos, vel];
+}
+function lerp(a, b, t) { return a + (b - a) * t; }
+function smoothstep(e0, e1, x) {
+  const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+}
+
+/** Project a world point to CSS pixel coords (viewport). */
+function worldToScreen(x, y, z, out) {
+  proj.set(x, y, z).project(camera);
+  const w = window.innerWidth, h = window.innerHeight;
+  out.x = (proj.x * 0.5 + 0.5) * w;
+  out.y = (-proj.y * 0.5 + 0.5) * h;
+  out.z = proj.z; // clip depth
+  return out;
+}
+const screenTmp = { x: 0, y: 0, z: 0 };
+
+function updateColumnLabelPositions() {
+  // Place each label above the top card of that column in screen space
+  for (let c = 0; c < 4; c++) {
+    const wx = colX[c];
+    const wy = boardYTop + CARD_H * 0.55 + 0.15;
+    worldToScreen(wx, wy, 0, screenTmp);
+    const el = colLabelNodes[c];
+    if (screenTmp.z > 1) {
+      el.style.visibility = 'hidden';
+      continue;
+    }
+    el.style.visibility = 'visible';
+    el.style.left = `${screenTmp.x}px`;
+    el.style.top = `${screenTmp.y}px`;
+  }
+}
+
+function updateTimelineLabelPositions() {
+  for (let m = 0; m < MONTHS.length; m++) {
+    const wx = MONTH_WORLD_X[m] + roadmapDrag;
+    const wy = -0.7;
+    worldToScreen(wx, wy, 0, screenTmp);
+    const el = tickLabelNodes[m];
+    if (screenTmp.z > 1 || screenTmp.x < -40 || screenTmp.x > window.innerWidth + 40) {
+      el.style.visibility = 'hidden';
+      continue;
+    }
+    el.style.visibility = 'visible';
+    el.style.left = `${screenTmp.x}px`;
+    el.style.top = `${screenTmp.y}px`;
+  }
+}
+
+function applyPalette(idx) {
+  paletteIndex = ((idx % 3) + 3) % 3;
+  const p = PALETTES[paletteIndex];
+  document.documentElement.style.setProperty('--bg', p.bgCss);
+  document.documentElement.style.setProperty('--fg', p.fg);
+  document.documentElement.style.setProperty('--muted', p.muted);
+  document.documentElement.style.setProperty('--surface', p.surfaceCss);
+  document.documentElement.style.setProperty('--life', p.lifeCss);
+  document.documentElement.style.setProperty('--glow1', p.glow1);
+  document.documentElement.style.setProperty('--glow2', p.glow2);
+  document.documentElement.style.setProperty('--glow3', p.glow3);
+  document.documentElement.style.setProperty('--chip-bg', p.chipBg);
+  document.documentElement.style.setProperty('--chip-border', p.chipBorder);
+  document.body.style.background = p.bgCss;
+
+  // Let CSS atmosphere (radials + grain) show through; fog still tints depth
+  renderer.setClearColor(p.bg, 0);
+  scene.fog = null; // atmosphere handled in CSS
+  lifeCol.set(p.life);
+  cardFace.set(p.card);
+  paintPaperTexture(p.card, p.cardLight);
+  cardMat.color.set(0xffffff);
+
+  const axisColor = p.light ? 0x6E6256 : 0xC8B8A4;
+  axisMat.color.setHex(axisColor);
+  tickMats.forEach((m) => m.color.setHex(axisColor));
+
+  // Warm key for forest sunset — no cool fill
+  amb.color.setHex(0xffe2c4); amb.intensity = 0.7;
+  key.color.setHex(0xffc889); key.intensity = 1.25;
+  fill.color.setHex(0xff9060); fill.intensity = 0.28;
+  rim.color.copy(lifeCol); rim.intensity = 0.4;
+
+  for (const agent of agents) {
+    agent.light.color.copy(lifeCol);
+    agent.core.material.color.copy(lifeCol);
+    agent.trail.material.color.copy(lifeCol);
+  }
+
+  for (let i = 0; i < CARD_COUNT; i++) {
+    if (carried[i] === 2) {
+      colorTmp.copy(lifeCol).lerp(new THREE.Color(1, 1, 1), 0.55);
+    } else if (hash(i + 10) > 0.95) {
+      colorTmp.copy(lifeCol).lerp(new THREE.Color(1, 1, 1), 0.4);
+    } else {
+      // Keep near-white so texture shows; tiny warm variation
+      const warm = (hash(i + 12) - 0.5) * 0.04;
+      colorTmp.setRGB(1 + warm * 0.05, 1 + warm * 0.02, 1 - Math.abs(warm) * 0.04);
+    }
+    setInstanceColor(i, colorTmp);
+  }
+  cards.instanceColor.needsUpdate = true;
+
+  document.querySelectorAll('.chip').forEach((el) => {
+    el.classList.toggle('active', Number(el.dataset.p) === paletteIndex);
+  });
+}
+
+document.querySelectorAll('.chip').forEach((el) => {
+  el.addEventListener('click', () => applyPalette(Number(el.dataset.p)));
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === '1') applyPalette(0);
+  if (e.key === '2') applyPalette(1);
+  if (e.key === '3') applyPalette(2);
+});
+
+function startAgent(aIndex, delay) {
+  const agent = agents[aIndex];
+  if (agentAssignCursor >= carryList.length) {
+    agent.active = false;
+    agent.light.intensity = 0;
+    agent.core.material.opacity = 0;
+    agent.trail.material.opacity = 0;
+    return;
+  }
+  const cardIndex = carryList[agentAssignCursor++];
+  if (carried[cardIndex] !== 0) { startAgent(aIndex, delay); return; }
+  carried[cardIndex] = 1;
+  agent.active = true;
+  agent.t = -delay;
+  agent.cardIndex = cardIndex;
+  agent.from.set(
+    currentPos[cardIndex * 3],
+    currentPos[cardIndex * 3 + 1],
+    currentPos[cardIndex * 3 + 2]
+  );
+  const doneRow = Math.min(MAX_ROWS - 1, Math.floor(hash(cardIndex + 40) * 5));
+  agent.to.set(colX[3], boardYTop - doneRow * rowPitch, 0.25);
+  agent.mid.set(
+    lerp(agent.from.x, agent.to.x, 0.45),
+    Math.max(agent.from.y, agent.to.y) + 1.5 + hash(cardIndex + 41) * 1.2,
+    1.8
+  );
+  for (let k = 0; k < agent.trailPts; k++) {
+    agent.positions[k * 3] = agent.from.x;
+    agent.positions[k * 3 + 1] = agent.from.y;
+    agent.positions[k * 3 + 2] = agent.from.z;
+  }
+}
+
+function bezier(p0, p1, p2, t, out) {
+  const u = 1 - t;
+  out.x = u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x;
+  out.y = u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y;
+  out.z = u * u * p0.z + 2 * u * t * p1.z + t * t * p2.z;
+  return out;
+}
+
+function assignAgents(p) {
+  if (p < 0.40 || agentsStarted) return;
+  agentsStarted = true;
+  for (let a = 0; a < AGENT_COUNT; a++) startAgent(a, a * 0.12);
+}
+
+const camPos = new THREE.Vector3(5.5, 0.2, 15);
+const camTarget = new THREE.Vector3(6.1, 0.3, 0);
+
+function updatePaperFlutter(time, chaosAmt) {
+  const pos = cardGeo.attributes.position;
+  const arr = pos.array;
+  for (let i = 0; i < pos.count; i++) {
+    const ox = basePositions[i * 3];
+    const oy = basePositions[i * 3 + 1];
+    const oz = basePositions[i * 3 + 2];
+    const wave = Math.sin(ox * 6 + time * 5.5) * Math.cos(oy * 5 + time * 4.2);
+    const flap = Math.sin(ox * 3.5 - time * 7) * 0.5;
+    arr[i * 3] = ox;
+    arr[i * 3 + 1] = oy;
+    arr[i * 3 + 2] = oz + (wave * 0.05 + flap * 0.035) * chaosAmt;
+  }
+  pos.needsUpdate = true;
+  cardGeo.computeVertexNormals();
+}
+
+function updateCards(dt, p, time) {
+  const toBoard = smoothstep(0.10, 0.28, p);
+  const agentPhase = smoothstep(0.38, 0.66, p);
+  const toRoad = smoothstep(0.64, 0.88, p);
+  const chaosAmt = (1 - toBoard) * (1 - toRoad * 0.5);
+
+  if (toBoard > 0.02) packBoardTargets();
+  if (agentPhase > 0.02) assignAgents(p);
+  updatePaperFlutter(time, chaosAmt < 0.05 ? 0 : chaosAmt);
+
+  const stiffness = lerp(12, 34, toBoard);
+  const damping = lerp(0.88, 0.68, toBoard);
+
+  timelineGroup.visible = toRoad > 0.15;
+  timelineGroup.position.x = roadmapDrag;
+  axisMat.opacity = 0.55 * smoothstep(0.64, 0.78, p);
+  tickMats.forEach((m) => { m.opacity = axisMat.opacity; });
+
+  for (let i = 0; i < CARD_COUNT; i++) {
+    const n = time * 0.28 + cloudPhase[i];
+    const cx = cloudPos[i * 3] + smoothNoise(n, i * 0.07, 0) * cloudAmp[i] * 2.2;
+    const cy = cloudPos[i * 3 + 1] + smoothNoise(0, n, i * 0.07) * cloudAmp[i] * 2.0;
+    const cz = cloudPos[i * 3 + 2] + smoothNoise(i * 0.07, 0, n) * cloudAmp[i];
+
+    const bx = targetPos[i * 3], by = targetPos[i * 3 + 1], bz = targetPos[i * 3 + 2];
+    // Roadmap positions move with drag via timelineGroup offset baked into x
+    const rx = roadmapPos[i * 3] + roadmapDrag;
+    const ry = roadmapPos[i * 3 + 1];
+    const rz = roadmapPos[i * 3 + 2];
+
+    let tx = lerp(cx, bx, toBoard);
+    let ty = lerp(cy, by, toBoard);
+    let tz = lerp(cz, bz, toBoard);
+    tx = lerp(tx, rx, toRoad);
+    ty = lerp(ty, ry, toRoad);
+    tz = lerp(tz, rz, toRoad);
+
+    const beingCarried = carried[i] === 1 && agentPhase > 0.05 && toRoad < 0.45;
+    if (!beingCarried) {
+      let [px, vx] = spring(currentPos[i * 3], currentVel[i * 3], tx, dt, stiffness, damping);
+      let [py, vy] = spring(currentPos[i * 3 + 1], currentVel[i * 3 + 1], ty, dt, stiffness, damping);
+      let [pz, vz] = spring(currentPos[i * 3 + 2], currentVel[i * 3 + 2], tz, dt, stiffness, damping);
+      currentPos[i * 3] = px; currentVel[i * 3] = vx;
+      currentPos[i * 3 + 1] = py; currentVel[i * 3 + 1] = vy;
+      currentPos[i * 3 + 2] = pz; currentVel[i * 3 + 2] = vz;
+    }
+
+    const flap = Math.sin(time * 6.5 + flutterSeed[i]) * 0.5 * chaosAmt;
+    const tumbleX = Math.sin(time * 0.9 + cloudPhase[i]) * 1.0 * chaosAmt + flap * 0.35;
+    const tumbleY = Math.cos(time * 0.7 + cloudPhase[i] * 1.3) * 1.3 * chaosAmt;
+    const tumbleZ = Math.sin(time * 1.1 + flutterSeed[i]) * 0.75 * chaosAmt + flap;
+
+    const targetRX = lerp(lerp(tumbleX, 0, toBoard), -0.95, toRoad); // flatter on roadmap (top-down-ish)
+    const targetRY = lerp(lerp(tumbleY, 0, toBoard), 0, toRoad);
+    const targetRZ = lerp(lerp(tumbleZ, 0, toBoard), 0, toRoad);
+
+    for (let a = 0; a < 3; a++) {
+      const tgt = a === 0 ? targetRX : a === 1 ? targetRY : targetRZ;
+      const [r, rv] = spring(currentRot[i * 3 + a], rotVel[i * 3 + a], tgt, dt, 22, 0.72);
+      currentRot[i * 3 + a] = r;
+      rotVel[i * 3 + a] = rv;
+    }
+    if (beingCarried) {
+      currentRot[i * 3] += Math.sin(time * 10 + i) * 0.12;
+      currentRot[i * 3 + 2] += Math.cos(time * 9 + i) * 0.18;
+    }
+
+    dummy.position.set(currentPos[i * 3], currentPos[i * 3 + 1], currentPos[i * 3 + 2]);
+    dummy.rotation.set(currentRot[i * 3], currentRot[i * 3 + 1], currentRot[i * 3 + 2]);
+    const s = scaleCur[i] * lerp(1.02, 1, toBoard) * lerp(1, 0.88, toRoad);
+    dummy.scale.set(s, s, s);
+    dummy.updateMatrix();
+    cards.setMatrixAt(i, dummy.matrix);
+  }
+  cards.instanceMatrix.needsUpdate = true;
+}
+
+function updateAgents(dt, p) {
+  const agentPhase = smoothstep(0.38, 0.66, p);
+  const fadeOut = 1 - smoothstep(0.64, 0.78, p);
+
+  for (let a = 0; a < AGENT_COUNT; a++) {
+    const agent = agents[a];
+    if (!agent.active || agentPhase < 0.01) {
+      agent.light.intensity = 0;
+      agent.core.material.opacity = 0;
+      agent.trail.material.opacity = Math.max(0, agent.trail.material.opacity * 0.9);
+      continue;
+    }
+    agent.t += dt * 0.5;
+    if (agent.t < 0) {
+      agent.light.intensity = 0;
+      agent.core.material.opacity = 0;
+      continue;
+    }
+    const t = Math.min(1, agent.t);
+    const ease = t * t * (3 - 2 * t);
+    bezier(agent.from, agent.mid, agent.to, ease, tmpV);
+
+    agent.light.position.copy(tmpV);
+    agent.core.position.copy(tmpV);
+    const pulse = Math.sin(Math.PI * Math.min(1, t + 0.02));
+    agent.light.intensity = 2.2 * agentPhase * fadeOut * pulse;
+    agent.core.material.opacity = 0.95 * agentPhase * fadeOut * pulse;
+
+    const ci = agent.cardIndex;
+    if (ci >= 0 && carried[ci] === 1) {
+      currentPos[ci * 3] = tmpV.x;
+      currentPos[ci * 3 + 1] = tmpV.y - 0.1;
+      currentPos[ci * 3 + 2] = tmpV.z;
+      currentVel[ci * 3] = currentVel[ci * 3 + 1] = currentVel[ci * 3 + 2] = 0;
+      colorTmp.copy(lifeCol).lerp(new THREE.Color(1, 1, 1), 0.35);
+      setInstanceColor(ci, colorTmp);
+      cards.instanceColor.needsUpdate = true;
+    }
+
+    const posArr = agent.positions;
+    for (let k = agent.trailPts - 1; k > 0; k--) {
+      posArr[k * 3] = posArr[(k - 1) * 3];
+      posArr[k * 3 + 1] = posArr[(k - 1) * 3 + 1];
+      posArr[k * 3 + 2] = posArr[(k - 1) * 3 + 2];
+    }
+    posArr[0] = tmpV.x; posArr[1] = tmpV.y; posArr[2] = tmpV.z;
+    agent.trail.geometry.attributes.position.needsUpdate = true;
+    agent.trail.material.opacity = 0.85 * agentPhase * fadeOut * (t > 0.01 ? 1 : 0);
+
+    if (t >= 1) {
+      if (ci >= 0) {
+        carried[ci] = 2;
+        boardCol[ci] = 3;
+        colorTmp.copy(lifeCol).lerp(new THREE.Color(1, 1, 1), 0.45);
+        setInstanceColor(ci, colorTmp);
+        cards.instanceColor.needsUpdate = true;
+        packBoardTargets();
+      }
+      if (p < 0.64 && agentAssignCursor < carryList.length) {
+        startAgent(a, 0.06 + hash(a + agentAssignCursor) * 0.1);
+      } else {
+        agent.active = false;
+        agent.light.intensity = 0;
+        agent.core.material.opacity = 0;
+      }
+    }
+  }
+}
+
+function updateCamera(p) {
+  const toBoard = smoothstep(0.10, 0.28, p);
+  const toAgent = smoothstep(0.38, 0.55, p);
+  const toRoad = smoothstep(0.64, 0.90, p);
+
+  // Board camera looks at column center (~6.1), keeps left gutter free
+  let cx = lerp(5.8, 6.1, toBoard);
+  let cy = lerp(0.25, 0.15, toBoard);
+  let cz = lerp(15.2, 14.2, toBoard);
+  let lookX = lerp(6.0, 6.1, toBoard);
+  let ly = 0.35, lz = 0;
+
+  cx = lerp(cx, 6.15, toAgent);
+  cy = lerp(cy, 0.35, toAgent);
+  cz = lerp(cz, 14.0, toAgent);
+
+  // Roadmap: pull up, look down at timeline
+  cx = lerp(cx, 5.0 + roadmapDrag * 0.08, toRoad);
+  cy = lerp(cy, 8.2, toRoad);
+  cz = lerp(cz, 10.5, toRoad);
+  lookX = lerp(lookX, 5.0 + roadmapDrag * 0.25, toRoad);
+  ly = lerp(ly, 0.2, toRoad);
+  lz = lerp(lz, -0.2, toRoad);
+
+  camPos.set(cx, cy, cz);
+  camera.position.lerp(camPos, 0.1);
+  camTarget.set(lookX, ly, lz);
+  camera.lookAt(camTarget);
+}
+
+function updateUI(p) {
+  let sceneIdx = 0;
+  if (p > 0.70) sceneIdx = 3;
+  else if (p > 0.42) sceneIdx = 2;
+  else if (p > 0.18) sceneIdx = 1;
+  setSceneCopy(sceneIdx);
+
+  const showCols = p > 0.18 && p < 0.68;
+  colLabelsEl.classList.toggle('visible', showCols);
+  timelineLabelsEl.classList.toggle('visible', p > 0.72);
+  dragHint.classList.toggle('visible', p > 0.76);
+  hit.classList.toggle('active', p > 0.70);
+
+  if (showCols) updateColumnLabelPositions();
+  if (p > 0.72) updateTimelineLabelPositions();
+
+  const stack = document.querySelector('.scene-stack');
+  if (stack) {
+    // Scene 4: pin copy to top of gutter so it never sits under roadmap cards
+    if (p > 0.68) {
+      stack.style.alignSelf = 'start';
+      stack.style.marginTop = '72px';
+      stack.style.maxWidth = '280px';
+    } else {
+      stack.style.alignSelf = 'center';
+      stack.style.marginTop = '0';
+      stack.style.maxWidth = '300px';
+    }
+    stack.style.opacity = '1';
+    stack.style.visibility = 'visible';
+  }
+}
+
+let lastTime = performance.now();
+
+function settleStatic() {
+  scrollSmooth = 0.32;
+  packBoardTargets();
+  updatePaperFlutter(0, 0);
+  for (let i = 0; i < CARD_COUNT; i++) {
+    currentPos[i * 3] = targetPos[i * 3];
+    currentPos[i * 3 + 1] = targetPos[i * 3 + 1];
+    currentPos[i * 3 + 2] = targetPos[i * 3 + 2];
+    currentRot[i * 3] = currentRot[i * 3 + 1] = currentRot[i * 3 + 2] = 0;
+    dummy.position.set(currentPos[i * 3], currentPos[i * 3 + 1], currentPos[i * 3 + 2]);
+    dummy.rotation.set(0, 0, 0);
+    dummy.scale.set(scaleCur[i], scaleCur[i], scaleCur[i]);
+    dummy.updateMatrix();
+    cards.setMatrixAt(i, dummy.matrix);
+  }
+  cards.instanceMatrix.needsUpdate = true;
+  camera.position.set(6.1, 0.15, 14.2);
+  camera.lookAt(6.1, 0.35, 0);
+  setSceneCopy(1);
+  colLabelsEl.classList.add('visible');
+  updateColumnLabelPositions();
+  renderer.render(scene, camera);
+}
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastTime) / 1000);
+  lastTime = now;
+  if (reduced) { settleStatic(); return; }
+
+  scrollSmooth += (scrollTarget - scrollSmooth) * Math.min(1, dt * 3.5);
+  if (!isDragging) {
+    roadmapDragVel *= 0.92;
+    roadmapDrag += roadmapDragVel;
+  }
+  roadmapDrag = Math.max(-8, Math.min(8, roadmapDrag));
+
+  const p = scrollSmooth;
+  const time = now * 0.001;
+  updateCards(dt, p, time);
+  updateAgents(dt, p);
+  updateCamera(p);
+  updateUI(p);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+applyPalette(0);
+scrollTarget = getScrollProgress();
+scrollSmooth = scrollTarget;
+
+if (reduced) {
+  settleStatic();
+  window.addEventListener('resize', () => { resize(); settleStatic(); });
+} else {
+  requestAnimationFrame(frame);
+}
+
+window.__tallySettle = {
+  setScroll(t) {
+    const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    window.scrollTo(0, t * max);
+    scrollTarget = t;
+    scrollSmooth = t;
+  },
+  setPalette(i) { applyPalette(i); },
+  snapTo(t) {
+    this.setScroll(t);
+    const toBoard = smoothstep(0.10, 0.28, t);
+    const toRoad = smoothstep(0.64, 0.88, t);
+    packBoardTargets();
+    updatePaperFlutter(1.0, (1 - toBoard) * 0.7);
+    timelineGroup.visible = toRoad > 0.15;
+    timelineGroup.position.x = roadmapDrag;
+    for (let i = 0; i < CARD_COUNT; i++) {
+      const cx = cloudPos[i * 3], cy = cloudPos[i * 3 + 1], cz = cloudPos[i * 3 + 2];
+      const bx = targetPos[i * 3], by = targetPos[i * 3 + 1], bz = targetPos[i * 3 + 2];
+      const rx = roadmapPos[i * 3] + roadmapDrag;
+      const ry = roadmapPos[i * 3 + 1], rz = roadmapPos[i * 3 + 2];
+      let x = lerp(cx, bx, toBoard); x = lerp(x, rx, toRoad);
+      let y = lerp(cy, by, toBoard); y = lerp(y, ry, toRoad);
+      let z = lerp(cz, bz, toBoard); z = lerp(z, rz, toRoad);
+      if (!(carried[i] === 1 && t > 0.4 && t < 0.65)) {
+        currentPos[i * 3] = x;
+        currentPos[i * 3 + 1] = y;
+        currentPos[i * 3 + 2] = z;
+        currentVel[i * 3] = currentVel[i * 3 + 1] = currentVel[i * 3 + 2] = 0;
+        const flat = toBoard >= 0.95 ? 0 : lerp((hash(i) - 0.5) * 1.1, 0, toBoard);
+        currentRot[i * 3] = lerp(flat, -0.95, toRoad);
+        currentRot[i * 3 + 1] = toBoard >= 0.95 ? 0 : lerp((hash(i + 1) - 0.5) * 1.2, 0, toBoard);
+        currentRot[i * 3 + 2] = toBoard >= 0.95 ? 0 : lerp((hash(i + 2) - 0.5) * 0.8, 0, toBoard);
+        rotVel[i * 3] = rotVel[i * 3 + 1] = rotVel[i * 3 + 2] = 0;
+      }
+      dummy.position.set(currentPos[i * 3], currentPos[i * 3 + 1], currentPos[i * 3 + 2]);
+      dummy.rotation.set(currentRot[i * 3], currentRot[i * 3 + 1], currentRot[i * 3 + 2]);
+      const s = scaleCur[i] * lerp(1, 0.88, toRoad);
+      dummy.scale.set(s, s, s);
+      dummy.updateMatrix();
+      cards.setMatrixAt(i, dummy.matrix);
+    }
+    cards.instanceMatrix.needsUpdate = true;
+    // Sync camera instantly for stills
+    updateCamera(t);
+    camera.position.copy(camPos);
+    camera.lookAt(camTarget);
+    updateUI(t);
+  },
+  getProgress() { return scrollSmooth; },
+  getPalette() { return paletteIndex; },
+  cardCount: CARD_COUNT,
+  /** Measure label vs column screen x for verification. */
+  measureLabelAlign() {
+    const out = [];
+    for (let c = 0; c < 4; c++) {
+      worldToScreen(colX[c], boardYTop, 0, screenTmp);
+      const colScreenX = screenTmp.x;
+      const el = colLabelNodes[c];
+      const labelX = parseFloat(el.style.left) || 0;
+      out.push({
+        col: COL_NAMES[c],
+        colX: Math.round(colScreenX),
+        labelX: Math.round(labelX),
+        dx: Math.round(labelX - colScreenX),
+      });
+    }
+    return out;
+  },
+  forceAgents() {
+    if (!agentsStarted) {
+      agentsStarted = true;
+      for (let a = 0; a < AGENT_COUNT; a++) startAgent(a, 0);
+    }
+    for (let a = 0; a < AGENT_COUNT; a++) {
+      const agent = agents[a];
+      if (!agent.active) continue;
+      agent.t = Math.max(agent.t, 0.42);
+      const ease = Math.min(1, agent.t);
+      const e = ease * ease * (3 - 2 * ease);
+      bezier(agent.from, agent.mid, agent.to, e, tmpV);
+      agent.light.position.copy(tmpV);
+      agent.core.position.copy(tmpV);
+      agent.light.intensity = 2.0;
+      agent.core.material.opacity = 1;
+      agent.trail.material.opacity = 0.9;
+      const ci = agent.cardIndex;
+      if (ci >= 0 && carried[ci] === 1) {
+        currentPos[ci * 3] = tmpV.x;
+        currentPos[ci * 3 + 1] = tmpV.y - 0.1;
+        currentPos[ci * 3 + 2] = tmpV.z;
+        colorTmp.copy(lifeCol).lerp(new THREE.Color(1, 1, 1), 0.3);
+        setInstanceColor(ci, colorTmp);
+      }
+      for (let k = 0; k < agent.trailPts; k++) {
+        const tt = k / (agent.trailPts - 1);
+        const u = e * (1 - tt * 0.85);
+        bezier(agent.from, agent.mid, agent.to, u, tmpA);
+        agent.positions[k * 3] = tmpA.x;
+        agent.positions[k * 3 + 1] = tmpA.y;
+        agent.positions[k * 3 + 2] = tmpA.z;
+      }
+      agent.trail.geometry.attributes.position.needsUpdate = true;
+    }
+    cards.instanceColor.needsUpdate = true;
+  },
+};
+  </script>
+</body>
+</html>
