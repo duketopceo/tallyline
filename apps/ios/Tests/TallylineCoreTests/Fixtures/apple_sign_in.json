@@ -1,7 +1,7 @@
 {
   "token": "tly_pat_REDACTED",
   "tokenType": "Bearer",
-  "expiresAt": "2027-02-09T06:43:23.566Z",
+  "expiresAt": "2099-02-09T06:43:23.566Z",
   "scopes": [
     "read",
     "write"
