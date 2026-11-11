@@ -1,8 +1,11 @@
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { db } from "../db/client.js";
 import { authIdentities, users } from "../db/schema.js";
+import { config_ } from "../env.js";
 import { app } from "../index.js";
+import { __setProvidersForTests } from "../auth/providers/registry.js";
+import type { IdentityResult, OAuthProvider } from "../auth/providers/types.js";
 import { appleProvider, appleWebReady } from "../auth/providers/apple.js";
 import { newSession, seedTenant, type Tenant } from "../../test/tenants.js";
 
@@ -27,6 +30,37 @@ beforeEach(async () => {
   t = await seedTenant("aw", "AWA");
   cookie = await newSession(t, "owner");
 });
+
+const appleEnv = config_ as {
+  appleClientId: string;
+  appleTeamId: string;
+  appleKeyId: string;
+  applePrivateKey: string;
+  authAccountLinking: "auto" | "login" | "disabled";
+};
+const savedApple = {
+  appleClientId: config_.appleClientId,
+  appleTeamId: config_.appleTeamId,
+  appleKeyId: config_.appleKeyId,
+  applePrivateKey: config_.applePrivateKey,
+  authAccountLinking: config_.authAccountLinking,
+};
+
+afterEach(() => {
+  appleEnv.appleClientId = savedApple.appleClientId;
+  appleEnv.appleTeamId = savedApple.appleTeamId;
+  appleEnv.appleKeyId = savedApple.appleKeyId;
+  appleEnv.applePrivateKey = savedApple.applePrivateKey;
+  appleEnv.authAccountLinking = savedApple.authAccountLinking;
+  __setProvidersForTests(null);
+});
+
+function setWebApple(privateKey: string) {
+  appleEnv.appleClientId = "app.tallyline.web";
+  appleEnv.appleTeamId = "T";
+  appleEnv.appleKeyId = "K";
+  appleEnv.applePrivateKey = privateKey;
+}
 
 describe("apple web provider", () => {
   const full = { appleClientId: "app.tallyline.web", appleTeamId: "T", appleKeyId: "K", applePrivateKey: "P" };
@@ -111,3 +145,99 @@ describe("linked identities", () => {
     expect((await call("/v1/me/identities")).status).toBe(401);
   });
 });
+
+describe("web Apple methods and callback identity", () => {
+  it("lists Apple only when the four web fields are set", async () => {
+    __setProvidersForTests(null);
+    setWebApple("P");
+    const ready = await call("/v1/auth/methods");
+    expect(ready.status).toBe(200);
+    const listed = (await ready.json()) as { providers: { key: string; type: string }[] };
+    expect(listed.providers).toContainEqual({ key: "apple", type: "apple", label: "Apple" });
+
+    setWebApple("");
+    const hidden = await call("/v1/auth/methods");
+    const omitted = (await hidden.json()) as { providers: { key: string; type: string }[] };
+    expect(omitted.providers.some((p) => p.type === "apple")).toBe(false);
+  });
+
+  it("asks for a web link when policy is login and does not set a session", async () => {
+    appleEnv.authAccountLinking = "login";
+    const identity: IdentityResult = {
+      subject: "apple-sub-link",
+      email: t.people.owner.email,
+      emailVerified: true,
+      name: null,
+      avatarUrl: null,
+      hd: null,
+    };
+    __setProvidersForTests([appleStub(() => identity)]);
+    const ex = await roundTrip("nonce-link");
+    expect(ex.status).toBe(409);
+    const body = (await ex.json()) as { purpose: string };
+    expect(body.purpose).toBe("pending-link");
+    expect(ex.headers.getSetCookie().join(";")).not.toContain("tly_session=");
+  });
+
+  it("keeps the same user when a later Apple token omits email", async () => {
+    appleEnv.authAccountLinking = "auto";
+    let identity: IdentityResult = {
+      subject: "apple-sub-1",
+      email: t.people.owner.email,
+      emailVerified: true,
+      name: null,
+      avatarUrl: null,
+      hd: null,
+    };
+    __setProvidersForTests([appleStub(() => identity)]);
+    const first = await roundTrip("nonce-auto-1");
+    expect(first.status).toBe(200);
+    const firstBody = (await first.json()) as { purpose: string; user: { id: string } };
+    expect(firstBody.purpose).toBe("login");
+
+    identity = { ...identity, email: null, emailVerified: false };
+    const second = await roundTrip("nonce-auto-2");
+    expect(second.status).toBe(200);
+    const secondBody = (await second.json()) as { purpose: string; user: { id: string } };
+    expect(secondBody.purpose).toBe("login");
+    expect(secondBody.user.id).toBe(firstBody.user.id);
+    const rows = await db.select().from(authIdentities).where(eq(authIdentities.providerSubject, "apple-sub-1"));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.userId).toBe(t.people.owner.id);
+  });
+});
+
+function appleStub(read: () => IdentityResult): OAuthProvider {
+  return {
+    key: "apple",
+    type: "apple",
+    label: "Apple",
+    public: { clientId: "app.tallyline.web", scopes: ["openid", "email", "name"], issuer: null, source: "env" },
+    authorizeUrl: ({ state }) => `https://appleid.apple.com/auth/authorize?state=${state}`,
+    exchange: async () => read(),
+  };
+}
+
+async function roundTrip(loginNonce: string) {
+  const start = await app.fetch(
+    new Request(`http://api.test/v1/auth/oauth/apple/start?return_to=/board&login_nonce=${loginNonce}`, {
+      redirect: "manual",
+    }),
+  );
+  const state = new URL(start.headers.get("location")!).searchParams.get("state");
+  const jar = start.headers.getSetCookie().map((s) => s.split(";")[0]).join("; ");
+  const cb = await app.fetch(
+    new Request(`http://api.test/v1/auth/oauth/apple/callback?code=idc&state=${state}`, {
+      redirect: "manual",
+      headers: { cookie: jar },
+    }),
+  );
+  const code = new URL(cb.headers.get("location")!).searchParams.get("code");
+  return app.fetch(
+    new Request("http://api.test/v1/auth/oauth/exchange", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code, login_nonce: loginNonce }),
+    }),
+  );
+}

@@ -54,6 +54,21 @@ In the Apple developer console, register the Services ID with the domain of the 
 
 Settings > Account > Sign-in methods lists linked providers (link date, private-relay marker). Disconnecting is refused when it would remove the last sign-in method; a password counts as one.
 
+### Replacing a human login without deleting the workspace
+
+A verified Apple email that matches the existing user under the default `AUTH_ACCOUNT_LINKING=auto` attaches `auth_identities` and signs in. That is the normal path. Use this procedure only when the Apple email will not match and the Apple `sub` must own the workspace that already has the projects. Sign-in itself does not delete users.
+
+Do this in order. Create or link the Apple user first, through the app, so the new `users` row exists. Then, in the database:
+
+1. Copy `workspace_members` from the old user onto the new user and keep `role`. The table is unique on `(workspace_id, user_id)`, so skip a workspace the new user already belongs to.
+2. Copy `team_members` the same way. Those rows cascade when the old user is deleted, and team access goes with them.
+3. Re-point every `views` row that must survive, including shared views (`views.shared`), by setting `owner_id` to the new user. `views.owner_id` is `ON DELETE CASCADE`.
+4. Re-point or null `invites.created_by` and `invites.accepted_by`. Those foreign keys have no `ON DELETE` action, so Postgres will refuse the user delete while they still point at the old user.
+
+Then `DELETE` the old user. That is what revokes the old device PATs. `userFromToken` joins `user_tokens` to `users` and `workspaces` and does not check `workspace_members`, so an old `tly_pat_` token keeps working until that user row is gone. The delete cascades `user_tokens`, `devices`, `sessions`, `auth_identities`, `notifications`, `oauth_grants`, `oauth_codes`, `oauth_requests`, `account_tokens`, `device_authorizations`, `pairing_codes`, and `push_preferences`.
+
+These attributions null themselves and do not need a copy: `intake_credentials.created_by`, `ai_providers.created_by`, and `glitchtip_connections.created_by` (`ON DELETE SET NULL`). `issues.creator_id` is not a foreign key to `users`, so issues stay and the creator id is left as it was. Do not `DELETE` from `workspaces`, `projects`, or `issues` as part of this step.
+
 ### Generic OIDC
 
 Any spec-compliant IdP (Keycloak, Authentik, Entra, Okta, Dex…).

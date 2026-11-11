@@ -29,6 +29,12 @@ final class ContractFixtureTests: XCTestCase {
         XCTAssertEqual(me.memberships.first?.workspaceSlug, pair.workspace.slug)
     }
 
+    func testAppleSignIn() throws {
+        let apple = try decode(PairingRedeemResponse.self, "apple_sign_in")
+        XCTAssertTrue(apple.token.hasPrefix("tly_pat_"))
+        XCTAssertFalse(apple.workspace.slug.isEmpty)
+    }
+
     func testIssues() throws {
         let list = try decode(IssuePage.self, "issues_list")
         XCTAssertEqual(list.issues.first?.state, .triage)

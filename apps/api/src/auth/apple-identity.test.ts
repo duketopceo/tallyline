@@ -30,7 +30,7 @@ describe("verifyAppleIdentityToken", () => {
   const bundle = "app.tallyline.ios";
   const now = 1_700_000_000;
 
-  function goodClaims(extra: Record<string, unknown> = {}) {
+  function goodClaims(extra: Record<string, unknown> = {}): Record<string, unknown> {
     return {
       iss: APPLE_ISSUER,
       aud: bundle,
@@ -41,6 +41,12 @@ describe("verifyAppleIdentityToken", () => {
       nonce: sha256Hex(rawNonce),
       ...extra,
     };
+  }
+
+  function omit(claims: Record<string, unknown>, ...keys: string[]): Record<string, unknown> {
+    const copy = { ...claims };
+    for (const key of keys) delete copy[key];
+    return copy;
   }
 
   it("accepts a valid identity token", async () => {
@@ -96,5 +102,95 @@ describe("verifyAppleIdentityToken", () => {
         nowSeconds: now,
       }),
     ).rejects.toMatchObject({ code: "expired" });
+  });
+
+  it("accepts email_verified as boolean true", async () => {
+    const token = mintToken({
+      privateKey,
+      kid: "test-kid",
+      claims: goodClaims({ email_verified: true }),
+    });
+    const claims = await verifyAppleIdentityToken(token, {
+      audiences: [bundle],
+      rawNonce,
+      fetchJwks,
+      nowSeconds: now,
+    });
+    expect(claims.emailVerified).toBe(true);
+    expect(claims.subject).toBe("apple-sub-abc");
+  });
+
+  it("does not treat a missing or false email_verified as verified", async () => {
+    const withoutFlag = omit(goodClaims(), "email_verified");
+    for (const claims of [withoutFlag, goodClaims({ email_verified: "false" })]) {
+      const token = mintToken({ privateKey, kid: "test-kid", claims });
+      const verified = await verifyAppleIdentityToken(token, {
+        audiences: [bundle],
+        rawNonce,
+        fetchJwks,
+        nowSeconds: now,
+      });
+      expect(verified.subject).toBe("apple-sub-abc");
+      expect(verified.emailVerified).toBe(false);
+    }
+  });
+
+  it("returns a null email when the token has no email claim", async () => {
+    const claims = omit(goodClaims(), "email", "email_verified");
+    const token = mintToken({ privateKey, kid: "test-kid", claims });
+    const verified = await verifyAppleIdentityToken(token, {
+      audiences: [bundle],
+      rawNonce,
+      fetchJwks,
+      nowSeconds: now,
+    });
+    expect(verified).toEqual({
+      subject: "apple-sub-abc",
+      email: null,
+      emailVerified: false,
+    });
+  });
+
+  it("rejects a signature from a different key", async () => {
+    const other = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const token = mintToken({
+      privateKey: other.privateKey,
+      kid: "test-kid",
+      claims: goodClaims(),
+    });
+    await expect(
+      verifyAppleIdentityToken(token, {
+        audiences: [bundle],
+        rawNonce,
+        fetchJwks,
+        nowSeconds: now,
+      }),
+    ).rejects.toMatchObject({ code: "bad_signature" });
+  });
+
+  it("rejects an unknown kid", async () => {
+    const token = mintToken({ privateKey, kid: "missing-kid", claims: goodClaims() });
+    await expect(
+      verifyAppleIdentityToken(token, {
+        audiences: [bundle],
+        rawNonce,
+        fetchJwks,
+        nowSeconds: now,
+      }),
+    ).rejects.toMatchObject({ code: "unknown_kid" });
+  });
+
+  it("rejects alg none", async () => {
+    const header = b64url(JSON.stringify({ alg: "none", kid: "test-kid" }));
+    const payload = b64url(JSON.stringify(goodClaims()));
+    const token = `${header}.${payload}.`;
+    await expect(
+      verifyAppleIdentityToken(token, {
+        audiences: [bundle],
+        rawNonce,
+        fetchJwks,
+        nowSeconds: now,
+      }),
+    ).rejects.toMatchObject({ code: "bad_alg" });
   });
 });

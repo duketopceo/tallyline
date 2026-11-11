@@ -1,7 +1,13 @@
+import { createHash, createSign, generateKeyPairSync } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
+import { APPLE_JWKS_URL } from "../auth/apple-identity.js";
+import { __setProviderFetchForTests } from "../auth/providers/types.js";
+import { db } from "../db/client.js";
+import { authIdentities } from "../db/schema.js";
+import { config_ } from "../env.js";
 import { app } from "../index.js";
 import { mkCycle, mkDispatch, mkIssue, mkLabel, mkMilestone, mkProject, newSession, seedTenant, type Tenant } from "../../test/tenants.js";
 
@@ -189,6 +195,65 @@ describe("iOS wire contract", () => {
       ...body,
       projects: body.projects.map(({ byState: _b, recent: _r, ...rest }) => rest),
     });
+  });
+
+  it("apple sign-in returns the pairing credential", async () => {
+    const prevBundles = [...config_.appleBundleIds];
+    const prevClient = config_.appleClientId;
+    const mutable = config_ as { appleBundleIds: string[]; appleClientId: string };
+    const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const jwk = { ...publicKey.export({ format: "jwk" }), kid: "contract-kid", alg: "RS256", use: "sig" };
+    const rawNonce = "client-nonce-1";
+    const sub = "apple-sub-contract";
+    const header = Buffer.from(JSON.stringify({ alg: "RS256", kid: "contract-kid" })).toString("base64url");
+    const payload = Buffer.from(
+      JSON.stringify({
+        iss: "https://appleid.apple.com",
+        aud: "app.tallyline.ios",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        sub,
+        email: A.people.member.email,
+        email_verified: "true",
+        nonce: createHash("sha256").update(rawNonce, "utf8").digest("hex"),
+      }),
+    ).toString("base64url");
+    const sig = createSign("RSA-SHA256").update(`${header}.${payload}`).sign({ key: privateKey });
+    const identityToken = `${header}.${payload}.${sig.toString("base64url")}`;
+    try {
+      mutable.appleBundleIds = ["app.tallyline.ios"];
+      mutable.appleClientId = "";
+      __setProviderFetchForTests(async (url) => {
+        if (url !== APPLE_JWKS_URL) throw new Error(`unexpected fetch ${url}`);
+        return { ok: true, status: 200, json: async () => ({ keys: [jwk] }), text: async () => "" };
+      });
+      await db.insert(authIdentities).values({
+        userId: A.people.member.id,
+        providerKey: "apple",
+        providerSubject: sub,
+        email: A.people.member.email,
+        emailVerified: true,
+      });
+      const r = await call("/v1/auth/apple", {
+        method: "POST",
+        body: JSON.stringify({
+          identityToken,
+          rawNonce,
+          deviceName: "Luke's iPhone",
+          platform: "ios",
+        }),
+      });
+      expect(r.status).toBe(200);
+      const body = r.body as { token: string; scopes: string[]; workspace: { slug: string; name: string } };
+      expect(body.token).toMatch(/^tly_pat_/);
+      expect(body.scopes).toEqual(["read", "write"]);
+      expect(body.workspace.slug).toBe(A.ws.slug);
+      expect(body.workspace.name.length).toBeGreaterThan(0);
+      check("apple_sign_in", r.body);
+    } finally {
+      mutable.appleBundleIds = prevBundles;
+      mutable.appleClientId = prevClient;
+      __setProviderFetchForTests(null);
+    }
   });
 
   it("review queue", async () => {
