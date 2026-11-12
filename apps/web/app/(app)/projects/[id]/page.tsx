@@ -47,7 +47,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
-      <PageHeader title={project.name}>
+      <PageHeader title={project.name} logo={project}>
         <Link href="/overview" className="text-[12px] text-ink-muted hover:text-ink hover:underline">Overview</Link>
       </PageHeader>
       <div className="flex min-h-0 flex-col gap-4 overflow-y-auto p-4">

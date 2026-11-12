@@ -28,7 +28,7 @@ export function ProjectIcon({
         decoding="async"
         referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
-        className="shrink-0 rounded-xs bg-surface-3 object-cover"
+        className="shrink-0 rounded-xs bg-surface-2 object-contain p-px"
       />
     );
   }
