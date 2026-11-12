@@ -392,8 +392,7 @@ systemctl list-timers tallyline-backup.timer
 
 Keep the file at `ops/.backup.env` inside the app checkout (or symlink it there). That
 path is gitignored and is what `ops/deploy.sh` loads for the pre-deploy backup, so one
-file configures both the timer and the deploy; `DEPLOY_BACKUP_ENV` overrides it. On
-cluster2 it lives at `/home/khan/apps/tallyline/ops/.backup.env`.
+file configures both the timer and the deploy; `DEPLOY_BACKUP_ENV` overrides it.
 
 The service keeps an encrypted local copy in `/var/backups/tallyline` (the last
 14 days; `BACKUP_OUT_DIR` in `.backup.env` overrides it) as well as the off-host
