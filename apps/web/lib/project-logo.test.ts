@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeLogoInput } from "./project-logo";
+import { isPublicLogoUrl, normalizeLogoInput } from "./project-logo";
 
 // The helper reads window.location for relative URLs, so the tests run
 // against a fixed origin.
@@ -51,5 +51,18 @@ describe("normalizeLogoInput", () => {
     expect(withWindow(() => normalizeLogoInput("   "))).toBeNull();
     expect(withWindow(() => normalizeLogoInput("javascript:alert(1)"))).toBeNull();
     expect(withWindow(() => normalizeLogoInput("data:image/png;base64,AAAA"))).toBeNull();
+  });
+});
+
+describe("isPublicLogoUrl", () => {
+  it("accepts a public https host", () => {
+    expect(isPublicLogoUrl("https://example.com/logo.svg")).toBe(true);
+  });
+
+  it("refuses what the API refuses", () => {
+    expect(isPublicLogoUrl("http://example.com/logo.svg")).toBe(false);
+    expect(isPublicLogoUrl("https://localhost/logo.svg")).toBe(false);
+    expect(isPublicLogoUrl("https://user:pw@example.com/x.svg")).toBe(false);
+    expect(isPublicLogoUrl("not a url")).toBe(false);
   });
 });

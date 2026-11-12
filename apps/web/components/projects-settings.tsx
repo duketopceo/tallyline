@@ -26,9 +26,13 @@ const STATUSES = [
 
 async function err(res: Response, fallback: string) {
   const d = (await res.json().catch(() => null)) as {
-    error?: { message?: string };
+    error?: { message?: unknown };
   } | null;
-  return d?.error?.message ?? fallback;
+  const message = d?.error?.message;
+  // validation failures come back as an issue array; never show raw JSON
+  if (typeof message === "string" && message) return message;
+  if (res.status === 400) return "That value was not accepted. Use a public https URL for the logo.";
+  return fallback;
 }
 
 export function ProjectsSettings({ projects }: { projects: ProjectRow[] }) {
@@ -112,6 +116,7 @@ export function ProjectsSettings({ projects }: { projects: ProjectRow[] }) {
       p.id,
     );
     if (ok) {
+      setLogoEdit(null);
       setLogoDraft((d) => {
         const next = { ...d };
         delete next[p.id];

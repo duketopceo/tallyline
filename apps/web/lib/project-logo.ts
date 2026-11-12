@@ -35,7 +35,11 @@ export function normalizeLogoInput(raw: string): string | null {
 /** True when the value is already an absolute https URL the API will accept. */
 export function isPublicLogoUrl(value: string): boolean {
   try {
-    return new URL(value).protocol === "https:";
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password) return false;
+    // mirrors the API: it refuses localhost and anything without a dot
+    const host = url.hostname.toLowerCase();
+    return host.includes(".") && host !== "localhost";
   } catch {
     return false;
   }
