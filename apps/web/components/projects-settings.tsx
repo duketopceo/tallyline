@@ -175,7 +175,7 @@ export function ProjectsSettings({ projects }: { projects: ProjectRow[] }) {
         </p>
       ) : (
         <>
-          <p className="mb-2 text-[12px] text-ink-subtle">
+          <p className="mb-2 text-xs text-ink-subtle">
             Click a project&apos;s logo to add or change it.
           </p>
         <ul className="divide-y divide-lining-faint rounded-sm border border-lining">
@@ -258,19 +258,19 @@ export function ProjectsSettings({ projects }: { projects: ProjectRow[] }) {
                     aria-label={`Logo URL for ${p.name}`}
                     autoFocus
                     spellCheck={false}
-                    className="min-w-0 flex-1 rounded-sm border border-control bg-surface-1 px-2 py-1 font-mono text-[12px] text-ink placeholder:text-ink-disabled focus-visible:outline-2 focus-visible:outline-accent"
+                    className="min-w-0 flex-1 rounded-sm border border-control bg-surface-1 px-2 py-1 font-mono text-xs text-ink placeholder:text-ink-disabled focus-visible:outline-2 focus-visible:outline-accent"
                   />
                   <button
                     type="submit"
                     disabled={busy === p.id}
-                    className="rounded-sm bg-accent px-2.5 py-1 text-[12px] font-medium text-on-accent disabled:opacity-50"
+                    className="rounded-sm bg-accent px-2.5 py-1 text-xs font-medium text-on-accent disabled:opacity-50"
                   >
                     Save
                   </button>
                   <button
                     type="button"
                     onClick={() => setLogoEdit(null)}
-                    className="rounded-sm px-2 py-1 text-[12px] text-ink-subtle hover:text-ink"
+                    className="rounded-sm px-2 py-1 text-xs text-ink-subtle hover:text-ink"
                   >
                     Cancel
                   </button>
