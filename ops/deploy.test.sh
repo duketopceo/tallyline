@@ -102,6 +102,19 @@ reset; touch "$STUB_STATE/up" "$STUB_STATE/stale_mcp"; echo "$c1" >"$STUB_STATE/
 run --assume-running "$c1" "$c3"
 { [ $rc != 0 ] && has "mcp-server image revision label"; } && ok "a lagging mcp image fails the deploy" || bad "stale mcp" "rc=$rc $out"
 
+# backup config: ops/.backup.env is the host's shared settings for both the deploy and the
+# systemd timer. Without it loaded, backup.sh has no age recipient and every deploy stops.
+printf '#!/usr/bin/env bash\necho "backup-ran BACKUP_AGE_RECIPIENT=${BACKUP_AGE_RECIPIENT:-unset}" >>"$STUB_STATE/calls"\n' >ops/backup.sh
+git checkout -q main; git add -A; git commit -q -m backup-env; c4=$(git rev-parse HEAD); git push -q origin main 2>/dev/null
+printf 'BACKUP_AGE_RECIPIENT=age1test\n' >ops/.backup.env
+reset; touch "$STUB_STATE/up"
+run --assume-running "$c4" "$c4"
+{ [ $rc = 0 ] && grep -q 'BACKUP_AGE_RECIPIENT=age1test' "$STUB_STATE/calls"; } && ok "backup loads ops/.backup.env by default" || bad "default backup env" "rc=$rc $out"
+reset; touch "$STUB_STATE/up"
+DEPLOY_BACKUP_ENV="$repo/other.env" run --assume-running "$c4" "$c4"
+{ [ $rc = 0 ] && grep -q 'BACKUP_AGE_RECIPIENT=unset' "$STUB_STATE/calls"; } && ok "DEPLOY_BACKUP_ENV overrides the default file" || bad "backup env override" "rc=$rc $out"
+rm -f ops/.backup.env
+
 # rollback: deploy c2 ok, then c3 fails, then --rollback c2 works but --rollback c1 does not
 reset; touch "$STUB_STATE/up"
 run --assume-running "$c1" "$c2"; [ $rc = 0 ] || bad "setup c2" "$out"

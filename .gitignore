@@ -45,3 +45,6 @@ deploy.log
 
 # codebase-memory-mcp local index cache
 .codebase-memory/
+
+# host backup settings, read by ops/deploy.sh and the systemd timer
+ops/.backup.env

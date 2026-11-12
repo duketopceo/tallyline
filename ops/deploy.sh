@@ -25,6 +25,8 @@
 #   DEPLOY_LOCK_FILE      lock file (default: $DEPLOY_APP_DIR/.deploy.lock)
 #   DEPLOY_LOG            append-only log (default: $DEPLOY_APP_DIR/deploy.log)
 #   DEPLOY_BACKUP_ENV     env file sourced for backup.sh, readable by the deployer only
+#                         (default: ops/.backup.env when it exists, so the deploy and the
+#                         systemd timer read the same configuration)
 #   DEPLOY_HEALTH_TIMEOUT seconds to wait for the three health endpoints (default: 180)
 #   DEPLOY_REMOTE         git remote holding main (default: origin); DEPLOY_NO_FETCH=1 skips the fetch
 #   API_PUBLISH_PORT / WEB_PUBLISH_PORT / MCP_PUBLISH_PORT   as in docs/deploy.md
@@ -150,8 +152,12 @@ if [ "$skip_backup" = 1 ]; then
   log "--skip-backup: not running the backup"
 else
   log "running backup"
+  # The deploy and the nightly timer share one host config. Relying only on
+  # DEPLOY_BACKUP_ENV, which the workflow never sets, left backup.sh without an
+  # age recipient and stopped every deploy here.
+  backup_env="${DEPLOY_BACKUP_ENV:-$app_dir/ops/.backup.env}"
   (
-    if [ -n "${DEPLOY_BACKUP_ENV:-}" ]; then set -a; . "$DEPLOY_BACKUP_ENV"; set +a; fi
+    if [ -n "$backup_env" ] && [ -f "$backup_env" ]; then set -a; . "$backup_env"; set +a; fi
     "$here/backup.sh"
   ) || fail "backup failed; nothing was changed"
 fi

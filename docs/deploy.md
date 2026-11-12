@@ -228,7 +228,8 @@ What it does, in order:
 3. Fetches `origin/main` and refuses a target that is not on it, or that is older than (or diverges
    from) the commit now running. The running commit is the `org.opencontainers.image.revision`
    label on the api image.
-4. Runs `ops/backup.sh` (loading `DEPLOY_BACKUP_ENV` first, if set). A failed backup stops the deploy
+4. Runs `ops/backup.sh` (loading `ops/.backup.env` first, so the deploy and the nightly timer
+   share one configuration; `DEPLOY_BACKUP_ENV` overrides the path). A failed backup stops the deploy
    before anything changes. `--skip-backup` exists for hosts with no backup configured yet and logs a warning.
 5. Checks out the target, then builds **api, web and mcp-server** with `--profile mcp` and
    `GIT_SHA=<target>`, so all three images carry the revision label and the mcp image can no longer
@@ -388,6 +389,11 @@ sudo systemctl enable --now tallyline-backup.timer
 sudo systemctl start tallyline-backup.service && journalctl -u tallyline-backup.service -n 20 --no-pager
 systemctl list-timers tallyline-backup.timer
 ```
+
+Keep the file at `ops/.backup.env` inside the app checkout (or symlink it there). That
+path is gitignored and is what `ops/deploy.sh` loads for the pre-deploy backup, so one
+file configures both the timer and the deploy; `DEPLOY_BACKUP_ENV` overrides it. On
+cluster2 it lives at `/home/khan/apps/tallyline/ops/.backup.env`.
 
 The service keeps an encrypted local copy in `/var/backups/tallyline` (the last
 14 days; `BACKUP_OUT_DIR` in `.backup.env` overrides it) as well as the off-host
