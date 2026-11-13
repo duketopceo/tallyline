@@ -9,7 +9,7 @@ Scenes:
 1. A cloud of pages drifting in chaos.
 2. The pages settle into four columns: Triage, Todo, In progress, Done.
 3. Light trails (agents) carry pages to Done.
-4. The board flattens into a roadmap timeline you can drag.
+4. The board flattens into a roadmap timeline you can drag or pan with the arrow keys.
 
 Palettes follow one rule: two base colors that complement each other, plus one
 bright "life" color used sparingly. Press 1, 2 or 3 to switch:

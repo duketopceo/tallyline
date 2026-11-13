@@ -70,8 +70,12 @@
       align-self: center;
       max-width: 300px;
       padding-right: 8px;
+      display: grid;
     }
-    .scene-copy { transition: opacity 0.4s ease, transform 0.4s ease; }
+    .scene-copy {
+      grid-area: 1 / 1;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
     .scene-copy h1 {
       font-size: clamp(26px, 3.8vw, 44px); font-weight: 620;
       letter-spacing: -0.035em; line-height: 1.08; margin-bottom: 12px;
@@ -82,7 +86,7 @@
     }
     .scene-copy .a1, .scene-copy .a2 { color: var(--life); }
     .scene-copy.hidden {
-      opacity: 0; transform: translateY(10px); pointer-events: none; position: absolute;
+      opacity: 0; transform: translateY(10px); pointer-events: none;
     }
     .footer-hint {
       grid-column: 1; grid-row: 3;
@@ -129,6 +133,7 @@
 
     #timeline-hit {
       position: fixed; inset: 0; z-index: 1; pointer-events: none; cursor: grab;
+      touch-action: pan-y;
     }
     #timeline-hit.active { pointer-events: auto; }
     #timeline-hit.dragging { cursor: grabbing; }
@@ -173,7 +178,7 @@
   <div id="scroll-root" aria-hidden="true"></div>
   <div id="atmosphere" aria-hidden="true"></div>
   <div id="canvas-wrap"><canvas id="c"></canvas></div>
-  <div id="timeline-hit"></div>
+  <div id="timeline-hit" role="slider" aria-label="Roadmap timeline" aria-orientation="horizontal" aria-valuemin="-8" aria-valuemax="8" aria-valuenow="0" aria-hidden="true"></div>
 
   <div class="palette-switcher" role="group" aria-label="Color palette">
     <span class="lab">Palette</span>
@@ -199,7 +204,7 @@
       </div>
       <div class="scene-copy hidden" id="copy-3">
         <h1>Order across<br /><span class="a1">time.</span></h1>
-        <p>Drag the roadmap. See settled work stretch forward.</p>
+        <p>Drag the roadmap or use the arrow keys. See settled work stretch forward.</p>
       </div>
     </div>
     <div class="footer-hint">Scroll to settle · Keys 1–3 for palettes</div>
@@ -566,8 +571,22 @@ function getScrollProgress() {
 window.addEventListener('scroll', () => { scrollTarget = getScrollProgress(); }, { passive: true });
 
 const hit = document.getElementById('timeline-hit');
+const ROADMAP_DRAG_MIN = -8;
+const ROADMAP_DRAG_MAX = 8;
+const TIMELINE_INTERACT = 0.72;
+
+function clampRoadmapDrag(value) {
+  return Math.max(ROADMAP_DRAG_MIN, Math.min(ROADMAP_DRAG_MAX, value));
+}
+
+function setRoadmapDrag(value, velocity) {
+  roadmapDrag = clampRoadmapDrag(value);
+  if (velocity !== undefined) roadmapDragVel = velocity;
+  hit.setAttribute('aria-valuenow', String(Math.round(roadmapDrag * 100) / 100));
+}
+
 hit.addEventListener('pointerdown', (e) => {
-  if (scrollSmooth < 0.72) return;
+  if (scrollSmooth < TIMELINE_INTERACT) return;
   isDragging = true; dragLastX = e.clientX;
   hit.classList.add('dragging');
   hit.setPointerCapture(e.pointerId);
@@ -576,12 +595,19 @@ hit.addEventListener('pointermove', (e) => {
   if (!isDragging) return;
   const dx = e.clientX - dragLastX;
   dragLastX = e.clientX;
-  roadmapDragVel = dx * 0.014;
-  roadmapDrag += roadmapDragVel;
+  setRoadmapDrag(roadmapDrag + dx * 0.014, dx * 0.014);
 });
 const endDrag = () => { isDragging = false; hit.classList.remove('dragging'); };
 hit.addEventListener('pointerup', endDrag);
 hit.addEventListener('pointercancel', endDrag);
+hit.addEventListener('keydown', (e) => {
+  if (scrollSmooth < TIMELINE_INTERACT) return;
+  const step = e.shiftKey ? 1.2 : 0.4;
+  if (e.key === 'ArrowLeft') { e.preventDefault(); setRoadmapDrag(roadmapDrag - step, 0); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); setRoadmapDrag(roadmapDrag + step, 0); }
+  else if (e.key === 'Home') { e.preventDefault(); setRoadmapDrag(ROADMAP_DRAG_MIN, 0); }
+  else if (e.key === 'End') { e.preventDefault(); setRoadmapDrag(ROADMAP_DRAG_MAX, 0); }
+});
 
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
@@ -715,6 +741,9 @@ function applyPalette(idx) {
   document.querySelectorAll('.chip').forEach((el) => {
     el.classList.toggle('active', Number(el.dataset.p) === paletteIndex);
   });
+
+  // No rAF loop in reduced-motion mode: repaint after the board has settled.
+  if (reduced && boardSettled) renderer.render(scene, camera);
 }
 
 document.querySelectorAll('.chip').forEach((el) => {
@@ -728,15 +757,21 @@ window.addEventListener('keydown', (e) => {
 
 function startAgent(aIndex, delay) {
   const agent = agents[aIndex];
-  if (agentAssignCursor >= carryList.length) {
+  let cardIndex = -1;
+  while (agentAssignCursor < carryList.length) {
+    const next = carryList[agentAssignCursor++];
+    if (carried[next] === 0) {
+      cardIndex = next;
+      break;
+    }
+  }
+  if (cardIndex < 0) {
     agent.active = false;
     agent.light.intensity = 0;
     agent.core.material.opacity = 0;
     agent.trail.material.opacity = 0;
     return;
   }
-  const cardIndex = carryList[agentAssignCursor++];
-  if (carried[cardIndex] !== 0) { startAgent(aIndex, delay); return; }
   carried[cardIndex] = 1;
   agent.active = true;
   agent.t = -delay;
@@ -760,6 +795,7 @@ function startAgent(aIndex, delay) {
   }
 }
 
+// Quadratic Bezier: (1-t)^2 p0 + 2(1-t)t p1 + t^2 p2
 function bezier(p0, p1, p2, t, out) {
   const u = 1 - t;
   out.x = u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x;
@@ -777,7 +813,10 @@ function assignAgents(p) {
 const camPos = new THREE.Vector3(5.5, 0.2, 15);
 const camTarget = new THREE.Vector3(6.1, 0.3, 0);
 
+let paperFlutterActive = true;
 function updatePaperFlutter(time, chaosAmt) {
+  if (chaosAmt === 0 && !paperFlutterActive) return;
+  paperFlutterActive = chaosAmt !== 0;
   const pos = cardGeo.attributes.position;
   const arr = pos.array;
   for (let i = 0; i < pos.count; i++) {
@@ -800,7 +839,6 @@ function updateCards(dt, p, time) {
   const toRoad = smoothstep(0.64, 0.88, p);
   const chaosAmt = (1 - toBoard) * (1 - toRoad * 0.5);
 
-  if (toBoard > 0.02) packBoardTargets();
   if (agentPhase > 0.02) assignAgents(p);
   updatePaperFlutter(time, chaosAmt < 0.05 ? 0 : chaosAmt);
 
@@ -981,7 +1019,17 @@ function updateUI(p) {
   colLabelsEl.classList.toggle('visible', showCols);
   timelineLabelsEl.classList.toggle('visible', p > 0.72);
   dragHint.classList.toggle('visible', p > 0.76);
-  hit.classList.toggle('active', p > 0.70);
+  const timelineInteractive = p > 0.70;
+  hit.classList.toggle('active', timelineInteractive);
+  if (timelineInteractive) {
+    hit.tabIndex = 0;
+    hit.setAttribute('aria-hidden', 'false');
+    hit.setAttribute('aria-valuenow', String(Math.round(roadmapDrag * 100) / 100));
+  } else {
+    hit.tabIndex = -1;
+    hit.setAttribute('aria-hidden', 'true');
+    if (document.activeElement === hit) hit.blur();
+  }
 
   if (showCols) updateColumnLabelPositions();
   if (p > 0.72) updateTimelineLabelPositions();
@@ -1005,6 +1053,8 @@ function updateUI(p) {
 
 let lastTime = performance.now();
 
+let boardSettled = false;
+
 function settleStatic() {
   scrollSmooth = 0.32;
   packBoardTargets();
@@ -1026,6 +1076,7 @@ function settleStatic() {
   setSceneCopy(1);
   colLabelsEl.classList.add('visible');
   updateColumnLabelPositions();
+  boardSettled = true;
   renderer.render(scene, camera);
 }
 
@@ -1039,7 +1090,8 @@ function frame(now) {
     roadmapDragVel *= 0.92;
     roadmapDrag += roadmapDragVel;
   }
-  roadmapDrag = Math.max(-8, Math.min(8, roadmapDrag));
+  roadmapDrag = clampRoadmapDrag(roadmapDrag);
+  hit.setAttribute('aria-valuenow', String(Math.round(roadmapDrag * 100) / 100));
 
   const p = scrollSmooth;
   const time = now * 0.001;
