@@ -65,6 +65,11 @@ public struct SharedDraft: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
+public enum ShareInboxError: Error, Equatable, Sendable {
+    /// The id is not a single filename, so it must not be used as a path.
+    case unsafeId
+}
+
 /// One file per draft in the App Group, so the extension and the app never
 /// write the same file.
 public struct ShareInbox: Sendable {
@@ -72,6 +77,14 @@ public struct ShareInbox: Sendable {
 
     public init(directory: URL) {
         self.directory = directory
+    }
+
+    /// A single path component. Rejects empty ids, `.`, `..`, and any slash
+    /// so add/remove cannot leave the inbox directory.
+    public static func isSafeId(_ id: String) -> Bool {
+        guard !id.isEmpty, id != ".", id != ".." else { return false }
+        if id.contains("/") || id.contains("\\") || id.contains("..") { return false }
+        return true
     }
 
     public static func shared(fileManager: FileManager = .default) -> ShareInbox? {
@@ -84,6 +97,7 @@ public struct ShareInbox: Sendable {
     }
 
     public func add(_ item: SharedDraft) throws {
+        guard Self.isSafeId(item.id) else { throw ShareInboxError.unsafeId }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -98,14 +112,50 @@ public struct ShareInbox: Sendable {
         return files
             .filter { $0.pathExtension == "json" }
             .compactMap { try? decoder.decode(SharedDraft.self, from: Data(contentsOf: $0)) }
+            .filter { Self.isSafeId($0.id) }
             .sorted { $0.createdAt < $1.createdAt }
     }
 
     public func remove(_ id: String) {
+        guard Self.isSafeId(id) else { return }
         try? FileManager.default.removeItem(at: file(id))
+    }
+
+    /// Deletes every direct child of the inbox. Does not follow a path out of
+    /// the directory. Sign-out uses this so junk files do not stay behind.
+    public func removeAll() {
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsSubdirectoryDescendants]
+        )) ?? []
+        for file in files {
+            try? FileManager.default.removeItem(at: file)
+        }
     }
 
     private func file(_ id: String) -> URL {
         directory.appendingPathComponent("\(id).json")
+    }
+}
+
+/// Moves share-inbox drafts into the outbox without filing the same id twice.
+public enum ShareIntake {
+    /// Enqueues each safe pending draft under its own id, then deletes that
+    /// inbox file. A save failure leaves the file so the next open can retry.
+    /// Returns how many inbox files were removed.
+    @discardableResult
+    public static func claim(inbox: ShareInbox, outbox: Outbox) async -> Int {
+        var removed = 0
+        for item in inbox.pending() {
+            do {
+                _ = try await outbox.enqueue(.createIssue(item.draft), workspaceSlug: item.workspaceSlug, id: item.id)
+            } catch {
+                continue
+            }
+            inbox.remove(item.id)
+            removed += 1
+        }
+        return removed
     }
 }

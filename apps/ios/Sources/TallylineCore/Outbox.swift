@@ -174,6 +174,7 @@ public actor Outbox {
 
     @discardableResult
     public func enqueue(_ operation: OutboxOperation, workspaceSlug: String, id: String = UUID().uuidString, baseVersion: Int? = nil) throws -> OutboxEntry {
+        if let existing = entries.first(where: { $0.id == id }) { return existing }
         var base: Int?
         if case .updateIssue = operation { base = baseVersion }
         let entry = OutboxEntry(
@@ -189,7 +190,12 @@ public actor Outbox {
             baseVersion: base
         )
         entries.append(entry)
-        try store.save(entries)
+        do {
+            try store.save(entries)
+        } catch {
+            entries.removeAll { $0.id == id }
+            throw error
+        }
         return entry
     }
 
