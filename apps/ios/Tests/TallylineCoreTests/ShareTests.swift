@@ -137,12 +137,14 @@ final class ShareInboxTests: XCTestCase {
     }
 }
 
+private enum TestStoreError: Error { case unavailable }
+
 private final class ThrowingOutboxStore: OutboxStore, @unchecked Sendable {
     var saved: [OutboxEntry] = []
     var shouldThrow = false
     func load() throws -> [OutboxEntry] { saved }
     func save(_ entries: [OutboxEntry]) throws {
-        if shouldThrow { throw ShareInboxError.unsafeId }
+        if shouldThrow { throw TestStoreError.unavailable }
         saved = entries
     }
 }
