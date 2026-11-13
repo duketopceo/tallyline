@@ -36,6 +36,18 @@ export interface NavInput {
 
 export const PROJECTS_IN_SIDEBAR = 8;
 
+// The API lists projects oldest first, so a plain head-of-list cap hid every new
+// project. Show the newest ones, plus the open project when it is older, in
+// creation order; the switcher and "View all" still reach the rest.
+function sidebarProjects<P extends { id: string }>(projects: P[], pathname: string): P[] {
+  const openId = /^\/projects\/([^/]+)/.exec(pathname)?.[1];
+  const open = openId ? projects.find((p) => p.id === openId) : undefined;
+  const newest = projects.slice(-PROJECTS_IN_SIDEBAR);
+  if (!open || newest.includes(open)) return newest;
+  const keep = new Set([open, ...newest.slice(1)]);
+  return projects.filter((p) => keep.has(p));
+}
+
 export function buildSidebarNav(input: NavInput): NavSection[] {
   const { pathname } = input;
   const views = input.views.map((v) => ({ ...v, q: filtersToQuery(filtersFromObject(v.filters)) }));
@@ -48,7 +60,7 @@ export function buildSidebarNav(input: NavInput): NavSection[] {
   };
 
   const isAdmin = input.role === "owner" || input.role === "admin";
-  const projectRows: NavItem[] = input.projects.slice(0, PROJECTS_IN_SIDEBAR).map((p) => ({
+  const projectRows: NavItem[] = sidebarProjects(input.projects, pathname).map((p) => ({
     id: `project-${p.id}`,
     href: `/projects/${p.id}`,
     label: p.name,

@@ -39,9 +39,29 @@ describe("buildSidebarNav", () => {
     expect(currentIds({ projects, pathname: "/projects/abc" })).toEqual(["project-abc"]);
   });
 
-  it("keeps Overview current on a project outside the capped list", () => {
-    const projects = Array.from({ length: PROJECTS_IN_SIDEBAR + 4 }, (_, i) => ({ id: `p${i}`, name: `P${i}` }));
-    expect(currentIds({ projects, pathname: "/projects/p11" })).toEqual(["overview"]);
+  // the API lists projects oldest first (created_at asc)
+  const many = Array.from({ length: PROJECTS_IN_SIDEBAR + 4 }, (_, i) => ({ id: `p${i}`, name: `P${i}` }));
+  const projectIds = (o: Partial<NavInput>) =>
+    nav(o)
+      .find((s) => s.id === "projects")!
+      .items.map((i) => i.id);
+
+  it("lists the newest projects in creation order, so a new project always shows", () => {
+    expect(projectIds({ projects: many })).toEqual(
+      many.slice(-PROJECTS_IN_SIDEBAR).map((p) => `project-${p.id}`),
+    );
+  });
+
+  it("pins the open project into the capped list and marks it current", () => {
+    const ids = projectIds({ projects: many, pathname: "/projects/p0" });
+    expect(ids).toHaveLength(PROJECTS_IN_SIDEBAR);
+    expect(ids[0]).toBe("project-p0");
+    expect(ids).toContain(`project-p${many.length - 1}`);
+    expect(currentIds({ projects: many, pathname: "/projects/p0" })).toEqual(["project-p0"]);
+  });
+
+  it("keeps Overview current on a project page the list does not know", () => {
+    expect(currentIds({ projects: many, pathname: "/projects/unknown" })).toEqual(["overview"]);
   });
 
   it("marks Issues for a key and the saved view, not Issues, for a matching query", () => {

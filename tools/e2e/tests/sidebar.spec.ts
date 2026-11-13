@@ -65,8 +65,9 @@ test.describe("desktop", () => {
     await page.waitForSelector("[data-qc-ready]", { timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
     const nav = page.getByRole("navigation", { name: "Primary" });
-    await expect(nav.getByRole("link", { name: "Overview" })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "Roadmap" })).toBeVisible();
+    // by href: test projects such as "e2e roadmap ..." also appear in the list
+    await expect(nav.locator('a[href="/overview"]')).toBeVisible();
+    await expect(nav.locator('a[href="/roadmap"]')).toBeVisible();
     await expect(page.getByRole("button", { name: /^Switch project, current:/ })).toBeVisible();
     await page.keyboard.press("[");
     await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeVisible();
@@ -99,7 +100,7 @@ test.describe("mobile 390", () => {
     await page.keyboard.press("Escape");
     await expect(nav).toBeHidden();
     await page.getByRole("button", { name: "Open menu" }).click();
-    await nav.getByRole("link", { name: "Overview" }).click();
+    await nav.getByRole("group", { name: "Workspace" }).getByRole("link", { name: "Overview" }).click();
     await expect(page).toHaveURL(/\/overview$/);
     await expect(nav).toBeHidden();
   });
