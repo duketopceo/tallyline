@@ -64,7 +64,8 @@ final class ShareInboxTests: XCTestCase {
         let dir = parent.appendingPathComponent("inbox", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: parent) }
         let inbox = ShareInbox(directory: dir)
-        let secret = parent.appendingPathComponent("secret")
+        // remove() appends ".json", so this is the file an unguarded "../secret" would delete.
+        let secret = parent.appendingPathComponent("secret.json")
         try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
         try Data("keep".utf8).write(to: secret)
 
