@@ -23,6 +23,7 @@ export interface RoadmapProject {
   description: string | null;
   status: string;
   teamId: string | null;
+  iconUrl: string | null;
   startDate: string | null;
   targetDate: string | null;
   createdAt: string;

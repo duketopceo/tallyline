@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { ProjectIcon } from "@/components/project-icon";
 import { NavIcon } from "./nav-icons";
 
-interface Project { id: string; name: string }
+interface Project { id: string; name: string; iconUrl?: string | null }
 
 // Jump to a project (a repo's worth of tickets and roadmap) or back to the
 // overview. The popover is `fixed` so the scrolling sidebar cannot clip it, and
@@ -22,7 +23,7 @@ export function ProjectSwitcher({ projects, currentId, rail, onChoose }: { proje
 
   const current = projects.find((p) => p.id === currentId);
   const options = useMemo(() => {
-    const all = [{ id: "", name: "All projects" }, ...projects];
+    const all = [{ id: "", name: "All projects", iconUrl: null }, ...projects];
     const s = q.trim().toLowerCase();
     return s ? all.filter((o) => o.name.toLowerCase().includes(s)) : all;
   }, [projects, q]);
@@ -82,9 +83,13 @@ export function ProjectSwitcher({ projects, currentId, rail, onChoose }: { proje
         onClick={() => (open ? close(false) : setOpen(true))}
         className={`flex h-8 items-center gap-2 rounded-sm border border-lining text-body text-ink hover:bg-surface-2 ${rail ? "w-8 justify-center" : "w-full px-2"}`}
       >
-        <span aria-hidden className="flex h-5 w-5 shrink-0 items-center justify-center rounded-xs bg-surface-3 text-micro font-medium text-ink-muted">
-          {(current?.name ?? "All").slice(0, 1).toUpperCase()}
-        </span>
+        {current ? (
+          <ProjectIcon name={current.name} iconUrl={current.iconUrl} size={20} />
+        ) : (
+          <span aria-hidden className="flex h-5 w-5 shrink-0 items-center justify-center rounded-xs bg-surface-3 text-micro font-medium text-ink-muted">
+            All
+          </span>
+        )}
         {!rail && (
           <>
             <span className="truncate">{current?.name ?? "All projects"}</span>
@@ -146,6 +151,7 @@ export function ProjectSwitcher({ projects, currentId, rail, onChoose }: { proje
                 onClick={() => choose(o.id)}
                 className={`flex h-8 cursor-pointer items-center gap-2 rounded-xs px-2 text-body ${i === activeIdx ? "bg-surface-4 text-ink" : "text-ink-muted"}`}
               >
+                <ProjectIcon name={o.name} iconUrl={o.iconUrl} size={16} />
                 <span className="truncate">{o.name}</span>
                 {o.id === (currentId ?? "") && <span aria-hidden className="ml-auto text-accent">✓</span>}
               </li>
