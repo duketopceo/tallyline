@@ -118,15 +118,8 @@ final class OfflineModel {
     /// their ids (the idempotency key), then send.
     func importSharedDrafts() async {
         guard let inbox = ShareInbox.shared() else { return }
-        let drafts = inbox.pending()
-        guard !drafts.isEmpty else { return }
-        let queued = Set(await outbox.all.map(\.id))
-        for item in drafts {
-            if !queued.contains(item.id) {
-                guard (try? await outbox.enqueue(.createIssue(item.draft), workspaceSlug: item.workspaceSlug, id: item.id)) != nil else { continue }
-            }
-            inbox.remove(item.id)
-        }
+        guard !inbox.pending().isEmpty else { return }
+        _ = await ShareIntake.claim(inbox: inbox, outbox: outbox)
         await drain()
     }
 
@@ -220,9 +213,7 @@ final class OfflineModel {
         try? await outbox.wipe()
         caches.deleteAll()
         activeWorkspace = nil
-        if let inbox = ShareInbox.shared() {
-            for item in inbox.pending() { inbox.remove(item.id) }
-        }
+        if let inbox = ShareInbox.shared() { inbox.removeAll() }
         cache = nil
         await refreshEntries()
     }
