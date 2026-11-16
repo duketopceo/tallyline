@@ -1,6 +1,6 @@
 ---
 title: Tallyline — living CE plan (cloud Linear-parity: API · web · iOS)
-updated: 2026-11-04
+updated: 2026-11-16
 date: 2026-11-04
 decisions_locked: 2026-11-04 (wipe user keep projects; cloud API default; C1a–W1 one ce-work; Apple console TBD)
 artifact_contract: ce-unified-plan/v1
@@ -24,12 +24,12 @@ Words in **INFERRED** are design choices from the 2026-11-03/04 brainstorm, not 
 
 ## 1. Inventory (what already exists in-repo)
 
-Verified against local checkout + open GitHub plans (2026-11-04).
+Verified against local checkout + GitHub PR state (2026-11-16). The 2026-11-04 inventory still describes what existed at plan time; statuses in §5 are current.
 
 | Artifact | Role |
 |---|---|
-| [ROADMAP.md](../../ROADMAP.md) | Status ledger as of 2026-11-05; most agent-buildable U/S units **shipped**; remainder is owner ops / deferred |
-| [docs/next-tasks.md](../next-tasks.md) | Ordered owner-gated handoff (TestFlight, push, deploy, backups, …) |
+| [ROADMAP.md](../../ROADMAP.md) | Status ledger as of 2026-11-16; most agent-buildable U/S units **shipped**; remainder is owner ops, W3 pricing copy, I5 iOS home, and deferred |
+| [docs/next-tasks.md](../next-tasks.md) | Ordered owner-gated handoff (Apple console, TestFlight, push, backups, …). Auto-deploy is live; it is no longer a Luke gate. |
 | [docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md](./2026-10-17-0000-feat-tallyline-full-roadmap-plan.md) | PM-ready program U1–U25 (mostly done) |
 | [docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md](./2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md) | Self-host + iOS S1–S7 (client mostly done; Apple/TestFlight owner-gated) |
 | [docs/plans/2026-10-12-2107-feat-ios-app-plan.md](./2026-10-12-2107-feat-ios-app-plan.md) | Earlier iOS plan (superseded by S5/S6 + open #230) |
@@ -40,18 +40,18 @@ Verified against local checkout + open GitHub plans (2026-11-04).
 | **PR #231** `docs/intake-helpdesk-home-plan` | Public intake + helpdesk + agent-first iOS home — **merged** |
 | **PR #240** `wo/intake-batch` | Intake implementation batch — **merged** |
 | [docs/plans-and-usage.md](../plans-and-usage.md) + `apps/api/src/plans.ts` | Free/Team limits when `BILLING=on`; **no Stripe yet (PLAN-060)** |
-| iOS today | Pairing → `tly_pat_*` → delta sync + outbox (`apps/ios/README.md`). **No SIWA.** |
+| iOS today | Pairing → `tly_pat_*` → delta sync + outbox, or cloud SIWA → the same PAT shape (`apps/ios/README.md`). Live SIWA waits on OQ4. |
 | API today | Hono + Postgres; OAuth providers env-gated; MCP OAuth; device pairing; usage metering |
 
 **Gap this plan closes:** cloud **Sign in with Apple** (web + iOS) as one identity; priced hosted offering under Linear; sequenced roadmaps for the three surfaces so ce-work has a next slice.
 
-## 2. Current product state (2026-11-04)
+## 2. Current product state (2026-11-16)
 
 | Surface | Status |
 |---|---|
 | **API / backend** | Production hosted API; sync, pairing, MCP OAuth, BYOK AI, intake (session-gated), entitlements code present but `BILLING` off |
-| **Web** | Full tracker + settings + devices pairing (+ QR on main via #228); login = password + optional Google/GitHub/OIDC if env set; **no Apple button** |
-| **iOS** | Pairing-first; offline outbox; widgets/share/shortcuts; Linear-feel UI deferred to #230; **no SIWA**; TestFlight / App Review still owner-gated |
+| **Web** | Full tracker + grouped Settings + account identities + devices pairing (+ QR); login = password + Sign in with Apple when the Apple web env is set, plus optional Google/GitHub/OIDC; public landing is live. Hosted pricing copy is still the “not available yet” placeholder (W3). |
+| **iOS** | Pairing retained for self-host; cloud Sign in with Apple is in the app (I1) and talks to `api.tallyline.app`; offline outbox (including a one-key share claim, #281); widgets/share/shortcuts; Linear-feel shell, Now feed, projects and Settings are on `main`. Live Apple sign-in still needs the owner’s Apple console (OQ4). TestFlight / App Review still owner-gated. Home is not yet the agent-first project overview (I5 / #238). |
 | **Identity** | One user in prod historically; little data → wipe/reseed OK for Apple bootstrap |
 
 ## 3. Pricing (undercut Linear) + cost to serve
@@ -140,14 +140,14 @@ U-IDs below are **stable for this ledger** (`C` = cloud parity). Do not renumber
 
 | U-ID | Milestone | Status | Done when |
 |---|---|---|---|
-| C1a | Apple as auth provider (JWKS / identity token verify, `provider_type` + registry + env) | ⬜ | Vitest green; `resolveIdentity` accepts Apple `sub` |
-| C1b | `POST /v1/auth/apple` (or oauth callback parity) → session **and** optional device PAT mint for iOS | ⬜ | ios-contract fixtures updated; pairing redeem still works |
-| C1c | Web OAuth Apple authorize/callback (Services ID) | ⬜ | `/v1/auth/methods` lists Apple when configured |
+| C1a | Apple as auth provider (JWKS / identity token verify, `provider_type` + registry + env) | ✅ #266, tests #278 | Vitest green; `resolveIdentity` accepts Apple `sub` |
+| C1b | `POST /v1/auth/apple` (or oauth callback parity) → session **and** optional device PAT mint for iOS | ✅ #266, tests #278 | ios-contract fixtures updated; pairing redeem still works |
+| C1c | Web OAuth Apple authorize/callback (Services ID) | ✅ #266, tests #278 | `/v1/auth/methods` lists Apple when configured |
 | C2 | App Review demo workspace ops (per 2026-11-02 plan) | 🟡 plan exists | Demo account + mint path proven |
 | C3 | PLAN-060 Stripe + `BILLING=on` + Pro $8 / Business $14 copy | ⬜ | Checkout + portal; Free caps enforced |
 | C4 | Public intake credentials (PR #231 / #240) | ✅ merged (#231, #240) | Outside apps post without human session |
 | C5 | Hardening: rate limits, abuse on auth + MCP, backup owner gates (U2/U3) | 🟡 partial | owner checklist in next-tasks green |
-| C6 | Write contract for both clients: idempotency keys on every mutation, `409 STALE_WRITE` carrying the server version on conflict, one documented optimistic-update shape | 🟡 in review (#256) | Web and iOS share the contract; replaying any write is a no-op; a stale write fails with a recoverable code, never a silent overwrite |
+| C6 | Write contract for both clients: idempotency keys on every mutation, `409 STALE_WRITE` carrying the server version on conflict, one documented optimistic-update shape | ✅ #256 | Web and iOS share the contract; replaying any write is a no-op; a stale write fails with a recoverable code, never a silent overwrite |
 
 **Depends on owner:** Apple Developer Services ID + iOS App ID SIWA capability; ASC; APNs for push (S4).
 
@@ -155,31 +155,31 @@ U-IDs below are **stable for this ledger** (`C` = cloud parity). Do not renumber
 
 | U-ID | Milestone | Status | Done when |
 |---|---|---|---|
-| W1 | Login: Sign in with Apple beside password (+ Google when env set) | ⬜ | Methods from API; happy path to the owner workspace |
-| W2 | Settings → Security: connected identities (Apple link status) | ⬜ | Shows linked providers; disconnect rules documented |
+| W1 | Login: Sign in with Apple beside password (+ Google when env set) | ✅ #266 (button shows when the Apple web env is complete) | Methods from API; live happy path still waits on OQ4 |
+| W2 | Settings → Account: connected identities (Apple link status) | ✅ #272 | Shows linked providers; disconnect rules documented |
 | W3 | Pricing / landing copy matches §3.2 | ⬜ | No Linear-beating claims we can’t deliver |
-| W4 | Helpdesk + intake admin UI (#231) | 🟡 planned | Staff can manage credentials + reporter thread |
+| W4 | Helpdesk + intake admin UI (#231) | ✅ #240 (`/support`) | Staff can manage credentials + reporter thread |
 | W5 | Devices pairing kept; QR remains primary for self-host phones | ✅ | Already shipped |
 
 ### 5.3 iOS (`apps/ios`)
 
 | U-ID | Milestone | Status | Done when |
 |---|---|---|---|
-| I1 | SIWA button on cloud path → C1b PAT → existing sync | ⬜ | Sign in → Issues without typing `tlpair_` |
+| I1 | SIWA button on cloud path → C1b PAT → existing sync | ✅ code on `main`; live path waits on OQ4 | Sign in → Issues without typing `tlpair_` |
 | I2 | Pairing retained (instance URL + code/QR) for self-host | ✅ keep | Regression tests still pass |
 | I3 | App Review / TestFlight (S5-U8, S7, 2026-11-02 plan) | 🟡 owner | Reviewer enters; Guideline 2.1 closed |
-| I4 | Native UI plan (#230 U1–U12): shell, Now feed, projects, motion | 🟡 shell, Now feed, projects and Settings on `main` (#244 to #246, #250); closers in review (#253) | Feels first-party iOS 26; not a thin list clone |
-| I5 | Agent-first home / roadmap consumption (#231 U7 / #230 U5–U6) | 🟡 planned | Opens on living work, not only flat triage |
+| I4 | Native UI plan (#230 U1–U12): shell, Now feed, projects, motion | ✅ shell, Now feed, projects, Settings and closers on `main` (#244 to #246, #250, #253) | Feels first-party iOS 26; not a thin list clone |
+| I5 | Agent-first home / roadmap consumption (#231 U7 / #230 U5–U6) | ⬜ #238 still open | Opens on living work, not only flat triage |
 
 ## 6. Next execution slice (recommended order)
 
-1. **C1a → C1b → I1 → W1** — Apple identity end-to-end (API → iOS → web). Highest leverage for “built like Linear” on the phone.
-2. **C2 + I3** — App Review unblocked (demo account / notes); can parallelize with the owner.
-3. **I4** — Merge/execute #230 UI plan once identity lands (or in parallel on a branch if the owner prefers chrome first — default is identity first per D2).
-4. **C4 / W4 / #240** — Public intake (already moving).
-5. **C6** — Write contract before hardening, so every mutation path has one idempotency and conflict story.
-6. **W3 + C3** — Public pricing + Stripe when ready to take money.
-7. Continue owner ops from [docs/next-tasks.md](../next-tasks.md) (backups, deploy user, push relay, S2 publish).
+1. **W3** — Public pricing copy on the landing page to match §3.2 (Free / Pro $8 / Business $14 yearly, self-host free). No checkout, no `BILLING=on`. Highest-value agent-buildable slice that does not need the owner.
+2. **I5 / #238** — iOS home as an agent-first project overview.
+3. **C2 + I3** — App Review unblocked (demo account / notes); needs the owner.
+4. **C3** — Stripe + `BILLING=on` when ready to take money. Blocked on OQ1/OQ2.
+5. Owner ops from [docs/next-tasks.md](../next-tasks.md) (Apple console OQ4, backups, push relay, S2 publish, TestFlight checks). Auto-deploy is already live (#264, #274, #279).
+
+Already shipped on this track: C1a/C1b/C1c, W1, W2, I1 (code), I4, C4, W4, C6. Live Apple sign-in still waits on OQ4.
 
 ## 7. Planning Contract (KTDs)
 
@@ -204,7 +204,7 @@ U-IDs below are **stable for this ledger** (`C` = cloud parity). Do not renumber
 
 ## 9. Definition of Done (this track’s v1 “Linear-class enough”)
 
-Status 2026-11-05 (readiness pass): no box is checked yet. The cloud beta units are partly in review (#256, #255, #253) and nothing is deployed or device-verified. See the Readiness pass section in [docs/next-tasks.md](../next-tasks.md).
+Status 2026-11-16: the cloud-beta units that were in review have merged, auto-deploy is live on tallyline.app, and Apple identity code is on `main`. No Definition of Done box is checked yet: live Apple sign-in is blocked on OQ4, pricing copy is still the placeholder (W3), and device / App Review checks have not been recorded. See the Readiness pass section in [docs/next-tasks.md](../next-tasks.md).
 
 - [ ] Web + iOS Apple sign-in → same user → same workspace data.
 - [ ] iOS sync (delta + outbox) works without pairing on cloud.
@@ -231,7 +231,7 @@ Status 2026-11-05 (readiness pass): no box is checked yet. The cloud beta units 
 
 - OQ1. Exact Stripe product IDs / annual discount mechanics (C3).
 - OQ2. Whether Business is a real second Stripe price or just Pro + flags at first.
-- OQ3. Merge #230 before or after first SIWA TestFlight (default: after I1; #230 still excludes SIWA).
+- OQ3. Settled by merge: #230’s UI plan is on `main` (I4). SIWA (I1) also landed in code; a live TestFlight check still waits on OQ4.
 
 ## 12. Appendix — deferred from older ROADMAP (unchanged triggers)
 
