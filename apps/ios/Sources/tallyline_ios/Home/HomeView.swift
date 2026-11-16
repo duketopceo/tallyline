@@ -17,8 +17,20 @@ struct HomeView: View {
         HomeOverview.cards(projects: workspace.projects, summary: workspace.summary, fetchedAt: workspace.fetchedAt)
     }
 
+    private var cachedIssues: [Issue] {
+        session.offline.cachedIssues(workspaceSlug: credential.workspaceSlug, state: nil)
+    }
+
     private var working: [HomeWorkingItem] {
-        HomeOverview.workingAgents(in: session.offline.cachedIssues(workspaceSlug: credential.workspaceSlug, state: nil))
+        HomeOverview.workingAgents(in: cachedIssues)
+    }
+
+    private var projectsById: [String: Project] {
+        Dictionary(workspace.projects.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
+    }
+
+    private var issuesByKey: [String: Issue] {
+        Dictionary(cachedIssues.map { ($0.key, $0) }, uniquingKeysWith: { _, last in last })
     }
 
     var body: some View {
@@ -40,13 +52,7 @@ struct HomeView: View {
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 8) {
                                         ForEach(working) { item in
-                                            Text(item.line)
-                                                .font(.caption.weight(.medium))
-                                                .foregroundStyle(Theme.ink)
-                                                .padding(.horizontal, 10)
-                                                .padding(.vertical, 6)
-                                                .background(Theme.surface3, in: Capsule())
-                                                .accessibilityLabel(item.line)
+                                            HomeWorkingChip(item: item, issue: issuesByKey[item.issueKey])
                                         }
                                     }
                                     .padding(.vertical, 2)
@@ -63,7 +69,7 @@ struct HomeView: View {
                         }
                         Section {
                             ForEach(cards) { card in
-                                if let project = workspace.projects.first(where: { $0.id == card.id }) {
+                                if let project = projectsById[card.id] {
                                     NavigationLink(value: project) { HomeProjectCardView(card: card, stacked: dynamicTypeSize.isAccessibilitySize) }
                                 } else {
                                     HomeProjectCardView(card: card, stacked: dynamicTypeSize.isAccessibilitySize)
@@ -95,6 +101,30 @@ struct HomeView: View {
     private var workingHeader: String {
         let count = working.count
         return "\(count) agent\(count == 1 ? "" : "s") working"
+    }
+}
+
+
+/// Compact chip in the agents-working strip. Links to the issue when the
+/// cached row is still there.
+private struct HomeWorkingChip: View {
+    let item: HomeWorkingItem
+    let issue: Issue?
+
+    var body: some View {
+        let chip = Text(item.line)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Theme.surface3, in: Capsule())
+            .accessibilityLabel(item.line)
+        if let issue {
+            NavigationLink(value: issue) { chip }
+                .buttonStyle(.plain)
+        } else {
+            chip
+        }
     }
 }
 

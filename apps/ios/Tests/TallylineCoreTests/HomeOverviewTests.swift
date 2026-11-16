@@ -103,6 +103,20 @@ final class HomeOverviewTests: XCTestCase {
         XCTAssertEqual(HomeOverview.cards(projects: [project], summary: nil, fetchedAt: now, now: now)[0].total, 0)
     }
 
+    func testLatestMergeWinsWhenAnOlderOneFollowsInTheArray() throws {
+        let project = Project(id: "k", name: "Kate", status: "started")
+        let summary = try summary(
+            counts: [try counts(id: "k", total: 3, done: 1, closed: 4)],
+            merges: [
+                try merge(id: "new", key: "KATE-2", projectId: "k", at: -10, name: "Builder"),
+                try merge(id: "old", key: "KATE-1", projectId: "k", at: -400, name: "Earlier"),
+            ]
+        )
+        let cards = HomeOverview.cards(projects: [project], summary: summary, fetchedAt: now, now: now)
+        XCTAssertEqual(cards[0].lastActivity?.sentence, "Builder finished KATE-2")
+        XCTAssertEqual(cards[0].openCount, 0, "openCount floors at zero when closed + done exceed total")
+    }
+
     func testWorkingStripIsOneIssuePerAgentWithoutInventedNames() {
         let rows = [
             issue("1", key: "ENG-1", title: "Wire home", state: .inProgress, type: "agent", agent: "a", updated: -10),
