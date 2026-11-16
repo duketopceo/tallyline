@@ -71,16 +71,9 @@ public enum NowFeed {
             ))
         }
         for merge in merges {
-            let who = merge.actorName ?? (merge.actorType == "agent" ? "An agent" : "Someone")
-            let sentence: String
-            if let pr = merge.pr {
-                sentence = "\(who) merged #\(pr.number) for \(merge.issueKey)"
-            } else {
-                sentence = "\(who) finished \(merge.issueKey)"
-            }
             out.append(NowItem(
                 id: "merge:\(merge.id)", kind: .finished(prNumber: merge.pr?.number), at: merge.at,
-                issueKey: merge.issueKey, sentence: sentence, byAgent: merge.actorType == "agent"
+                issueKey: merge.issueKey, sentence: sentence(for: merge), byAgent: merge.actorType == "agent"
             ))
         }
         let stale = fetchedAt.map { now.timeIntervalSince($0) > staleAfter } ?? false
@@ -96,6 +89,15 @@ public enum NowFeed {
             if a.at != b.at { return a.at > b.at }
             return a.id < b.id
         }
+    }
+
+    /// One sentence for a finished merge or a move to done. Shared with Home.
+    public static func sentence(for merge: RoadmapSummary.Merge) -> String {
+        let who = merge.actorName ?? (merge.actorType == "agent" ? "An agent" : "Someone")
+        if let pr = merge.pr {
+            return "\(who) merged #\(pr.number) for \(merge.issueKey)"
+        }
+        return "\(who) finished \(merge.issueKey)"
     }
 
     public static func grouped(_ items: [NowItem], now: Date = Date(), calendar: Calendar = .current) -> [NowSection] {

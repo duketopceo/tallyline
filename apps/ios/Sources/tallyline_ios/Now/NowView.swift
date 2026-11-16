@@ -8,7 +8,7 @@ struct IssueKeyRoute: Hashable {
     let key: String
 }
 
-/// The first tab: what agents and people just did, and what needs you.
+/// The activity tab: what agents and people just did, and what needs you.
 struct NowView: View {
     var session: SessionModel
     let credential: DeviceCredential
