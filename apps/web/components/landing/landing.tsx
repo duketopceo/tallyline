@@ -87,6 +87,7 @@ export function LandingPage({ signedIn = false }: { signedIn?: boolean }) {
             <a href="#provenance" className="hover:text-ink">Agents</a>
             <a href="#connect" className="hover:text-ink">Connect</a>
             <a href="#self-host" className="hover:text-ink">Self-host</a>
+            <a href="#pricing" className="hover:text-ink">Pricing</a>
             <a href={REPO} className="hover:text-ink" target="_blank" rel="noreferrer">GitHub</a>
           </nav>
           <div className="ml-auto flex items-center gap-2">
@@ -193,9 +194,20 @@ docker compose -f docker-compose.selfhost.yml up -d
           </div>
         </section>
 
-        <section aria-label="Pricing" className="mx-auto max-w-6xl px-6 py-16 text-center">
-          <h2 className="text-headline font-semibold">{PRICING.heading}</h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-ink-muted">{PRICING.body}</p>
+        <section id="pricing" aria-labelledby="pricing-heading" className="mx-auto max-w-6xl px-6 py-16">
+          <h2 id="pricing-heading" className="text-headline font-semibold">{PRICING.heading}</h2>
+          <p className="mt-2 max-w-2xl text-sm text-ink-muted">{PRICING.body}</p>
+          <ul className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {PRICING.plans.map((plan) => (
+              <li key={plan.name} className="flex flex-col rounded-md border border-lining-strong bg-surface-1 p-5 text-left">
+                <h3 className="text-sm font-medium text-ink">{plan.name}</h3>
+                <p className="mt-3 font-mono text-2xl font-medium tabular-nums tracking-tight">{plan.price}</p>
+                <p className="mt-1 text-xs text-ink-subtle">{plan.period}</p>
+                <p className="mt-4 text-sm leading-relaxed text-ink-muted">{plan.billed}</p>
+                <p className="mt-2 text-sm leading-relaxed text-ink-muted">{plan.limits}</p>
+              </li>
+            ))}
+          </ul>
         </section>
       </main>
 

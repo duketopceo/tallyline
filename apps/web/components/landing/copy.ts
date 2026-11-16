@@ -1,6 +1,8 @@
 // The landing page's own words, in one place so a test can hold them to the
 // rules: honest about what Tallyline is (a self-hostable, agent-native issue
 // tracker), no invented numbers or customers, and never the word "AI".
+// Hosted list prices are the CE-PLAN §3.2 figures. Limits come from
+// apps/api/src/plans.ts (Free, and Pro/Business mapped to today's team row).
 
 export const REPO = "https://github.com/duketopceo/tallyline";
 
@@ -25,9 +27,55 @@ export const SELF_HOST = {
   body: "AGPL-3.0 licensed. Docker Compose runs Postgres, the API and the web app. Your issues stay on your machine, and the app loads no third-party scripts or fonts.",
 };
 
+/** Yearly-billed list prices, USD per seat per month. Monthly billing is $2 more. */
+export const HOSTED_PRICES = {
+  proYearly: 8,
+  proMonthly: 10,
+  businessYearly: 14,
+  businessMonthly: 16,
+} as const;
+
+export type LandingPlan = {
+  name: string;
+  price: string;
+  period: string;
+  billed: string;
+  limits: string;
+};
+
 export const PRICING = {
-  heading: "Free to run. Hosted plans are not available yet.",
-  body: "Self-hosting costs nothing and has no seat limits. A hosted beta is planned, with no SLA while it is in beta: data may be lost.",
+  heading: "Self-host free. Hosted list prices are public; checkout is not open yet.",
+  body: "Self-hosting costs nothing and has no seat limits. You cannot buy a hosted plan today. A hosted beta has no SLA: data may be lost.",
+  plans: [
+    {
+      name: "Self-host",
+      price: "$0",
+      period: "forever",
+      billed: "No seats to buy. Unlimited workspaces, seats, agents and agent runs.",
+      limits: "Your issues stay on your machine.",
+    },
+    {
+      name: "Free",
+      price: "$0",
+      period: "per month",
+      billed: "No paid seat.",
+      limits: "1 workspace, 3 seats, 3 agents, 1,000 agent runs a month.",
+    },
+    {
+      name: "Pro",
+      price: `$${HOSTED_PRICES.proYearly}`,
+      period: "per seat / month",
+      billed: `$${HOSTED_PRICES.proYearly} when billed yearly, $${HOSTED_PRICES.proMonthly} when billed monthly.`,
+      limits: "No seat cap once checkout exists. 25,000 agent runs a month.",
+    },
+    {
+      name: "Business",
+      price: `$${HOSTED_PRICES.businessYearly}`,
+      period: "per seat / month",
+      billed: `$${HOSTED_PRICES.businessYearly} when billed yearly, $${HOSTED_PRICES.businessMonthly} when billed monthly.`,
+      limits: "Same limits as Pro for now.",
+    },
+  ] satisfies LandingPlan[],
 };
 
 /** Every string above, flattened, for the copy test. */
