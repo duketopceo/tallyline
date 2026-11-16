@@ -28,7 +28,7 @@ Verified against local checkout + GitHub PR state (2026-11-16). The 2026-11-04 i
 
 | Artifact | Role |
 |---|---|
-| [ROADMAP.md](../../ROADMAP.md) | Status ledger as of 2026-11-16; most agent-buildable U/S units **shipped**; remainder is owner ops, W3 pricing copy, I5 iOS home, and deferred |
+| [ROADMAP.md](../../ROADMAP.md) | Status ledger as of 2026-11-16; most agent-buildable U/S units **shipped**; remainder is owner ops, I5 iOS home, and deferred |
 | [docs/next-tasks.md](../next-tasks.md) | Ordered owner-gated handoff (Apple console, TestFlight, push, backups, …). Auto-deploy is live; it is no longer a Luke gate. |
 | [docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md](./2026-10-17-0000-feat-tallyline-full-roadmap-plan.md) | PM-ready program U1–U25 (mostly done) |
 | [docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md](./2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md) | Self-host + iOS S1–S7 (client mostly done; Apple/TestFlight owner-gated) |

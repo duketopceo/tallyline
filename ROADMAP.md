@@ -34,7 +34,7 @@ None. As of 2026-11-16 there are no open pull requests on `duketopceo/tallyline`
 | Item | Action |
 |---|---|
 | Apple console (OQ4) | Enable Sign in with Apple on the iOS App ID, create the web Services ID and return URL, and set `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, and `APPLE_BUNDLE_IDS` (iOS bundle ID audience, usually `app.tallyline.ios`) on the host. Until then the web Apple button does not show, and live iOS Sign in with Apple against `api.tallyline.app` cannot be confirmed. See [docs/auth.md](./docs/auth.md). |
-| TestFlight 1.2.1 | `ios-v1.2.1` is tagged on `#281` (`929142b`). The release workflow [succeeded](https://github.com/duketopceo/tallyline/actions/runs/43846459344) and [the GitHub release](https://github.com/duketopceo/tallyline/releases/tag/ios-v1.2.1) is published. Left: confirm the 1.2.1 build in TestFlight, then pairing and sync on a device. |
+| TestFlight 1.2.1 | `ios-v1.2.1` is tagged on #281 (`929142b`). The release workflow [succeeded](https://github.com/duketopceo/tallyline/actions/runs/43846459344) and [the GitHub release](https://github.com/duketopceo/tallyline/releases/tag/ios-v1.2.1) is published. Left: confirm the 1.2.1 build in TestFlight, then pairing and sync on a device. |
 | U2 backups | Age key custody, bucket object lock, enable the timer, run the restore drill (#165, #172, #178) |
 | U6 production host housekeeping | Confirm deletions: orphan redis volume, dangling swarm records, `.env.bak-*` files |
 | U11 Kate import | Provide the import credential (OQ5); approve each write |
