@@ -50,7 +50,7 @@ Verified against local checkout + GitHub PR state (2026-11-16). The 2026-11-04 i
 | Surface | Status |
 |---|---|
 | **API / backend** | Production hosted API; sync, pairing, MCP OAuth, BYOK AI, intake (session-gated), entitlements code present but `BILLING` off |
-| **Web** | Full tracker + grouped Settings + account identities + devices pairing (+ QR); login = password + Sign in with Apple when the Apple web env is set, plus optional Google/GitHub/OIDC; public landing is live. Hosted pricing copy is still the “not available yet” placeholder (W3). |
+| **Web** | Full tracker + grouped Settings + account identities + devices pairing (+ QR); login = password + Sign in with Apple when the Apple web env is set, plus optional Google/GitHub/OIDC; public landing is live, including hosted list prices (W3 / #283). Checkout is not open. |
 | **iOS** | Pairing retained for self-host; cloud Sign in with Apple is in the app (I1) and talks to `api.tallyline.app`; offline outbox (including a one-key share claim, #281); widgets/share/shortcuts; Linear-feel shell, Now feed, projects and Settings are on `main`. Live Apple sign-in still needs the owner’s Apple console (OQ4). TestFlight / App Review still owner-gated. Home is not yet the agent-first project overview (I5 / #238). |
 | **Identity** | One user in prod historically; little data → wipe/reseed OK for Apple bootstrap |
 
@@ -157,7 +157,7 @@ U-IDs below are **stable for this ledger** (`C` = cloud parity). Do not renumber
 |---|---|---|---|
 | W1 | Login: Sign in with Apple beside password (+ Google when env set) | ✅ #266 (button shows when the Apple web env is complete) | Methods from API; live happy path still waits on OQ4 |
 | W2 | Settings → Account: connected identities (Apple link status) | ✅ #272 | Shows linked providers; disconnect rules documented |
-| W3 | Pricing / landing copy matches §3.2 | ⬜ | No Linear-beating claims we can’t deliver |
+| W3 | Pricing / landing copy matches §3.2 | ✅ #283 | Landing states Free / Pro $8 / Business $14 yearly and self-host free; checkout is not open |
 | W4 | Helpdesk + intake admin UI (#231) | ✅ #240 (`/support`) | Staff can manage credentials + reporter thread |
 | W5 | Devices pairing kept; QR remains primary for self-host phones | ✅ | Already shipped |
 
@@ -173,13 +173,12 @@ U-IDs below are **stable for this ledger** (`C` = cloud parity). Do not renumber
 
 ## 6. Next execution slice (recommended order)
 
-1. **W3** — Public pricing copy on the landing page to match §3.2 (Free / Pro $8 / Business $14 yearly, self-host free). No checkout, no `BILLING=on`. Highest-value agent-buildable slice that does not need the owner.
-2. **I5 / #238** — iOS home as an agent-first project overview.
-3. **C2 + I3** — App Review unblocked (demo account / notes); needs the owner.
-4. **C3** — Stripe + `BILLING=on` when ready to take money. Blocked on OQ1/OQ2.
-5. Owner ops from [docs/next-tasks.md](../next-tasks.md) (Apple console OQ4, backups, push relay, S2 publish, TestFlight checks). Auto-deploy is already live (#264, #274, #279).
+1. **I5 / #238** — iOS home as an agent-first project overview. Highest-value agent-buildable slice that does not need the owner.
+2. **C2 + I3** — App Review unblocked (demo account / notes); needs the owner.
+3. **C3** — Stripe + `BILLING=on` when ready to take money. Blocked on OQ1/OQ2.
+4. Owner ops from [docs/next-tasks.md](../next-tasks.md) (Apple console OQ4 including `APPLE_BUNDLE_IDS`, backups, push relay, S2 publish, TestFlight 1.2.1 device check). Auto-deploy is already live (#264, #274, #279).
 
-Already shipped on this track: C1a/C1b/C1c, W1, W2, I1 (code), I4, C4, W4, C6. Live Apple sign-in still waits on OQ4.
+Already shipped on this track: C1a/C1b/C1c, W1, W2, W3 (#283), I1 (code), I4, C4, W4, C6. Live Apple sign-in still waits on OQ4.
 
 ## 7. Planning Contract (KTDs)
 
@@ -204,7 +203,7 @@ Already shipped on this track: C1a/C1b/C1c, W1, W2, I1 (code), I4, C4, W4, C6. L
 
 ## 9. Definition of Done (this track’s v1 “Linear-class enough”)
 
-Status 2026-11-16: the cloud-beta units that were in review have merged, auto-deploy is live on tallyline.app, and Apple identity code is on `main`. No Definition of Done box is checked yet: live Apple sign-in is blocked on OQ4, pricing copy is still the placeholder (W3), and device / App Review checks have not been recorded. See the Readiness pass section in [docs/next-tasks.md](../next-tasks.md).
+Status 2026-11-16: the cloud-beta units that were in review have merged, auto-deploy is live on tallyline.app, Apple identity code is on `main`, and W3 pricing copy shipped in #283. No Definition of Done box is checked yet: live Apple sign-in is blocked on OQ4, hosted checkout is still off, and device / App Review checks have not been recorded. See the Readiness pass section in [docs/next-tasks.md](../next-tasks.md).
 
 - [ ] Web + iOS Apple sign-in → same user → same workspace data.
 - [ ] iOS sync (delta + outbox) works without pairing on cloud.
@@ -225,7 +224,7 @@ Status 2026-11-16: the cloud-beta units that were in review have merged, auto-de
 
 **Blocks live Apple (not code start):**
 
-- **OQ4.** Apple Developer: enable Sign in with Apple on App ID `app.tallyline.ios` (or current bundle), create Services ID for web (`tallyline.app` / `api.tallyline.app` return URLs), put client id(s) in prod env. Owner: not sure yet — check ASC / developer.apple.com when ready.
+- **OQ4.** Apple Developer: enable Sign in with Apple on App ID `app.tallyline.ios` (or current bundle), create Services ID for web (`tallyline.app` / `api.tallyline.app` return URLs), put `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, and `APPLE_BUNDLE_IDS` (iOS bundle audience) in prod env. Owner: not sure yet — check ASC / developer.apple.com when ready.
 
 **Non-blocking for C1 code:**
 

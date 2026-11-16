@@ -1,6 +1,6 @@
 # Cloud beta: done / left for owner
 
-Status as of 2026-11-16 against [the roadmap plan](./plans/2026-11-04-1847-feat-tallyline-cloud-beta-roadmap-plan.md). Scope: cloud beta without Stripe. tallyline.app auto-deploys from `main`. The latest iOS TestFlight tag is still `ios-v1.2.0`.
+Status as of 2026-11-16 against [the roadmap plan](./plans/2026-11-04-1847-feat-tallyline-cloud-beta-roadmap-plan.md). Scope: cloud beta without Stripe. tallyline.app auto-deploys from `main`. The latest iOS TestFlight tag is `ios-v1.2.1`.
 
 ## Done (merged to `main`)
 
@@ -24,8 +24,8 @@ None as of 2026-11-16.
 
 ## Left for the owner
 
-1. **Apple console (web and iOS):** create a Services ID, register the API domain and return URL `https://<api-host>/v1/auth/oauth/apple/callback`, create a Sign in with Apple key. On the host set `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` (see [auth.md](./auth.md#apple-web)). Check: the login page shows "Sign in with Apple", and a phone can sign in to `api.tallyline.app` without a pairing code.
-2. **TestFlight 1.2.1:** #281 is the first product iOS change since `ios-v1.2.0`. After `ios-v1.2.1` is tagged, approve the `testflight` environment, then confirm pairing and sync on a device.
+1. **Apple console (web and iOS):** enable Sign in with Apple on the iOS App ID, create a Services ID, register the API domain and return URL `https://<api-host>/v1/auth/oauth/apple/callback`, create a Sign in with Apple key. On the host set `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, and `APPLE_BUNDLE_IDS` to the iOS bundle ID (see [auth.md](./auth.md#apple-web)). Native tokens use the bundle ID as `aud`; without `APPLE_BUNDLE_IDS` the phone gets `401 INVALID_APPLE_TOKEN`. Check: the login page shows "Sign in with Apple", and a phone can sign in to `api.tallyline.app` without a pairing code.
+2. **TestFlight 1.2.1:** the tag and upload already succeeded ([run](https://github.com/duketopceo/tallyline/actions/runs/43846459344), [release](https://github.com/duketopceo/tallyline/releases/tag/ios-v1.2.1)). Confirm pairing and sync of that build on a device.
 3. **Backups and restore drill** (TLY-266): run the drill from [deploy.md](./deploy.md#backup--restore) and record the date.
 4. **Push relay, associated domains**, and the rest of the owner list in [next-tasks.md](./next-tasks.md).
 5. **Fill the deploy ownership table** in [deploy.md](./deploy.md#deploy-ownership).

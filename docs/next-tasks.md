@@ -4,13 +4,7 @@ Heaviest open work, ordered by impact. Most items still need an input from Luke.
 
 ## Agent-buildable (no Luke input)
 
-1. **W3 public pricing copy** (CE-PLAN W3 / R6)
-   - What: replace the landing page's "hosted plans are not available yet" block with the settled list: Free, Pro $8 / Business $14 per seat per month when billed yearly ($10 / $16 billed monthly), and self-host free. Do not add a buy button or turn `BILLING` on.
-   - Files: `apps/web/components/landing/copy.ts`, `apps/web/components/landing/landing.tsx`, `apps/web/components/landing/copy.test.ts`. Limits must match `apps/api/src/plans.ts`.
-   - Luke provides: nothing for copy. Checkout and Stripe are C3, later.
-   - Verify: copy tests pass; the page states the four prices and "self-host free"; no "AI" in landing copy; no buy or subscribe control.
-
-2. **I5 agent-first iOS home** (#238)
+1. **I5 agent-first iOS home** (#238)
    - What: make `Home` the app root: active projects as cards, a compact agents-working strip, issues as a tab.
    - Files: `apps/ios`, plan U7 in [docs/plans/2026-11-03-1600-feat-intake-helpdesk-agent-first-home-plan.md](./plans/2026-11-03-1600-feat-intake-helpdesk-agent-first-home-plan.md).
    - Luke provides: nothing to start the build; a device check after it lands.
@@ -19,15 +13,15 @@ Heaviest open work, ordered by impact. Most items still need an input from Luke.
 ## Needs Luke
 
 1. **Apple console (OQ4)** so live Sign in with Apple works
-   - What: enable Sign in with Apple on App ID `app.tallyline.ios` (or the current bundle), create a Services ID for web with return URL `https://<api-host>/v1/auth/oauth/apple/callback`, and set `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, and `APPLE_PRIVATE_KEY` on the host.
+   - What: enable Sign in with Apple on App ID `app.tallyline.ios` (or the current bundle), create a Services ID for web with return URL `https://<api-host>/v1/auth/oauth/apple/callback`, and set `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, and `APPLE_BUNDLE_IDS` (the iOS bundle ID, usually `app.tallyline.ios`) on the host.
    - Files: [docs/auth.md](./auth.md). Code is already on `main` (#266, tests #278).
    - Luke provides: the Apple Developer / App Store Connect setup and the host env values (never commit them).
    - Verify: the web login page shows "Sign in with Apple", and a phone can sign in to `api.tallyline.app` without a pairing code.
 
-2. **S5 TestFlight: cut 1.2.1 and confirm on a device**
-   - What: `apps/ios` has two commits since `ios-v1.2.0`: #281 (offline share fix — the only product change) and #278 (Apple sign-in contract fixture tests only). The `ios` workflow on `main` is green. Tag `ios-v1.2.1` on `main` to start `.github/workflows/ios-release.yml`; it waits on the `testflight` environment.
-   - Files: `apps/ios` (`project.yml`, `App.entitlements`, `Extensions/`, `ci/`, `scripts/`, `README.md`).
-   - Luke provides: approval of the `testflight` environment, then a pairing and sync check on a device.
+2. **S5 TestFlight: confirm 1.2.1 on a device**
+   - What: `ios-v1.2.1` is tagged on #281 (`929142b`), the only product iOS change since `ios-v1.2.0` (#278 added Apple sign-in contract fixture tests only). The `ios-release` run [succeeded](https://github.com/duketopceo/tallyline/actions/runs/43846459344) and [the GitHub release](https://github.com/duketopceo/tallyline/releases/tag/ios-v1.2.1) is published.
+   - Files: `apps/ios`.
+   - Luke provides: a pairing and sync check of the 1.2.1 TestFlight build on a device.
    - Verify: the build shows up in TestFlight, and it installs and pairs (and, once OQ4 is set, signs in with Apple).
 
 3. **S4 production push relay**
@@ -94,16 +88,18 @@ Heaviest open work, ordered by impact. Most items still need an input from Luke.
 
 - **U3 deploys.** `.github/workflows/deploy.yml` auto-deploys tallyline.app on every push to `main` except docs, markdown, and `apps/ios/` (#264). The self-hosted runner (`self-hosted,tallyline-deploy`) runs `ops/deploy.sh` on the production host. #274 and #279 fixed the backup path and the host backup env; the deploy for #279 succeeded on 2026-11-13 at 1:46 AM MST. The first manual `ops/deploy.sh --assume-running` run is superseded. A tighter sudoers-restricted deploy user on the host is optional hardening, not a gate.
 - Cloud beta units #256 (U3/C6), #255 (U4), #253 (U5), #258 (Settings redesign), and #266 (U6 web Apple sign-in, live button still waiting on OQ4).
+- W3 public pricing copy (#283). Checkout remains off.
 - Intake, helpdesk, and the secrets-key callout (#240). Issues #232–#237 and #239 are still open and look done; they need a close/keep pass.
+- iOS 1.2.1 tag and TestFlight upload (run succeeded 2026-11-16). Device confirmation is still open.
 
 ## Readiness pass 2026-11-16 (cloud beta)
 
-State: `main` is at `929142b`. No pull requests are open. Auto-deploy is live; the last server deploy that ran was #279 and it passed. Later merges #277 (docs/prototype) and #281 (iOS) correctly skipped the deploy workflow. The latest TestFlight tag is still `ios-v1.2.0` (2026-11-07); #281 is the first product iOS change since then. The Definition of Done in [CE-PLAN.md](./plans/CE-PLAN.md) has no boxes checked: live Apple sign-in is not confirmed, pricing copy is still the placeholder, and device checks have not been recorded.
+State: `main` is at `52cda96` (#283 pricing copy). Auto-deploy is live; #283 triggered a production deploy. The latest TestFlight tag is `ios-v1.2.1` (2026-11-16); the upload run succeeded. The Definition of Done in [CE-PLAN.md](./plans/CE-PLAN.md) has no boxes checked: live Apple sign-in is not confirmed, hosted checkout is still off, and device checks have not been recorded.
 
 Owner steps, in order:
 
-1. **Apple console (OQ4)** so the web button shows and a phone can sign in without pairing.
-2. **Approve the `testflight` environment** after `ios-v1.2.1` is tagged, then confirm the build on a device.
+1. **Apple console (OQ4)** so the web button shows and a phone can sign in without pairing. Include `APPLE_BUNDLE_IDS`.
+2. **Confirm the 1.2.1 TestFlight build** on a device (tag and upload already succeeded).
 3. **Backups and restore drill** (U2).
 4. **Device checks (cloud-beta U2):** VoiceOver and on-device checks of the iOS shell, skipped for now because they need a device.
 5. **Push relay** so the Settings test notification row can be exercised.
