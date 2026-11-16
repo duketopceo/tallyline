@@ -5,11 +5,12 @@ import TallylineDesign
 
 /// The tabs. Settings is not one: it opens from the profile button.
 enum AppTab: String, CaseIterable, Identifiable, Hashable {
-    case now, issues, projects, review, search
+    case home, now, issues, projects, review, search
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .home: "Home"
         case .now: "Now"
         case .issues: "Issues"
         case .projects: "Projects"
@@ -20,6 +21,7 @@ enum AppTab: String, CaseIterable, Identifiable, Hashable {
 
     var symbol: String {
         switch self {
+        case .home: "house"
         case .now: "sparkles"
         case .issues: "list.bullet"
         case .projects: "square.stack.3d.up"
@@ -32,10 +34,11 @@ enum AppTab: String, CaseIterable, Identifiable, Hashable {
     /// system's).
     var shortcut: KeyEquivalent? {
         switch self {
-        case .now: "1"
-        case .issues: "2"
-        case .projects: "3"
-        case .review: "4"
+        case .home: "1"
+        case .now: "2"
+        case .issues: "3"
+        case .projects: "4"
+        case .review: "5"
         case .search: nil
         }
     }
@@ -54,7 +57,7 @@ enum AppTab: String, CaseIterable, Identifiable, Hashable {
 /// toolbar through the environment.
 @MainActor @Observable
 final class ShellState {
-    var tab: AppTab = .now
+    var tab: AppTab = .home
     var showSettings = false
     var showOutbox = false
 }
@@ -83,6 +86,9 @@ struct ShellView: View {
 
     var body: some View {
         TabView(selection: $shell.tab) {
+            Tab(AppTab.home.title, systemImage: AppTab.home.symbol, value: AppTab.home) {
+                HomeView(session: session, credential: credential).modifier(PulseInset(pulse: pulse, onTap: openPulse))
+            }
             Tab(AppTab.now.title, systemImage: AppTab.now.symbol, value: AppTab.now) {
                 NowView(session: session, credential: credential).modifier(PulseInset(pulse: pulse, onTap: openPulse))
             }
