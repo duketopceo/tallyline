@@ -73,20 +73,20 @@ export default function PrivacyPage() {
         <p>This website and the app use only the cookies they need to work:</p>
         <ul>
           <li>
-            <code className="font-mono text-[13px] text-ink">tly_session</code>: keeps you signed in
+            <code className="font-mono text-body text-ink">tly_session</code>: keeps you signed in
             (expires after 30 days).
           </li>
           <li>
-            <code className="font-mono text-[13px] text-ink">tly_ws</code>: remembers which workspace
+            <code className="font-mono text-body text-ink">tly_ws</code>: remembers which workspace
             you last opened.
           </li>
           <li>
-            <code className="font-mono text-[13px] text-ink">sl-appearance</code>: remembers your theme
+            <code className="font-mono text-body text-ink">sl-appearance</code>: remembers your theme
             on this device.
           </li>
         </ul>
         <p>
-          Hosted <code className="font-mono text-[13px] text-ink">tallyline.app</code> may run
+          Hosted <code className="font-mono text-body text-ink">tallyline.app</code> may run
           optional, cookie-free, first-party analytics (Umami, honoring Do Not Track) to count
           aggregate page views and feature usage without storing personal data, and self-hosted
           error reporting scrubbed of tokens and personal details. Both are disabled by default on

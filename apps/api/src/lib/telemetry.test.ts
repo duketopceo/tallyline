@@ -32,6 +32,7 @@ describe("API telemetry", () => {
       },
       extra: {
         oauthToken: "gho_secret",
+        tokenCount: 42,
         nested: { api_key: "key_123", ok: "visible" },
       },
       breadcrumbs: [
@@ -63,6 +64,7 @@ describe("API telemetry", () => {
     expect(scrubbed.user?.ip_address).toBeUndefined();
     expect(scrubbed.user?.username).toBeUndefined();
     expect(scrubbed.extra?.oauthToken).toBe("[REDACTED]");
+    expect(scrubbed.extra?.tokenCount).toBe(42);
     expect((scrubbed.extra?.nested as Record<string, unknown>).api_key).toBe("[REDACTED]");
     expect((scrubbed.extra?.nested as Record<string, unknown>).ok).toBe("visible");
     expect(scrubbed.breadcrumbs?.[0]?.message).not.toContain("gt-secret-99");
@@ -70,5 +72,9 @@ describe("API telemetry", () => {
     expect(scrubbed.breadcrumbs?.[0]?.data?.url).not.toContain("xyz");
     expect(scrubbed.exception?.values?.[0]?.value).not.toContain("gt-secret-99");
     expect(scrubbed.exception?.values?.[0]?.value).not.toContain("tok123");
+    // Original input event must not be mutated.
+    expect(event.user?.email).toBe("alice@example.com");
+    expect(event.request?.cookies).toEqual({ tly_session: "raw-session-cookie" });
+    expect(event.request?.headers?.authorization).toBe("Bearer super-secret-jwt");
   });
 });

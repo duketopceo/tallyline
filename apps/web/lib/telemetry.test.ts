@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  captureWebException,
+  disposeWebTelemetry,
   initWebTelemetry,
   isWebTelemetryEnabled,
   parseSentryDsn,
@@ -8,6 +10,11 @@ import {
 } from "./telemetry";
 
 describe("web telemetry", () => {
+  afterEach(() => {
+    disposeWebTelemetry();
+    vi.unstubAllGlobals();
+  });
+
   it("is a zero-op when NEXT_PUBLIC_SENTRY_DSN is unset", () => {
     expect(initWebTelemetry("")).toBe(false);
     expect(initWebTelemetry("   ")).toBe(false);
@@ -19,9 +26,38 @@ describe("web telemetry", () => {
     const parsed = parseSentryDsn("https://abc123@errors.tallyline.app/7");
     expect(parsed).toEqual({
       publicKey: "abc123",
-      storeUrl: "https://errors.tallyline.app/api/7/store/?sentry_key=abc123&sentry_version=7",
+      storeUrl:
+        "https://errors.tallyline.app/api/7/store/?sentry_key=abc123&sentry_version=7&sentry_client=tallyline-web%2F1.0",
     });
     expect(parseSentryDsn("not-a-dsn")).toBeNull();
+  });
+
+  it("sends POST with X-Sentry-Auth and scrubbed payload, then tears down cleanly", () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(initWebTelemetry("https://abc123@errors.tallyline.app/7")).toBe(true);
+    expect(isWebTelemetryEnabled()).toBe(true);
+
+    captureWebException(new Error("Request to /webhooks/glitchtip/secret_tok failed with Bearer jwt_123"));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(
+      "https://errors.tallyline.app/api/7/store/?sentry_key=abc123&sentry_version=7&sentry_client=tallyline-web%2F1.0",
+    );
+    expect(init.method).toBe("POST");
+    expect((init.headers as Record<string, string>)["X-Sentry-Auth"]).toBe(
+      "Sentry sentry_version=7, sentry_key=abc123, sentry_client=tallyline-web/1.0",
+    );
+    const body = JSON.parse(String(init.body)) as WebErrorEvent;
+    expect(body.exception?.values?.[0]?.value).not.toContain("secret_tok");
+    expect(body.exception?.values?.[0]?.value).not.toContain("jwt_123");
+
+    disposeWebTelemetry();
+    expect(isWebTelemetryEnabled()).toBe(false);
+    captureWebException(new Error("after dispose"));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("scrubs headers, cookies, webhook secrets, OAuth query params, and user PII without mutating input", () => {

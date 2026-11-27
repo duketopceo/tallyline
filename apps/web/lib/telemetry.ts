@@ -56,7 +56,7 @@ export function parseSentryDsn(rawDsn: string | undefined): ParsedDsn | null {
     const projectId = segments.pop();
     if (!publicKey || !projectId) return null;
     const basePath = segments.length > 0 ? `/${segments.join("/")}` : "";
-    const storeUrl = `${u.protocol}//${u.host}${basePath}/api/${encodeURIComponent(projectId)}/store/?sentry_key=${encodeURIComponent(publicKey)}&sentry_version=7`;
+    const storeUrl = `${u.protocol}//${u.host}${basePath}/api/${encodeURIComponent(projectId)}/store/?sentry_key=${encodeURIComponent(publicKey)}&sentry_version=7&sentry_client=tallyline-web%2F1.0`;
     return { storeUrl, publicKey };
   } catch {
     return null;
@@ -157,6 +157,8 @@ export function scrubBrowserEvent(event: WebErrorEvent): WebErrorEvent {
 
 let activeDsn: ParsedDsn | null = null;
 let listenersAttached = false;
+let errorHandler: ((ev: ErrorEvent) => void) | null = null;
+let rejectionHandler: ((ev: PromiseRejectionEvent) => void) | null = null;
 
 export function initWebTelemetry(dsn = process.env.NEXT_PUBLIC_SENTRY_DSN): boolean {
   const parsed = parseSentryDsn(dsn);
@@ -167,14 +169,31 @@ export function initWebTelemetry(dsn = process.env.NEXT_PUBLIC_SENTRY_DSN): bool
   activeDsn = parsed;
   if (!listenersAttached && typeof window !== "undefined") {
     listenersAttached = true;
-    window.addEventListener("error", (ev) => {
+    errorHandler = (ev: ErrorEvent) => {
       captureWebException(ev.error ?? ev.message);
-    });
-    window.addEventListener("unhandledrejection", (ev) => {
+    };
+    rejectionHandler = (ev: PromiseRejectionEvent) => {
       captureWebException(ev.reason);
-    });
+    };
+    window.addEventListener("error", errorHandler);
+    window.addEventListener("unhandledrejection", rejectionHandler);
   }
   return true;
+}
+
+export function disposeWebTelemetry(): void {
+  if (listenersAttached && typeof window !== "undefined") {
+    if (errorHandler) {
+      window.removeEventListener("error", errorHandler);
+    }
+    if (rejectionHandler) {
+      window.removeEventListener("unhandledrejection", rejectionHandler);
+    }
+  }
+  errorHandler = null;
+  rejectionHandler = null;
+  listenersAttached = false;
+  activeDsn = null;
 }
 
 export function isWebTelemetryEnabled(): boolean {
@@ -206,7 +225,10 @@ export function captureWebException(err: unknown): void {
   const payload = buildPayload(err);
   void fetch(activeDsn.storeUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Sentry-Auth": `Sentry sentry_version=7, sentry_key=${activeDsn.publicKey}, sentry_client=tallyline-web/1.0`,
+    },
     body: JSON.stringify(payload),
     keepalive: true,
   }).catch(() => {
