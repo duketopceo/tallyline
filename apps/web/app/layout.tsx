@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
+import Script from "next/script";
 import {
   generateCustom,
   themeToStyle,
@@ -11,6 +13,8 @@ import "@fontsource/atkinson-hyperlegible-next/600.css";
 import "@fontsource/commit-mono/400.css";
 import "@fontsource/commit-mono/500.css";
 import "./globals.css";
+import { TelemetryProvider } from "@/components/telemetry-provider";
+import { getUmamiConfig } from "@/lib/analytics";
 import { themeColorsFor } from "@/lib/appearance";
 import { readAppearanceCookie } from "@/lib/appearance-server";
 
@@ -49,6 +53,8 @@ export async function generateViewport(): Promise<Viewport> {
 // data-theme and lets prefers-color-scheme in silver-lining.css decide.
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const appearance = await readAppearanceCookie();
+  const umami = getUmamiConfig(process.env);
+  const nonce = umami ? (await headers()).get("x-nonce") ?? undefined : undefined;
   const themeProps =
     appearance.theme === "system"
       ? {}
@@ -63,7 +69,19 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         : { "data-theme": appearance.theme };
   return (
     <html lang="en" {...themeProps}>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <TelemetryProvider />
+        {children}
+        {umami ? (
+          <Script
+            src={umami.scriptUrl}
+            data-website-id={umami.websiteId}
+            data-do-not-track="true"
+            strategy="afterInteractive"
+            nonce={nonce}
+          />
+        ) : null}
+      </body>
     </html>
   );
 }

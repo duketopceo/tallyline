@@ -1,4 +1,5 @@
-import pg from "pg";
+import type pg from "pg";
+import { pool } from "./db/client.js";
 
 export interface HealthReport {
   status: "ok" | "degraded";
@@ -6,10 +7,12 @@ export interface HealthReport {
   uptimeSeconds: number;
 }
 
+export type HealthQueryable = Pick<pg.Pool, "query">;
+
 export async function checkHealth(
-  databaseUrl: string,
+  pgPool: HealthQueryable = pool,
 ): Promise<HealthReport> {
-  const postgres = await pingPostgres(databaseUrl);
+  const postgres = await pingPostgres(pgPool);
   return {
     status: postgres ? "ok" : "degraded",
     postgres,
@@ -17,14 +20,11 @@ export async function checkHealth(
   };
 }
 
-async function pingPostgres(databaseUrl: string): Promise<boolean> {
-  const pool = new pg.Pool({ connectionString: databaseUrl });
+async function pingPostgres(pgPool: HealthQueryable): Promise<boolean> {
   try {
-    await pool.query("SELECT 1");
+    await pgPool.query("SELECT 1");
     return true;
   } catch {
     return false;
-  } finally {
-    await pool.end().catch(() => undefined);
   }
 }

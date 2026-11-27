@@ -1,8 +1,35 @@
+import { getUmamiConfig } from "./analytics";
+
 // Security headers for the web app. CSP uses a per-request nonce
 // (script-src 'nonce-…' 'strict-dynamic'): Next.js stamps the nonce on its own
 // framework and page scripts during SSR, which is why the root layout is
 // force-dynamic. Static headers (nosniff, framing, referrer) apply to every
 // response; HSTS only when the request actually arrived over HTTPS.
+
+function parseOrigin(raw: string | undefined): string | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+export function collectConnectSrc(
+  env: Record<string, string | undefined>,
+): string[] {
+  const origins = new Set<string>();
+  const apiUrl = env.NEXT_PUBLIC_API_URL?.trim();
+  if (apiUrl) origins.add(apiUrl);
+  const sentryOrigin = parseOrigin(env.NEXT_PUBLIC_SENTRY_DSN);
+  if (sentryOrigin) origins.add(sentryOrigin);
+  const umami = getUmamiConfig(env);
+  if (umami?.origin) origins.add(umami.origin);
+  return [...origins];
+}
 
 export function buildCsp(nonce: string, opts: { dev: boolean; connectSrc?: string[] }): string {
   const connect = ["'self'", ...(opts.connectSrc ?? [])].join(" ");

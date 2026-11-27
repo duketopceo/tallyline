@@ -7,6 +7,7 @@ import { db } from "../db/client.js";
 import { intakeEvents, issues } from "../db/schema.js";
 import { config_ } from "../env.js";
 import { apiError } from "../lib/errors.js";
+import { recordIntakeReport } from "../lib/metrics.js";
 import { createKeyedLimiter } from "../lib/rate-limit.js";
 import { ingestIntake } from "../services/intake.js";
 import { normalizeFirstPartyReport } from "../services/intake-normalize.js";
@@ -114,9 +115,11 @@ export const intakePublicRoutes = new Hono().post(
   async (c, next) => {
     const lookup = await resolveIntakeCredential(c.req.param("key"));
     if (lookup.status === "invalid") {
+      recordIntakeReport("public", "rejected");
       return apiError(c, 401, "INTAKE_KEY_INVALID", "intake key is not valid");
     }
     if (lookup.status === "revoked") {
+      recordIntakeReport("public", "rejected");
       return apiError(
         c,
         410,
@@ -125,7 +128,10 @@ export const intakePublicRoutes = new Hono().post(
       );
     }
     const limited = await intakeReportLimiter.hit(c, lookup.credential.id);
-    if (limited) return limited;
+    if (limited) {
+      recordIntakeReport("public", "rejected");
+      return limited;
+    }
     await touchIntakeCredential(lookup.credential.id);
     c.set("intakeCredential", lookup.credential);
     return next();
@@ -163,6 +169,7 @@ export const intakePublicRoutes = new Hono().post(
 
     // never echo the workspace, its slug, or any issue but this one
     if (result.status === "duplicate_delivery") {
+      recordIntakeReport("public", "duplicate_delivery");
       // a replay of an accepted delivery still owes the caller a way back if
       // it asked for one, so resolve the issue the first delivery filed
       const token = await followUpToken(
@@ -172,6 +179,8 @@ export const intakePublicRoutes = new Hono().post(
       );
       return c.json({ deduped: true, reporterToken: token }, 200);
     }
+
+    recordIntakeReport("public", result.status === "created" ? "created" : "deduped");
 
     let reporterToken: string | null = null;
     if (result.issue) {

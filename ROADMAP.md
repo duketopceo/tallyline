@@ -4,16 +4,24 @@ Goal: Tallyline is the tracker Luke runs his projects on (Kate first, then Cairn
 
 **Living cloud Linear-parity ledger (API · web · iOS + pricing/COGS):** [docs/plans/CE-PLAN.md](./docs/plans/CE-PLAN.md) (updated 2026-11-16). Use that for SIWA identity, undercut-Linear pricing, and next execution slices. This file keeps the shipped U/S status and Luke-gated ops list.
 
-Status is read from `main` (`52cda96`) and PR state as of 2026-11-16. The cloud beta roadmap is [docs/plans/2026-11-04-1847-feat-tallyline-cloud-beta-roadmap-plan.md](./docs/plans/2026-11-04-1847-feat-tallyline-cloud-beta-roadmap-plan.md); the cloud beta runs without Stripe. Unit specs live in two plans:
+Status is read from `main` and open PR `#286` as of **2026-11-27** (previous full sweep 2026-11-16 at `52cda96`). The cloud beta roadmap is [docs/plans/2026-11-04-1847-feat-tallyline-cloud-beta-roadmap-plan.md](./docs/plans/2026-11-04-1847-feat-tallyline-cloud-beta-roadmap-plan.md); the cloud beta runs without Stripe. Unit specs live in two plans:
 
 - PM-ready program (U1 to U25): [docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md](./docs/plans/2026-10-17-0000-feat-tallyline-full-roadmap-plan.md)
 - Self-hosted program (S1 to S7): [docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md](./docs/plans/2026-10-28-0200-feat-ios-client-agent-providers-cli-plan.md), from the [requirements](./docs/brainstorms/2026-10-28-self-hosted-linear-ios-agent-providers-cli-requirements.md)
 
 Every open item sits in exactly one of three lists: buildable by an agent, needs Luke, or deferred.
 
+### Update 2026-11-27 (Pace Observability Parity — PR #286)
+
+- **PR `#286` (`feat/observability-pace-parity`):** Brings `tallyline.app` observability up to Pace parity without adding telemetry to self-hosted installs by default:
+  - Self error reporting to GlitchTip/Sentry in `apps/api`, `apps/mcp-server`, `apps/push-relay` (`SENTRY_DSN`), and `apps/web` (`NEXT_PUBLIC_SENTRY_DSN` zero-dependency store client keeping JS bundle under 750 KB) with token/cookie/URL/PII scrubbing.
+  - Opt-in cookie-free Umami analytics (`NEXT_PUBLIC_UMAMI_WEBSITE_ID`, `data-do-not-track="true"`) on `apps/web` + CSP `connect-src` support.
+  - Shared `pg.Pool` reuse in `apps/api` `/health`, fail-closed bearer-protected `GET /metrics` (`METRICS_BEARER_TOKEN`), and structured JSON logging with redacted secret paths.
+- **Takeover note:** Once `#286` merges, remaining production activation stays in **Needs Luke** (`U2` R2 object-lock backups + restore drill, `SENTRY_DSN` / `NEXT_PUBLIC_UMAMI_WEBSITE_ID` / `METRICS_BEARER_TOKEN` on prod host, Apple console SIWA env, TestFlight 1.2.1 device check). Agent-ready code slices remain `I5 / #238` and issue close/keep triage on `#232–#237`, `#239`.
+
 ## Open: buildable by an agent
 
-No pull requests are open. The November cloud-beta units that were in review (#256 U3, #255 U4, #253 U5) and the Settings redesign (#258) are merged. Portfolio overview (`/overview`, `GET /v1/workspaces/:ws/portfolio`) and the GlitchTip error feed are on `main`; see [docs/portfolio.md](./docs/portfolio.md).
+PR `#286` (observability parity) is in review. The November cloud-beta units that were in review (#256 U3, #255 U4, #253 U5) and the Settings redesign (#258) are merged. Portfolio overview (`/overview`, `GET /v1/workspaces/:ws/portfolio`) and the GlitchTip error feed are on `main`; see [docs/portfolio.md](./docs/portfolio.md).
 
 W3 (public pricing copy: Free, Pro $8 / Business $14 yearly, self-host free, no checkout) shipped in #283. Next slice (spec in the [intake / agent-first home plan](./docs/plans/2026-11-03-1600-feat-intake-helpdesk-agent-first-home-plan.md) U7):
 
@@ -36,6 +44,7 @@ None. As of 2026-11-16 there are no open pull requests on `duketopceo/tallyline`
 | Apple console (OQ4) | Enable Sign in with Apple on the iOS App ID, create the web Services ID and return URL, and set `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, and `APPLE_BUNDLE_IDS` (iOS bundle ID audience, usually `app.tallyline.ios`) on the host. Until then the web Apple button does not show, and live iOS Sign in with Apple against `api.tallyline.app` cannot be confirmed. See [docs/auth.md](./docs/auth.md). |
 | TestFlight 1.2.1 | `ios-v1.2.1` is tagged on #281 (`929142b`). The release workflow [succeeded](https://github.com/duketopceo/tallyline/actions/runs/43846459344) and [the GitHub release](https://github.com/duketopceo/tallyline/releases/tag/ios-v1.2.1) is published. Left: confirm the 1.2.1 build in TestFlight, then pairing and sync on a device. |
 | U2 backups | Age key custody, bucket object lock, enable the timer, run the restore drill (#165, #172, #178) |
+| Observability activation (#286) | Configure `SENTRY_DSN` (api, mcp-server, push-relay), `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_UMAMI_WEBSITE_ID`, and `METRICS_BEARER_TOKEN` on the production host to enable hosted error reporting, cookie-free Umami analytics, and `/metrics` collection. Self-hosted installs stay zero-telemetry by default. |
 | U6 production host housekeeping | Confirm deletions: orphan redis volume, dangling swarm records, `.env.bak-*` files |
 | U11 Kate import | Provide the import credential (OQ5); approve each write |
 | U21 mobile web | Check the installed web app on a phone |

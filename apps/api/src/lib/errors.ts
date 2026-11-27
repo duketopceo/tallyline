@@ -12,6 +12,7 @@ export interface ApiError {
 declare module "hono" {
   interface ContextVariableMap {
     errorCode?: string;
+    requestId?: string;
   }
 }
 

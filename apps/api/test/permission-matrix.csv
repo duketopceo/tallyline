@@ -25,6 +25,7 @@ GET,/.well-known/oauth-protected-resource/mcp,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLO
 GET,/github/manifest/callback/{state},ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,
 GET,/health,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,
 GET,/mcp,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,stateless endpoint: always 405 (no session or SSE stream)
+GET,/metrics,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,Prometheus scrape endpoint: 404 when METRICS_BEARER_TOKEN unset; dedicated bearer token when set
 GET,/oauth/authorize,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,public OAuth/MCP discovery or credential-exchange endpoint (rate limited)
 GET,/openapi.json,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,
 GET,/v1/auth/me,401:UNAUTHENTICATED,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,ALLOW,

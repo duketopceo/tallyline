@@ -101,10 +101,6 @@
       "count": 1,
       "tracking": "U4 migration (frontend polish plan)"
     },
-    "apps/web/app/(legal)/privacy/page.tsx": {
-      "count": 3,
-      "tracking": "U4 migration (frontend polish plan)"
-    },
     "apps/web/app/(legal)/status/page.tsx": {
       "count": 2,
       "tracking": "U4 migration (frontend polish plan)"

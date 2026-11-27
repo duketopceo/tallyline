@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCsp, isHttpsRequest, newNonce } from "./security-headers";
+import { buildCsp, collectConnectSrc, isHttpsRequest, newNonce } from "./security-headers";
 
 describe("buildCsp", () => {
   it("is nonce + strict-dynamic for scripts, no unsafe-eval in production", () => {
@@ -36,5 +36,26 @@ describe("isHttpsRequest", () => {
 describe("newNonce", () => {
   it("is unique per call", () => {
     expect(newNonce()).not.toBe(newNonce());
+  });
+});
+
+describe("collectConnectSrc", () => {
+  it("returns empty when no optional origins are configured", () => {
+    expect(collectConnectSrc({})).toEqual([]);
+  });
+
+  it("collects API, Sentry DSN, and Umami origins when opted in", () => {
+    expect(
+      collectConnectSrc({
+        NEXT_PUBLIC_API_URL: "https://api.tallyline.app",
+        NEXT_PUBLIC_SENTRY_DSN: "https://abc123@errors.tallyline.app/1",
+        NEXT_PUBLIC_UMAMI_WEBSITE_ID: "site-123",
+        NEXT_PUBLIC_UMAMI_SCRIPT_URL: "https://analytics.tallyline.app/script.js",
+      }),
+    ).toEqual([
+      "https://api.tallyline.app",
+      "https://errors.tallyline.app",
+      "https://analytics.tallyline.app",
+    ]);
   });
 });

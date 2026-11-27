@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { actorFromHeaders } from "../lib/actor.js";
 import { apiError, HttpError } from "../lib/errors.js";
+import { recordIntakeReport } from "../lib/metrics.js";
 import {
   listIntakeCredentials,
   mintIntakeCredential,
@@ -71,6 +72,14 @@ export const intakeRoutes = new Hono()
       const actor = actorFromHeaders(c);
       const { skipRank, ...event } = c.req.valid("json");
       const result = await ingestIntake(ws.id, event, actor, { skipRank });
+      recordIntakeReport(
+        "authenticated",
+        result.status === "created"
+          ? "created"
+          : result.status === "duplicate_delivery"
+            ? "duplicate_delivery"
+            : "deduped",
+      );
       return c.json(result, result.status === "created" ? 201 : 200);
     },
   )
