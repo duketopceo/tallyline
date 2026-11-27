@@ -3,6 +3,13 @@ import { createServer, type IncomingMessage } from "node:http";
 import { http2Apns } from "./apns.js";
 import { parseHandleKey } from "./protocol.js";
 import { createRelay } from "./relay.js";
+import {
+  captureRelayException,
+  flushRelayTelemetry,
+  initRelayTelemetry,
+} from "./telemetry.js";
+
+initRelayTelemetry();
 
 // Off unless configured: without every variable below the relay refuses to
 // start. Running the public relay with the App Store key is the maintainer's
@@ -48,12 +55,22 @@ const handler = createRelay({
 });
 
 const port = Number(process.env.PORT ?? "8790");
-const server = createServer((req, res) => void handler(req, res));
+const server = createServer((req, res) => {
+  void handler(req, res).catch((err) => {
+    captureRelayException(err);
+    if (!res.headersSent) {
+      res.writeHead(500, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: { code: "INTERNAL", message: "internal server error" } }));
+    }
+  });
+});
 server.listen(port, () => console.log(`push-relay listening on :${port}`));
 
 for (const sig of ["SIGTERM", "SIGINT"] as const) {
   process.on(sig, () => {
     // stop accepting, let in-flight pings finish, then drop APNs sessions
-    server.close(() => apns.close());
+    server.close(() => {
+      void flushRelayTelemetry().finally(() => apns.close());
+    });
   });
 }

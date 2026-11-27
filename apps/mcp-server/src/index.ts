@@ -11,6 +11,7 @@ import {
   loadConfig,
 } from "./env.js";
 import { SERVER_INFO, createMcpServer } from "./server.js";
+import { captureMcpException, initMcpTelemetry } from "./telemetry.js";
 import { toolDefs } from "./tools.js";
 
 // stdio is the default — what local MCP clients (Claude Code, Cursor,
@@ -49,6 +50,7 @@ if (args.includes("--version") || args.includes("-v")) {
 }
 
 const port = httpPort(args);
+initMcpTelemetry();
 
 if (port === null) {
   let config: ReturnType<typeof loadConfig>;
@@ -59,6 +61,7 @@ if (port === null) {
       process.stderr.write(`tallyline-mcp: ${err.message}\n`);
       process.exit(1);
     }
+    captureMcpException(err);
     throw err;
   }
   const client = new TallylineClient(config);
@@ -115,10 +118,18 @@ if (port === null) {
         void transport.close();
         void server.close();
       });
-      await server.connect(
-        transport as unknown as Parameters<typeof server.connect>[0],
-      );
-      await transport.handleRequest(req, res);
+      try {
+        await server.connect(
+          transport as unknown as Parameters<typeof server.connect>[0],
+        );
+        await transport.handleRequest(req, res);
+      } catch (err) {
+        captureMcpException(err);
+        if (!res.headersSent) {
+          res.writeHead(500, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: "internal server error" }));
+        }
+      }
       return;
     }
     res.writeHead(404, { "content-type": "application/json" });

@@ -190,6 +190,7 @@ const providerOp =
 export const OPERATIONS: Record<string, Builder> = {
   // ── public / infrastructure ────────────────────────────────────────────────
   "GET /health": get(() => "/health"),
+  "GET /metrics": get(() => "/metrics"),
   "GET /openapi.json": get(() => "/openapi.json"),
   "GET /v1/auth/methods": get(() => "/v1/auth/methods"),
   "GET /v1/auth/oauth/{provider}/start": get(() => "/v1/auth/oauth/nope/start"),

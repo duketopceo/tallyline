@@ -1,8 +1,14 @@
 "use client";
 
+import { useEffect } from "react";
 import { ErrorState } from "@/components/primitives";
+import { captureWebException } from "@/lib/telemetry";
 
-export default function AppError({ reset }: { error: Error; reset: () => void }) {
+export default function AppError({ error, reset }: { error: Error; reset: () => void }) {
+  useEffect(() => {
+    captureWebException(error);
+  }, [error]);
+
   return (
     <div className="p-6">
       <ErrorState

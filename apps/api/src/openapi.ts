@@ -72,6 +72,16 @@ const basePaths = {
         },
       },
     },
+    "/metrics": {
+      get: {
+        summary: "Prometheus text exposition metrics (protected by METRICS_BEARER_TOKEN; 404 when unset)",
+        responses: {
+          "200": { description: "Prometheus text format metrics" },
+          "401": { description: "Missing or invalid bearer token" },
+          "404": { description: "Metrics endpoint disabled (METRICS_BEARER_TOKEN unset)" },
+        },
+      },
+    },
     "/v1/workspaces": {
       post: {
         summary:

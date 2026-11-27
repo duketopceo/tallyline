@@ -18,6 +18,7 @@
     "@fontsource/atkinson-hyperlegible-next": "^5.3.0",
     "@fontsource/commit-mono": "^5.3.0",
     "@phosphor-icons/react": "^2.1.10",
+    "@sentry/browser": "^11.19.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@tallyline/silver-lining": "workspace:*",
     "@tallyline/types": "workspace:*",

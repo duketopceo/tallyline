@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { config_ } from "../env.js";
 import { apiError } from "../lib/errors.js";
+import { logger, serializeError } from "../lib/logger.js";
+import { recordWebhookDelivery } from "../lib/metrics.js";
 import { slackEnabled, verifySlackSignature } from "../lib/slack.js";
 import { createSlack } from "../services/slack.js";
 
@@ -18,12 +20,14 @@ interface EventPayload {
 
 export const slackRoutes = new Hono().post("/slack", async (c) => {
   if (!slackEnabled()) {
+    recordWebhookDelivery("slack", "rejected");
     return apiError(c, 503, "SLACK_DISABLED", "slack app not configured");
   }
   const rawBody = await c.req.text();
   const ts = c.req.header("x-slack-request-timestamp");
   const sig = c.req.header("x-slack-signature");
   if (!verifySlackSignature(rawBody, ts, sig, config_.slackSigningSecret)) {
+    recordWebhookDelivery("slack", "rejected");
     return apiError(c, 401, "BAD_SIGNATURE", "invalid slack signature");
   }
 
@@ -33,6 +37,7 @@ export const slackRoutes = new Hono().post("/slack", async (c) => {
   if (contentType.includes("application/json")) {
     const payload = JSON.parse(rawBody) as EventPayload;
     if (payload.type === "url_verification") {
+      recordWebhookDelivery("slack", "accepted");
       return c.json({ challenge: payload.challenge });
     }
     if (payload.type === "event_callback" && payload.event) {
@@ -46,9 +51,17 @@ export const slackRoutes = new Hono().post("/slack", async (c) => {
           : ev.type === "message"
             ? slack.handleMessage(ev as Parameters<typeof slack.handleMessage>[0])
             : Promise.resolve();
-      work.catch((e) => console.error("slack event processing failed", e));
+      work.catch((e) => {
+        recordWebhookDelivery("slack", "error");
+        logger.error("webhook.slack.failed", {
+          request_id: c.get("requestId"),
+          ...serializeError(e),
+        });
+      });
+      recordWebhookDelivery("slack", "accepted");
       return c.json({ ok: true });
     }
+    recordWebhookDelivery("slack", "accepted");
     return c.json({ ok: true });
   }
 
@@ -63,6 +76,7 @@ export const slackRoutes = new Hono().post("/slack", async (c) => {
       user_id: form.get("user_id") ?? undefined,
       user_name: form.get("user_name") ?? undefined,
     });
+    recordWebhookDelivery("slack", "accepted");
     return c.json(result);
   }
   const interaction = form.get("payload");
@@ -77,10 +91,13 @@ export const slackRoutes = new Hono().post("/slack", async (c) => {
         view: payload.view,
         user: payload.user,
       });
+      recordWebhookDelivery("slack", "accepted");
       return c.json(result);
     }
+    recordWebhookDelivery("slack", "accepted");
     return c.json({ ok: true });
   }
 
+  recordWebhookDelivery("slack", "rejected");
   return apiError(c, 400, "BAD_REQUEST", "unrecognized slack payload");
 });

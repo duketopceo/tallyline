@@ -6,6 +6,7 @@ import { loginReturnQuery } from "@/lib/login-return";
 import { isPublicPath } from "@/lib/public-paths";
 import {
   buildCsp,
+  collectConnectSrc,
   HSTS_VALUE,
   isHttpsRequest,
   newNonce,
@@ -35,7 +36,7 @@ export function middleware(req: NextRequest) {
   const nonce = newNonce();
   const csp = buildCsp(nonce, {
     dev: process.env.NODE_ENV === "development",
-    connectSrc: process.env.NEXT_PUBLIC_API_URL ? [process.env.NEXT_PUBLIC_API_URL] : [],
+    connectSrc: collectConnectSrc(process.env),
   });
   // Next.js reads the nonce from the request's CSP header during SSR
   const requestHeaders = new Headers(req.headers);

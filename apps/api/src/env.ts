@@ -200,4 +200,10 @@ export const config_ = {
   // OpenRouter fallbacks appended after the primary model ("none" = off);
   // never sent to openai_compatible providers, which don't know `models`
   llmFallbacks: parseModelList(env("TALLYLINE_LLM_FALLBACKS", DEFAULT_LLM_FALLBACKS.join(","))),
+
+  // Self observability — entirely opt-in; empty means zero telemetry / metrics disabled
+  sentryDsn: env("SENTRY_DSN", ""),
+  sentryEnvironment: env("SENTRY_ENVIRONMENT", process.env.NODE_ENV ?? "development"),
+  sentryRelease: env("SENTRY_RELEASE", env("TALLYLINE_REVISION", "")),
+  metricsBearerToken: env("METRICS_BEARER_TOKEN", ""),
 } as const;

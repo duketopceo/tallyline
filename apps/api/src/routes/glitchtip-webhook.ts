@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { config_ } from "../env.js";
 import { apiError } from "../lib/errors.js";
+import { recordWebhookDelivery } from "../lib/metrics.js";
 import { createKeyedLimiter } from "../lib/rate-limit.js";
 import { SENTRY_SIGNATURE_HEADER, verifySentrySignature } from "../lib/sentry.js";
 import {
@@ -37,14 +38,20 @@ export const glitchtipWebhookRoutes = new Hono().post(
   }),
   async (c) => {
     const integration = await findIntegrationByToken(c.req.param("token"));
-    if (!integration) return apiError(c, 404, "NOT_FOUND", "not found");
+    if (!integration) {
+      recordWebhookDelivery("glitchtip", "rejected");
+      return apiError(c, 404, "NOT_FOUND", "not found");
+    }
 
     // every delivery to a known integration counts, valid or not, so a
     // looping alert rule or a leaked URL cannot flood the endpoint
     const tooMany =
       (await glitchtipDeliveryLimiter.hit(c, integration.id)) ??
       (await glitchtipIssueLimiter.guard(c, integration.id));
-    if (tooMany) return tooMany;
+    if (tooMany) {
+      recordWebhookDelivery("glitchtip", "rejected");
+      return tooMany;
+    }
 
     const rawBody = await c.req.text();
 
@@ -54,6 +61,7 @@ export const glitchtipWebhookRoutes = new Hono().post(
     const signature = c.req.header(SENTRY_SIGNATURE_HEADER);
     if (signature !== undefined) {
       if (!config_.sentrySigningSecret) {
+        recordWebhookDelivery("sentry", "rejected");
         return apiError(
           c,
           503,
@@ -62,6 +70,7 @@ export const glitchtipWebhookRoutes = new Hono().post(
         );
       }
       if (!verifySentrySignature(rawBody, signature, config_.sentrySigningSecret)) {
+        recordWebhookDelivery("sentry", "rejected");
         return apiError(c, 401, "INVALID_SIGNATURE", "bad webhook signature");
       }
     }
@@ -70,16 +79,20 @@ export const glitchtipWebhookRoutes = new Hono().post(
     try {
       body = JSON.parse(rawBody);
     } catch {
+      recordWebhookDelivery(signature !== undefined ? "sentry" : "glitchtip", "rejected");
       return apiError(c, 400, "MALFORMED_PAYLOAD", "invalid JSON body");
     }
 
-    if (isSentryAlert(body) && signature === undefined) {
+    const sentryPayload = isSentryAlert(body);
+    if (sentryPayload && signature === undefined) {
+      recordWebhookDelivery("sentry", "rejected");
       return apiError(c, 401, "INVALID_SIGNATURE", "bad webhook signature");
     }
 
-    const outcome = isSentryAlert(body)
+    const outcome = sentryPayload
       ? await ingestSentryAlert(integration, rawBody, body)
       : await ingestGlitchtipAlert(integration, rawBody, body);
+    recordWebhookDelivery(sentryPayload ? "sentry" : "glitchtip", "accepted");
     // only newly created issues spend the hourly budget; occurrences folded
     // onto an existing issue are cheap
     for (const r of outcome.results) {

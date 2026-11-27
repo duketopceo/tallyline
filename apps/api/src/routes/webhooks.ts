@@ -5,23 +5,28 @@ import { githubWebhookEvents } from "../db/schema.js";
 import { config_ } from "../env.js";
 import { HttpError } from "../lib/errors.js";
 import { verifyGitHubSignature } from "../lib/github.js";
+import { logger, serializeError } from "../lib/logger.js";
+import { recordWebhookDelivery } from "../lib/metrics.js";
 import { processGithubEvent } from "../services/github-automation.js";
 import { clock } from "../services/clock.js";
 
 export const webhookRoutes = new Hono().post("/github", async (c) => {
   if (!config_.githubWebhookSecret) {
+    recordWebhookDelivery("github", "rejected");
     throw new HttpError(503, "GITHUB_NOT_CONFIGURED", "webhook secret not set");
   }
 
   const rawBody = await c.req.raw.text();
   const signature = c.req.header("x-hub-signature-256");
   if (!verifyGitHubSignature(rawBody, signature, config_.githubWebhookSecret)) {
+    recordWebhookDelivery("github", "rejected");
     throw new HttpError(401, "INVALID_SIGNATURE", "bad webhook signature");
   }
 
   const deliveryId = c.req.header("x-github-delivery");
   const eventType = c.req.header("x-github-event");
   if (!deliveryId || !eventType) {
+    recordWebhookDelivery("github", "rejected");
     throw new HttpError(400, "MALFORMED_DELIVERY", "missing delivery headers");
   }
 
@@ -29,6 +34,7 @@ export const webhookRoutes = new Hono().post("/github", async (c) => {
   try {
     payload = JSON.parse(rawBody) as Record<string, unknown>;
   } catch {
+    recordWebhookDelivery("github", "rejected");
     throw new HttpError(400, "MALFORMED_PAYLOAD", "invalid JSON body");
   }
 
@@ -39,7 +45,11 @@ export const webhookRoutes = new Hono().post("/github", async (c) => {
     .onConflictDoNothing({ target: githubWebhookEvents.deliveryId })
     .returning({ id: githubWebhookEvents.id });
   if (!inserted) {
-    console.warn(`github webhook: duplicate delivery ${deliveryId} dropped`);
+    recordWebhookDelivery("github", "duplicate");
+    logger.warn("webhook.github.duplicate", {
+      request_id: c.get("requestId"),
+      delivery_id: deliveryId,
+    });
     return c.json({ ok: true, duplicate: true });
   }
 
@@ -51,9 +61,16 @@ export const webhookRoutes = new Hono().post("/github", async (c) => {
         .set({ processedAt: clock.now() })
         .where(eq(githubWebhookEvents.deliveryId, deliveryId));
     }
+    recordWebhookDelivery("github", "accepted");
   } catch (err) {
     // delivery stays unprocessed for a later sweep — never fail the webhook
-    console.error(`github webhook: ${eventType} ${deliveryId} failed`, err);
+    recordWebhookDelivery("github", "error");
+    logger.error("webhook.github.failed", {
+      request_id: c.get("requestId"),
+      event_type: eventType,
+      delivery_id: deliveryId,
+      ...serializeError(err),
+    });
   }
 
   return c.json({ ok: true });

@@ -17,6 +17,7 @@
     "@hono/zod-validator": "^0.9.1",
     "@modelcontextprotocol/sdk": "1.32.1",
     "@openrouter/sdk": "1.5.65",
+    "@sentry/node": "^11.19.0",
     "@tallyline/mcp-server": "workspace:*",
     "@tallyline/types": "workspace:*",
     "dotenv": "^18.0.6",

@@ -73,11 +73,11 @@ export default function PrivacyPage() {
         <p>This website and the app use only the cookies they need to work:</p>
         <ul>
           <li>
-            <code className="font-mono text-[13px] text-ink">dok_session</code>: keeps you signed in
+            <code className="font-mono text-[13px] text-ink">tly_session</code>: keeps you signed in
             (expires after 30 days).
           </li>
           <li>
-            <code className="font-mono text-[13px] text-ink">dok_ws</code>: remembers which workspace
+            <code className="font-mono text-[13px] text-ink">tly_ws</code>: remembers which workspace
             you last opened.
           </li>
           <li>
@@ -86,8 +86,15 @@ export default function PrivacyPage() {
           </li>
         </ul>
         <p>
-          There are no advertising cookies, no third-party analytics, no session replay and no
-          tracking pixels.
+          Hosted <code className="font-mono text-[13px] text-ink">tallyline.app</code> may run
+          optional, cookie-free, first-party analytics (Umami, honoring Do Not Track) to count
+          aggregate page views and feature usage without storing personal data, and self-hosted
+          error reporting scrubbed of tokens and personal details. Both are disabled by default on
+          self-hosted installs, which send zero telemetry.
+        </p>
+        <p>
+          There are no advertising cookies, no third-party analytics networks, no session replay
+          and no tracking pixels.
         </p>
       </Section>
 
