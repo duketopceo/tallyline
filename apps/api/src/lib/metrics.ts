@@ -143,9 +143,9 @@ export function verifyMetricsBearer(authHeader: string | undefined, expectedToke
   const prefix = "Bearer ";
   if (!authHeader.startsWith(prefix)) return false;
   const provided = authHeader.slice(prefix.length);
+  if (Buffer.byteLength(provided, "utf8") !== Buffer.byteLength(expectedToken, "utf8")) return false;
   const a = Buffer.from(provided, "utf8");
   const b = Buffer.from(expectedToken, "utf8");
-  if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
 }
 

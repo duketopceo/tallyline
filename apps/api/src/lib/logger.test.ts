@@ -19,10 +19,10 @@ describe("redactUrl", () => {
   it("redacts OAuth callback query parameters and tokens", () => {
     expect(
       redactUrl("/v1/auth/oauth/github/callback?code=gho_secret&state=csrf123"),
-    ).toBe("/v1/auth/oauth/github/callback?code=%5BREDACTED%5D&state=%5BREDACTED%5D");
+    ).toBe("/v1/auth/oauth/github/callback?code=[REDACTED]&state=[REDACTED]");
     expect(
       redactUrl("https://api.tallyline.app/v1/auth/oauth/google/callback?access_token=ya29.xxx#id_token=jwt"),
-    ).toBe("https://api.tallyline.app/v1/auth/oauth/google/callback?access_token=%5BREDACTED%5D#[REDACTED]");
+    ).toBe("https://api.tallyline.app/v1/auth/oauth/google/callback?access_token=[REDACTED]#[REDACTED]");
   });
 
   it("preserves non-sensitive paths and query params", () => {

@@ -10,7 +10,7 @@ const SENSITIVE_HEADER_RE =
   /^(authorization|proxy-authorization|cookie|set-cookie|x-api-key|x-tallyline-token|x-hub-signature-256|x-slack-signature|sentry-hook-signature)$/i;
 
 const SENSITIVE_KEY_RE =
-  /(authorization|cookie|secret|token|password|passwd|api[_-]?key|private[_-]?key|jwt|credential)/i;
+  /^(?:authorization|proxy[_-]?authorization|cookie|cookies|set[_-]?cookie|secret|signing[_-]?secret|client[_-]?secret|token|oauth[_-]?token|access[_-]?token|refresh[_-]?token|id[_-]?token|password|passwd|api[_-]?key|apikey|private[_-]?key|jwt|credential|dsn)$/i;
 
 const BEARER_RE = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/-]+=*/gi;
 
@@ -44,64 +44,72 @@ function scrubRecord(obj: Record<string, unknown>, depth = 0): Record<string, un
 }
 
 export function scrubSentryEvent(event: ErrorEvent): ErrorEvent {
-  if (event.request) {
-    if (event.request.headers) {
+  const cloned: ErrorEvent = { ...event };
+  if (cloned.request) {
+    const req = { ...cloned.request };
+    if (req.headers) {
       const cleanHeaders: Record<string, string> = {};
-      for (const [k, v] of Object.entries(event.request.headers)) {
+      for (const [k, v] of Object.entries(req.headers)) {
         cleanHeaders[k] = SENSITIVE_HEADER_RE.test(k) ? "[REDACTED]" : scrubString(String(v));
       }
-      event.request.headers = cleanHeaders;
+      req.headers = cleanHeaders;
     }
-    if ("cookies" in event.request) {
-      delete event.request.cookies;
+    if ("cookies" in req) {
+      delete req.cookies;
     }
-    if (typeof event.request.url === "string") {
-      event.request.url = scrubString(event.request.url);
+    if (typeof req.url === "string") {
+      req.url = scrubString(req.url);
     }
-    if (typeof event.request.query_string === "string") {
-      event.request.query_string = scrubString(`?${event.request.query_string.replace(/^\?/, "")}`).replace(/^\?/, "");
-    } else if (event.request.query_string && typeof event.request.query_string === "object") {
-      event.request.query_string = scrubRecord(
-        event.request.query_string as Record<string, unknown>,
+    if (typeof req.query_string === "string") {
+      req.query_string = scrubString(`?${req.query_string.replace(/^\?/, "")}`).replace(/^\?/, "");
+    } else if (req.query_string && typeof req.query_string === "object") {
+      req.query_string = scrubRecord(
+        req.query_string as Record<string, unknown>,
       ) as Record<string, string>;
     }
+    cloned.request = req;
   }
 
-  if (event.user) {
-    delete event.user.email;
-    delete event.user.ip_address;
-    delete event.user.username;
+  if (cloned.user) {
+    const user = { ...cloned.user };
+    delete user.email;
+    delete user.ip_address;
+    delete user.username;
+    cloned.user = user;
   }
 
-  if (event.breadcrumbs) {
-    event.breadcrumbs = event.breadcrumbs.map((crumb) => ({
+  if (cloned.breadcrumbs) {
+    cloned.breadcrumbs = cloned.breadcrumbs.map((crumb) => ({
       ...crumb,
       ...(typeof crumb.message === "string" ? { message: scrubString(crumb.message) } : {}),
       ...(crumb.data ? { data: scrubRecord(crumb.data) } : {}),
     }));
   }
 
-  if (event.extra) {
-    event.extra = scrubRecord(event.extra);
+  if (cloned.extra) {
+    cloned.extra = scrubRecord(cloned.extra);
   }
 
-  if (event.contexts) {
-    for (const [ctxKey, ctxVal] of Object.entries(event.contexts)) {
+  if (cloned.contexts) {
+    const contexts: Record<string, Record<string, unknown>> = {};
+    for (const [ctxKey, ctxVal] of Object.entries(cloned.contexts)) {
       if (ctxVal && typeof ctxVal === "object") {
-        event.contexts[ctxKey] = scrubRecord(ctxVal as Record<string, unknown>);
+        contexts[ctxKey] = scrubRecord(ctxVal as Record<string, unknown>);
       }
     }
+    cloned.contexts = contexts;
   }
 
-  if (event.exception?.values) {
-    for (const ex of event.exception.values) {
-      if (typeof ex.value === "string") {
-        ex.value = scrubString(ex.value);
-      }
-    }
+  if (cloned.exception?.values) {
+    cloned.exception = {
+      ...cloned.exception,
+      values: cloned.exception.values.map((ex) =>
+        typeof ex.value === "string" ? { ...ex, value: scrubString(ex.value) } : { ...ex },
+      ),
+    };
   }
 
-  return event;
+  return cloned;
 }
 
 let enabled = false;

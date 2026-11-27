@@ -59,23 +59,22 @@ export function redactUrl(raw: string): string {
     );
   }
   try {
-    const parsed = new URL(raw, isAbsolute ? undefined : "http://redact.local");
+    const parsed = new URL(raw, isAbsolute ? undefined : "http://placeholder.invalid");
     const redactedPath = redactPathname(parsed.pathname);
     const isOAuthPath = /\/v1\/auth\/oauth\//i.test(redactedPath) || /^\/oauth\//i.test(redactedPath);
 
     let search = "";
     if (parsed.search) {
       const params = new URLSearchParams(parsed.search);
-      const out = new URLSearchParams();
+      const pairs: string[] = [];
       for (const [k, v] of params.entries()) {
         if (isOAuthPath || SENSITIVE_QUERY_KEYS.has(k.toLowerCase())) {
-          out.append(k, "[REDACTED]");
+          pairs.push(`${encodeURIComponent(k)}=[REDACTED]`);
         } else {
-          out.append(k, v);
+          pairs.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
         }
       }
-      const serialized = out.toString();
-      if (serialized) search = `?${serialized}`;
+      if (pairs.length > 0) search = `?${pairs.join("&")}`;
     }
 
     const hash = parsed.hash ? (isOAuthPath ? "#[REDACTED]" : parsed.hash) : "";

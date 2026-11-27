@@ -1,9 +1,10 @@
-import type { ErrorEvent } from "@sentry/browser";
 import { describe, expect, it } from "vitest";
 import {
   initWebTelemetry,
   isWebTelemetryEnabled,
+  parseSentryDsn,
   scrubBrowserEvent,
+  type WebErrorEvent,
 } from "./telemetry";
 
 describe("web telemetry", () => {
@@ -14,9 +15,17 @@ describe("web telemetry", () => {
     expect(isWebTelemetryEnabled()).toBe(false);
   });
 
-  it("scrubs headers, cookies, webhook secrets, OAuth query params, and user PII", () => {
-    const event: ErrorEvent = {
-      type: undefined,
+  it("parses a GlitchTip/Sentry DSN into a store endpoint URL", () => {
+    const parsed = parseSentryDsn("https://abc123@errors.tallyline.app/7");
+    expect(parsed).toEqual({
+      publicKey: "abc123",
+      storeUrl: "https://errors.tallyline.app/api/7/store/?sentry_key=abc123&sentry_version=7",
+    });
+    expect(parseSentryDsn("not-a-dsn")).toBeNull();
+  });
+
+  it("scrubs headers, cookies, webhook secrets, OAuth query params, and user PII without mutating input", () => {
+    const event: WebErrorEvent = {
       request: {
         url: "https://tallyline.app/v1/auth/oauth/github/callback?code=gho_123&state=st_456",
         cookies: { tly_session: "sess" },
@@ -47,5 +56,6 @@ describe("web telemetry", () => {
     expect(scrubbed.user?.email).toBeUndefined();
     expect(scrubbed.user?.ip_address).toBeUndefined();
     expect(scrubbed.user?.username).toBeUndefined();
+    expect(event.user?.email).toBe("person@example.com");
   });
 });
