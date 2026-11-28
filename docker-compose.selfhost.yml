@@ -82,6 +82,11 @@ services:
       TALLYLINE_VERSION: ${TALLYLINE_VERSION:-}
       TALLYLINE_REVISION: ${GIT_SHA:-}
       TALLYLINE_BACKUP_MARKER: ${TALLYLINE_BACKUP_MARKER:-}
+      # opt-in telemetry & Prometheus /metrics (all empty = disabled for self-hosters)
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
+      SENTRY_RELEASE: ${GIT_SHA:-}
+      METRICS_BEARER_TOKEN: ${METRICS_BEARER_TOKEN:-}
     ports:
       - "${API_PUBLISH_PORT:-4000}:4000"
     depends_on:
@@ -112,10 +117,18 @@ services:
         org.opencontainers.image.revision: ${GIT_SHA:-unknown}
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+        NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-}
+        NEXT_PUBLIC_UMAMI_WEBSITE_ID: ${NEXT_PUBLIC_UMAMI_WEBSITE_ID:-}
+        NEXT_PUBLIC_UMAMI_SCRIPT_URL: ${NEXT_PUBLIC_UMAMI_SCRIPT_URL:-}
     environment:
       NODE_ENV: production
       # server-side bridge routes hit the API over the internal network
       API_INTERNAL_URL: http://api:4000
+      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+      NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-}
+      NEXT_PUBLIC_UMAMI_WEBSITE_ID: ${NEXT_PUBLIC_UMAMI_WEBSITE_ID:-}
+      NEXT_PUBLIC_UMAMI_SCRIPT_URL: ${NEXT_PUBLIC_UMAMI_SCRIPT_URL:-}
     ports:
       - "${WEB_PUBLISH_PORT:-3100}:3100"
     depends_on:
@@ -154,6 +167,9 @@ services:
       TALLYLINE_TOKEN: ${TALLYLINE_TOKEN:-}
       TALLYLINE_WORKSPACE: ${TALLYLINE_WORKSPACE:-}
       TALLYLINE_ALLOW_API_URL_OVERRIDE: ${TALLYLINE_ALLOW_API_URL_OVERRIDE:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
+      SENTRY_RELEASE: ${GIT_SHA:-}
     ports:
       - "${MCP_PUBLISH_PORT:-3101}:3101"
     depends_on:
