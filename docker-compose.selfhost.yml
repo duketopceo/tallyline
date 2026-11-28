@@ -85,7 +85,7 @@ services:
       # opt-in telemetry & Prometheus /metrics (all empty = disabled for self-hosters)
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
-      SENTRY_RELEASE: ${GIT_SHA:-}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-${GIT_SHA:-}}
       METRICS_BEARER_TOKEN: ${METRICS_BEARER_TOKEN:-}
     ports:
       - "${API_PUBLISH_PORT:-4000}:4000"
@@ -169,7 +169,7 @@ services:
       TALLYLINE_ALLOW_API_URL_OVERRIDE: ${TALLYLINE_ALLOW_API_URL_OVERRIDE:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
-      SENTRY_RELEASE: ${GIT_SHA:-}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-${GIT_SHA:-}}
     ports:
       - "${MCP_PUBLISH_PORT:-3101}:3101"
     depends_on:
